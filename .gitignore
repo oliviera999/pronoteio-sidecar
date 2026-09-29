@@ -4,3 +4,5 @@ node_modules/
 .probe-token
 .capture/
 *.log
+# Passenger restart marker (tools/cpanel-update.sh).
+tmp/
