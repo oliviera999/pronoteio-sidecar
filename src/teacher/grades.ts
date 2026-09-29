@@ -74,10 +74,39 @@ const resourceType = (session: SessionHandle, label: string): "class" | "group" 
   return found?.genre === 2 ? "group" : "class";
 };
 
+/**
+ * Services of every period, each with the periods it is graded in. ListeServices only returns the
+ * services of the requested period: a group graded by semester is missing from the trimesters.
+ */
+export const servicesByPeriod = (periodServices: { periodId: string; services: Element[] }[]) => {
+  const byKey = new Map<string, { service: Element; periods: string[] }>();
+  for (const { periodId, services } of periodServices) {
+    for (const service of services) {
+      const key = serviceKey(service);
+      const entry = byKey.get(key);
+      if (entry) {
+        if (!entry.periods.includes(periodId)) entry.periods.push(periodId);
+      } else {
+        byKey.set(key, { service, periods: [periodId] });
+      }
+    }
+  }
+  return [...byKey.values()];
+};
+
 export const context = async (session: SessionHandle): Promise<GradeContext> => {
   const { periods, current } = await loadPeriods(session);
-  const services = await loadServices(session, current);
   const periodIds = stableIds("period", periods, periodKey);
+  // Current period first, so that its services keep their order at the top of the list.
+  const ordered = periods.map((period, index) => ({ period, periodId: periodIds[index] }))
+    .sort((a, b) => Number(b.period === current) - Number(a.period === current));
+  const periodServices = [];
+  for (const { period, periodId } of ordered) {
+    periodServices.push({ periodId, services: await loadServices(session, period) });
+  }
+  if (periods.length === 0) periodServices.push({ periodId: "", services: await loadServices(session, null) });
+  const entries = servicesByPeriod(periodServices);
+  const services = entries.map((entry) => entry.service);
   const serviceIds = stableIds("service", services, serviceKey);
 
   return {
@@ -97,6 +126,7 @@ export const context = async (session: SessionHandle): Promise<GradeContext> => 
         resourceid: stableId(type, resourcename),
         resourcename,
         type,
+        periods: periodIds.filter((id) => entries[index].periods.includes(id)),
       };
     }),
     maxScale: userData(session).maxScale,
@@ -212,7 +242,14 @@ export const push = async (
 
   const { periods } = await loadPeriods(session);
   const period = resolve("period", periodId, periods, periodKey);
-  const service = resolve("service", serviceId, await loadServices(session, period), serviceKey);
+  const periodServices = await loadServices(session, period);
+  if (!stableIds("service", periodServices, serviceKey).includes(serviceId)) {
+    const anyPeriod = await loadServices(session, null);
+    if (stableIds("service", anyPeriod, serviceKey).includes(serviceId)) {
+      throw new HttpError(409, "service_not_in_period");
+    }
+  }
+  const service = resolve("service", serviceId, periodServices, serviceKey);
   const pageRequest = { service: ref(service), periode: ref(period) };
   const page = await call(session, "gradesPage", pageRequest);
 

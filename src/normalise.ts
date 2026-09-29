@@ -67,6 +67,8 @@ export type Service = {
   resourceid: string;
   resourcename: string;
   type: "class" | "group";
+  /** Periods (stable ids) in which the service is graded: a group may be graded by semester only. */
+  periods: string[];
 };
 
 export type GradeContext = {

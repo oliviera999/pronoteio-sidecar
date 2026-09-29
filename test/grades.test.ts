@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { HttpError } from "../src/errors.js";
 import type { Assessment } from "../src/normalise.js";
 import { splitDisplayName } from "../src/normalise.js";
-import { assessmentIdFor, validate } from "../src/teacher/grades.js";
+import { assessmentIdFor, servicesByPeriod, validate } from "../src/teacher/grades.js";
 import { functions, requireFunction } from "../src/teacher/functions.js";
 
 const assessment: Assessment = {
@@ -65,6 +65,21 @@ test("unconfigured teacher functions answer 501", () => {
 test("validate refuses a scale above the school maximum", () => {
   assert.throws(() => validate({ ...assessment, max: 1000 }, [], 999), (error: unknown) =>
     error instanceof HttpError && error.code === "scale_too_large");
+});
+
+test("services of every period are merged with the periods they are graded in", () => {
+  const svt = { N: "1", matiere: { V: { L: "SPE SVT" } }, groupe: { V: { L: "1-SPE SVT-10" } } };
+  const snt = { N: "2", matiere: { V: { L: "SNT" } }, classe: { V: { L: "205" } } };
+  const merged = servicesByPeriod([
+    { periodId: "p:Trimestre 1", services: [snt] },
+    { periodId: "p:Semestre 1", services: [svt] },
+    { periodId: "p:Semestre 2", services: [{ ...svt, N: "3" }] },
+    { periodId: "p:Trimestre 2", services: [snt] },
+  ]);
+  assert.deepEqual(merged.map((entry) => [entry.service.N, entry.periods]), [
+    ["2", ["p:Trimestre 1", "p:Trimestre 2"]],
+    ["1", ["p:Semestre 1", "p:Semestre 2"]],
+  ]);
 });
 
 test("assessment ids depend on the day and the title only", () => {
