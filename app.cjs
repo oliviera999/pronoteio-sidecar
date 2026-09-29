@@ -17,8 +17,23 @@ const startupFailure = (message) => {
   }
 };
 
+// The Pawnote patch normally runs after npm install, but cPanel's "Run NPM Install" may skip or hide a
+// failed postinstall: apply it again at each start (it does nothing when already applied).
+const patchPawnote = () => {
+  const result = require("child_process").spawnSync(process.execPath, [require("path").join(__dirname, "tools", "patch-pawnote.mjs")], {
+    cwd: __dirname,
+    encoding: "utf8",
+  });
+  const output = `${result.stdout || ""}${result.stderr || ""}`.trim();
+  if (output) console.error(output);
+  return result.status === 0 ? null : `Pawnote patch failed (${output || result.error || "unknown error"})`;
+};
+
+let patchError = null;
 if (Number(process.versions.node.split(".")[0]) < 20) {
   startupFailure(`Node.js ${process.versions.node} is too old: choose Node.js 20 or later in Setup Node.js App.`);
+} else if ((patchError = patchPawnote())) {
+  startupFailure(patchError);
 } else {
   import("./dist/server.js").catch((error) => {
     console.error(error);
