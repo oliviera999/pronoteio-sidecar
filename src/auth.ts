@@ -18,22 +18,33 @@ const purgeSeen = (now: number): void => {
   }
 };
 
+/** Signed string: timestamp \n [nonce \n] METHOD \n path?query \n sha256(body). */
+export const signedPayload = (timestamp: string, nonce: string, method: string, url: string, body: string): string => {
+  const bodyHash = createHash("sha256").update(body).digest("hex");
+  return [timestamp, ...(nonce ? [nonce] : []), method, url, bodyHash].join("\n");
+};
+
 /**
  * Checks the request signature produced by sidecar_connector::send():
- * HMAC-SHA256(secret, timestamp \n METHOD \n path?query \n sha256(body)).
+ * HMAC-SHA256(secret, signedPayload(...)). The random nonce (plugin 0.2.3+) makes two identical
+ * requests sent in the same second distinct, e.g. a request retried after a new login; requests
+ * without nonce (older plugins) are still accepted.
  */
 export const verifySignature = (request: FastifyRequest): void => {
   const timestamp = String(request.headers["x-pronoteio-timestamp"] ?? "");
+  const nonce = String(request.headers["x-pronoteio-nonce"] ?? "");
   const signature = String(request.headers["x-pronoteio-signature"] ?? "");
   const now = Math.floor(Date.now() / 1000);
 
   if (!/^\d+$/.test(timestamp) || Math.abs(now - Number(timestamp)) > config.maxSkew) {
     throw new HttpError(401, "invalid_timestamp");
   }
+  if (nonce !== "" && !/^[0-9a-f]{16,64}$/.test(nonce)) {
+    throw new HttpError(401, "invalid_signature");
+  }
 
-  const bodyHash = createHash("sha256").update(request.rawBody ?? "").digest("hex");
   const expected = createHmac("sha256", config.secret)
-    .update([timestamp, request.method, request.url, bodyHash].join("\n"))
+    .update(signedPayload(timestamp, nonce, request.method, request.url, request.rawBody ?? ""))
     .digest("hex");
 
   const given = Buffer.from(signature, "utf8");
