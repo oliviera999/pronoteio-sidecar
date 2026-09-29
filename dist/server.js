@@ -46,5 +46,13 @@ await app.register(homeworkRoutes);
 await app.register(rosterRoutes);
 await app.register(absencesRoutes);
 await app.register(gradesRoutes);
-await app.listen({ host: config.host, port: config.port });
+// Under Phusion Passenger (cPanel "Setup Node.js App") the server must listen on the socket given by
+// Passenger: its documented way is listen("passenger"), which Fastify's listen() cannot express.
+if ("PhusionPassenger" in globalThis) {
+    await app.ready();
+    app.server.listen("passenger");
+}
+else {
+    await app.listen({ host: config.host, port: config.port });
+}
 //# sourceMappingURL=server.js.map
