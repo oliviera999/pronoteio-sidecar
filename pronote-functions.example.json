@@ -1,0 +1,8 @@
+{
+  "periodsList": { "name": "ListePeriodes", "onglet": 23 },
+  "servicesList": { "name": "ListeServices", "onglet": 23 },
+  "gradesPage": { "name": "PageNotes", "onglet": 23 },
+  "studentsList": { "name": "ListeEleves", "onglet": 105 },
+  "gradesSave": { "name": "SaisieNotes", "onglet": 23 },
+  "absencesList": { "name": "PageSaisieAbsences", "onglet": 113 }
+}

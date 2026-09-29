@@ -1,0 +1,6 @@
+node_modules/
+# dist/ is committed: cPanel (Setup Node.js App) runs the compiled code without a build step.
+.env
+.probe-token
+.capture/
+*.log
