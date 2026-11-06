@@ -45,14 +45,14 @@ const normaliseDay = (value: unknown) => {
   return match ? `${pad(Number(match[1]))}/${pad(Number(match[2]))}/${match[3]}` : "";
 };
 
-const periodKey = (period: Element) => String(period.L ?? "");
+export const periodKey = (period: Element) => String(period.L ?? "");
 const resourceOf = (service: Element): Element | undefined => service.classe?.V ?? service.groupe?.V;
 const serviceKey = (service: Element) => `${service.matiere?.V?.L ?? service.L ?? ""}|${resourceOf(service)?.L ?? ""}`;
 const studentKey = (student: Element) => String(student.L ?? "");
 const assessmentKey = (assessment: Element) => `${normaliseDay(assessment.date?.V)}|${assessment.commentaire ?? ""}`;
 export const assessmentIdFor = (date: Date, title: string) => stableId("assessment", `${dayOf(date)}|${title.trim()}`);
 
-const loadPeriods = async (session: SessionHandle) => {
+export const loadPeriods = async (session: SessionHandle) => {
   const data = await call(session, "periodsList");
   const periods = listOf<Element>(data.listePeriodes);
   const byDefault = data.periodeParDefaut?.V;

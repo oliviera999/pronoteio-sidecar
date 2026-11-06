@@ -85,6 +85,46 @@ export type PushResult = {
   dryRun: boolean;
 };
 
+/** One subject line of a report card. Averages as Pronote shows them (usually out of 20). */
+export type ReportSubject = {
+  subject: string;
+  teachers: string[];
+  coefficient: number | null;
+  average: number | null;
+  classAverage: number | null;
+  min: number | null;
+  max: number | null;
+  /** Annotation written instead of the average ("Abs", "Disp"...), "" otherwise. */
+  status: string;
+  comments: string[];
+};
+
+/** General comment of a report card: kind from its Pronote genre (0 general, 1-3/8 class council, 4-6 comment, 7 CPE). */
+export type ReportComment = { kind: "general" | "council" | "comment" | "cpe" | "other"; title: string; text: string };
+
+/** Report card ("bulletin") of a student for a period, read in the teacher space (PageBulletins). */
+export type Report = {
+  studentid: string;
+  lastname: string;
+  firstname: string;
+  period: string;
+  average: number | null;
+  classAverage: number | null;
+  subjects: ReportSubject[];
+  comments: ReportComment[];
+  /** Summaries written by Pronote in the footer ("3 demi-journées dont 1 non justifiée"...). */
+  attendance: { absences: string; lates: string; punishments: string; sanctions: string };
+  /** Message of Pronote when there is no report card to show (not published, no grade...), "" otherwise. */
+  message: string;
+};
+
+export type ReportContext = {
+  /** Whether the account may open the report card tab, null when unknown. */
+  allowed: boolean | null;
+  classes: { id: string; name: string; principal: boolean; taught: boolean }[];
+  periods: Period[];
+};
+
 export const seconds = (date: Date): number => Math.floor(date.getTime() / 1000);
 
 export const lessonFromPawnote = (

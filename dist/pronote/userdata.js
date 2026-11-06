@@ -2,6 +2,19 @@ import { createSessionHandle } from "pawnote";
 import { listOf } from "./encoding.js";
 import { compatFetcher } from "./compat.js";
 import { decodePayload } from "./request.js";
+/** Tab numbers of a listeOnglets tree ([{ G, Onglet: [{ G }...] }...]). */
+export const tabsOf = (value) => {
+    const result = [];
+    const visit = (items) => {
+        for (const item of listOf(items)) {
+            if (typeof item?.G === "number")
+                result.push(item.G);
+            visit(item?.Onglet);
+        }
+    };
+    visit(value);
+    return result;
+};
 const store = new WeakMap();
 const parseNumber = (value) => {
     const number = Number.parseFloat(String(value ?? "").replace(",", "."));
@@ -12,15 +25,23 @@ const absorb = (data, answer) => {
     if (content.listeClasses) {
         data.resources = listOf(content.listeClasses)
             .filter((item) => item.G === 1 || item.G === 2)
-            .map((item) => ({ id: String(item.N), label: String(item.L ?? ""), genre: item.G, taught: Boolean(item.enseigne) }));
+            .map((item) => ({
+            id: String(item.N),
+            label: String(item.L ?? ""),
+            genre: item.G,
+            taught: Boolean(item.enseigne),
+            principal: Boolean(item.estPrincipal),
+        }));
     }
+    if (content.listeOnglets)
+        data.tabs = tabsOf(content.listeOnglets);
     const maxScale = parseNumber(content.General?.BaremeMaxDevoirs?.V);
     if (maxScale !== null)
         data.maxScale = maxScale;
 };
 /** Session handle whose fetcher records the login-only data (read back with userData()). */
 export const createCapturingHandle = (base = compatFetcher) => {
-    const data = { resources: [], maxScale: null };
+    const data = { resources: [], maxScale: null, tabs: null };
     let handle = null;
     const fetcher = async (request) => {
         const response = await base(request);
@@ -40,5 +61,5 @@ export const createCapturingHandle = (base = compatFetcher) => {
     store.set(handle, data);
     return handle;
 };
-export const userData = (session) => store.get(session) ?? { resources: [], maxScale: null };
+export const userData = (session) => store.get(session) ?? { resources: [], maxScale: null, tabs: null };
 //# sourceMappingURL=userdata.js.map

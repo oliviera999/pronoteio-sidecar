@@ -1,7 +1,7 @@
 /**
  * Data sent by Pronote only once, during the login, that Pawnote does not keep:
- * the classes and groups of the school (ParametresUtilisateur, which cannot be called again)
- * and the largest assessment scale (FonctionParametres).
+ * the classes and groups of the school (ParametresUtilisateur, which cannot be called again),
+ * the tabs ("onglets") the account may open and the largest assessment scale (FonctionParametres).
  */
 import type { Fetcher } from "@literate.ink/utilities";
 import { createSessionHandle, type SessionHandle } from "pawnote";
@@ -9,10 +9,27 @@ import { listOf } from "./encoding.js";
 import { compatFetcher } from "./compat.js";
 import { decodePayload } from "./request.js";
 
-/** Class (genre 1) or group (genre 2) of the school. "id" is only valid in the session that sent it. */
-export type SchoolResource = { id: string; label: string; genre: 1 | 2; taught: boolean };
+/**
+ * Class (genre 1) or group (genre 2) of the school. "id" is only valid in the session that sent it.
+ * "principal": the account is the main teacher ("professeur principal") of the class.
+ */
+export type SchoolResource = { id: string; label: string; genre: 1 | 2; taught: boolean; principal: boolean };
 
-export type UserData = { resources: SchoolResource[]; maxScale: number | null };
+/** "tabs": every tab number of listeOnglets (groups and their tabs), null when not received. */
+export type UserData = { resources: SchoolResource[]; maxScale: number | null; tabs: number[] | null };
+
+/** Tab numbers of a listeOnglets tree ([{ G, Onglet: [{ G }...] }...]). */
+export const tabsOf = (value: unknown): number[] => {
+  const result: number[] = [];
+  const visit = (items: unknown) => {
+    for (const item of listOf<any>(items)) {
+      if (typeof item?.G === "number") result.push(item.G);
+      visit(item?.Onglet);
+    }
+  };
+  visit(value);
+  return result;
+};
 
 const store = new WeakMap<SessionHandle, UserData>();
 
@@ -26,15 +43,22 @@ const absorb = (data: UserData, answer: any): void => {
   if (content.listeClasses) {
     data.resources = listOf(content.listeClasses)
       .filter((item: any) => item.G === 1 || item.G === 2)
-      .map((item: any) => ({ id: String(item.N), label: String(item.L ?? ""), genre: item.G, taught: Boolean(item.enseigne) }));
+      .map((item: any) => ({
+        id: String(item.N),
+        label: String(item.L ?? ""),
+        genre: item.G,
+        taught: Boolean(item.enseigne),
+        principal: Boolean(item.estPrincipal),
+      }));
   }
+  if (content.listeOnglets) data.tabs = tabsOf(content.listeOnglets);
   const maxScale = parseNumber(content.General?.BaremeMaxDevoirs?.V);
   if (maxScale !== null) data.maxScale = maxScale;
 };
 
 /** Session handle whose fetcher records the login-only data (read back with userData()). */
 export const createCapturingHandle = (base: Fetcher = compatFetcher): SessionHandle => {
-  const data: UserData = { resources: [], maxScale: null };
+  const data: UserData = { resources: [], maxScale: null, tabs: null };
   let handle: SessionHandle | null = null;
   const fetcher: Fetcher = async (request) => {
     const response = await base(request);
@@ -54,4 +78,5 @@ export const createCapturingHandle = (base: Fetcher = compatFetcher): SessionHan
   return handle;
 };
 
-export const userData = (session: SessionHandle): UserData => store.get(session) ?? { resources: [], maxScale: null };
+export const userData = (session: SessionHandle): UserData =>
+  store.get(session) ?? { resources: [], maxScale: null, tabs: null };
