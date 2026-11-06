@@ -31,9 +31,14 @@ export type FunctionKey =
   /** Creates or updates assessments and their grades. */
   | "gradesSave"
   /** Call sheet of one lesson (students and their absences), read for each lesson of the range. */
-  | "absencesList";
+  | "absencesList"
+  /** Report card ("bulletin") of one student for a period, read for each student of the class. */
+  | "reportCard";
 
-/** Values read from the PRONOTE 2026.2 teacher client (tabs: 23 grade entry, 105 student list, 113 call sheet). */
+/**
+ * Values read from the PRONOTE 2026.2 teacher client (tabs: 23 grade entry, 105 student list, 113 call sheet,
+ * 13 report card).
+ */
 const defaults: Record<FunctionKey, TeacherFunction> = {
   periodsList: { name: "ListePeriodes", onglet: 23 },
   servicesList: { name: "ListeServices", onglet: 23 },
@@ -41,6 +46,7 @@ const defaults: Record<FunctionKey, TeacherFunction> = {
   studentsList: { name: "ListeEleves", onglet: 105 },
   gradesSave: { name: "SaisieNotes", onglet: 23 },
   absencesList: { name: "PageSaisieAbsences", onglet: 113 },
+  reportCard: { name: "PageBulletins", onglet: 13 },
 };
 
 const load = (): Record<FunctionKey, TeacherFunction> => {

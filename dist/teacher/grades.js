@@ -27,13 +27,13 @@ const normaliseDay = (value) => {
     const match = String(value ?? "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
     return match ? `${pad(Number(match[1]))}/${pad(Number(match[2]))}/${match[3]}` : "";
 };
-const periodKey = (period) => String(period.L ?? "");
+export const periodKey = (period) => String(period.L ?? "");
 const resourceOf = (service) => service.classe?.V ?? service.groupe?.V;
 const serviceKey = (service) => `${service.matiere?.V?.L ?? service.L ?? ""}|${resourceOf(service)?.L ?? ""}`;
 const studentKey = (student) => String(student.L ?? "");
 const assessmentKey = (assessment) => `${normaliseDay(assessment.date?.V)}|${assessment.commentaire ?? ""}`;
 export const assessmentIdFor = (date, title) => stableId("assessment", `${dayOf(date)}|${title.trim()}`);
-const loadPeriods = async (session) => {
+export const loadPeriods = async (session) => {
     const data = await call(session, "periodsList");
     const periods = listOf(data.listePeriodes);
     const byDefault = data.periodeParDefaut?.V;
