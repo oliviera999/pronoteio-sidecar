@@ -38,13 +38,14 @@ test("reads the absences of the call sheet", () => {
   assert.equal(item.end, Math.floor(new Date(2026, 8, 25, 17, 10, 0).getTime() / 1000));
   assert.equal(item.justified, true);
   assert.equal(item.reason, "Maladie");
+  assert.equal(item.kind, "absence");
   assert.match(item.id, /^a:/);
 });
 
-test("ignores late arrivals and students outside the class or group", () => {
-  const late = absence({ G: 14 });
+test("ignores other genres and students outside the class or group", () => {
+  const infirmary = absence({ G: 21 });
   const other = absence({ eleve: { _T: 24, V: { L: "DURAND Zoé", N: "46#zzz" } } });
-  assert.deepEqual(absencesFromCallSheet(callSheet([late, other]), students), []);
+  assert.deepEqual(absencesFromCallSheet(callSheet([infirmary, other]), students), []);
 });
 
 test("falls back to the label when the Pronote id differs, never for homonyms", () => {
@@ -65,4 +66,10 @@ test("an absence seen on several lessons is kept once", () => {
   const first = absencesFromCallSheet(callSheet([absence()]), students);
   const second = absencesFromCallSheet(callSheet([absence({ N: "1#other-session-id" })]), students);
   assert.equal(uniqueAbsences([...first, ...second]).length, 1);
+});
+
+test("late arrivals (genre 14) are kept with kind late, other genres ignored", () => {
+  const items = absencesFromCallSheet(callSheet([absence({ G: 14, N: "1#late" }), absence({ G: 21, N: "1#inf" })]), students);
+  assert.equal(items.length, 1);
+  assert.equal(items[0].kind, "late");
 });

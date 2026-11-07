@@ -33,6 +33,16 @@ const defaults = {
     assessmentPlanning: { name: "ProgrammerDevoirEvaluationCDT", onglet: 28 },
     lessonSave: { name: "SaisieCours", onglet: 16 },
     timetableResources: { name: "RessourceEDT", onglet: 16 },
+    competencyList: { name: "ListeEvaluations", onglet: 65 },
+    competencyPage: { name: "PageCompetencesParEvaluation", onglet: 56 },
+    commentsPage: { name: "PageApprBulletin", onglet: 25 },
+    commentKinds: { name: "ListeAppreciations", onglet: 27 },
+    generalCommentsPage: { name: "PageAppreciationsGenerales", onglet: 27 },
+    discussionsList: { name: "ListeMessagerie", onglet: 131 },
+    discussionMessages: { name: "ListeMessages", onglet: 131 },
+    newsPage: { name: "PageActualites", onglet: 8 },
+    lockerPage: { name: "Casier", onglet: 148 },
+    quizList: { name: "listeQCM", onglet: 86 },
 };
 const load = () => {
     const file = process.env.PRONOTEIO_FUNCTIONS_FILE;

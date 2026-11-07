@@ -1,0 +1,474 @@
+{
+ "listeQCM": [
+  {
+   "N": "115#x27",
+   "G": 55,
+   "matiere": {
+    "L": "MATHÉMATIQUES",
+    "N": "79#x28"
+   },
+   "niveau": {
+    "L": "3EME",
+    "N": "92#x29"
+   },
+   "consigne": {
+    "_T": 21,
+    "V": ""
+   },
+   "autoriserLaNavigation": true,
+   "modeDiffusionCorrige": 2,
+   "nombreQuestionsSoumises": 0,
+   "avecQuestionsSoumises": true,
+   "nbQuestionsTotal": 10,
+   "nbCompetencesTotal": 0,
+   "htmlElementsCompetences": {
+    "_T": 21,
+    "V": ""
+   },
+   "homogeneiserNbQuestParNiveau": false,
+   "jeuQuestionFixe": false,
+   "melangerLesQuestionsGlobalement": false,
+   "melangerLesQuestionsParNiveau": false,
+   "melangerLesReponses": false,
+   "dureeMaxQCM": 0,
+   "nbMaxTentative": 0,
+   "dureeSupplementaire": 0,
+   "nombreQuestionsEnMoins": 0,
+   "statutPrive": true,
+   "ressentiRepondant": false,
+   "tolererFausses": false,
+   "acceptIncomplet": false,
+   "pointsSelonPourcentage": false,
+   "nombreDePoints": 20,
+   "nombreDePointsTotal": 20,
+   "nombreQuestObligatoires": 0,
+   "estVerrouille": true,
+   "ListeThemes": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "Equations",
+      "N": "187#x30"
+     }
+    ]
+   },
+   "libelleCBTheme": "Des matières du QCM",
+   "listeServicesCompatiblesAvecCompetencesDuQCM": {
+    "_T": 24,
+    "V": []
+   },
+   "L": "QCM 1 - Mathématiques 3C 1",
+   "categories": {
+    "_T": 24,
+    "V": [
+     {
+      "N": "183#x31"
+     }
+    ]
+   }
+  },
+  {
+   "N": "54#x32",
+   "G": 56,
+   "QCM": {
+    "_T": 24,
+    "V": {
+     "L": "QCM 1 - Mathématiques 3C 1",
+     "N": "115#x27",
+     "G": 55,
+     "nbQuestionsTotal": 10,
+     "nombreDePointsTotal": 20,
+     "avecQuestionsSoumises": true,
+     "nombreQuestObligatoires": 0,
+     "nbCompetencesTotal": 0
+    }
+   },
+   "ListeThemes": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "Equations",
+      "N": "187#x30"
+     }
+    ]
+   },
+   "fichierDispo": true,
+   "estEnPublication": true,
+   "dateDebutPublication": {
+    "_T": 7,
+    "V": "21/09/2026"
+   },
+   "dateFinPublication": {
+    "_T": 7,
+    "V": "19/10/2026 23:59:00"
+   },
+   "consigne": {
+    "_T": 21,
+    "V": ""
+   },
+   "estLieADevoir": false,
+   "estLieAEvaluation": false,
+   "estUnTAF": true,
+   "estUneActivite": false,
+   "estSupprimable": true,
+   "nbRepondu": 0,
+   "nbRepondant": 27,
+   "estVerrouille": true,
+   "autoriserLaNavigation": true,
+   "homogeneiserNbQuestParNiveau": false,
+   "jeuQuestionFixe": false,
+   "melangerLesQuestionsGlobalement": false,
+   "melangerLesQuestionsParNiveau": false,
+   "melangerLesReponses": false,
+   "ressentiRepondant": false,
+   "publierCorrige": true,
+   "tolererFausses": false,
+   "acceptIncomplet": false,
+   "pointsSelonPourcentage": false,
+   "afficherResultatNote": false,
+   "afficherResultatNiveauMaitrise": false,
+   "modeDiffusionCorrige": 2,
+   "nombreQuestionsSoumises": 0,
+   "dureeMaxQCM": 0,
+   "nbMaxTentative": 0,
+   "nombreDePoints": 20,
+   "dureeSupplementaire": 0,
+   "nombreQuestionsEnMoins": 0,
+   "listeElevesPA": {
+    "_T": 24,
+    "V": []
+   },
+   "listeProfesseurs": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "M. PROFESSEUR M.",
+      "N": "109#x14"
+     }
+    ]
+   },
+   "matiere": {
+    "_T": 24,
+    "V": {
+     "L": "MATHÉMATIQUES",
+     "N": "79#x28"
+    }
+   },
+   "nomPublic": "3A",
+   "L": {
+    "_T": 21,
+    "V": "pour le 19/10/2026"
+   },
+   "listeServices": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "Écrit",
+      "N": "131#x33"
+     },
+     {
+      "L": "Oral",
+      "N": "131#x34"
+     }
+    ]
+   }
+  },
+  {
+   "N": "115#x35",
+   "G": 55,
+   "matiere": {
+    "L": "MATHÉMATIQUES",
+    "N": "79#x28"
+   },
+   "niveau": {
+    "L": "3EME",
+    "N": "92#x29"
+   },
+   "consigne": {
+    "_T": 21,
+    "V": ""
+   },
+   "autoriserLaNavigation": true,
+   "modeDiffusionCorrige": 2,
+   "nombreQuestionsSoumises": 0,
+   "avecQuestionsSoumises": true,
+   "nbQuestionsTotal": 10,
+   "nbCompetencesTotal": 0,
+   "htmlElementsCompetences": {
+    "_T": 21,
+    "V": ""
+   },
+   "homogeneiserNbQuestParNiveau": false,
+   "jeuQuestionFixe": false,
+   "melangerLesQuestionsGlobalement": true,
+   "melangerLesQuestionsParNiveau": false,
+   "melangerLesReponses": true,
+   "dureeMaxQCM": 0.0416666666666667,
+   "nbMaxTentative": 0,
+   "dureeSupplementaire": 0,
+   "nombreQuestionsEnMoins": 0,
+   "statutPrive": false,
+   "ressentiRepondant": true,
+   "tolererFausses": false,
+   "acceptIncomplet": false,
+   "pointsSelonPourcentage": false,
+   "nombreDePoints": 20,
+   "nombreDePointsTotal": 20,
+   "nombreQuestObligatoires": 0,
+   "estVerrouille": true,
+   "ListeThemes": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "Equations",
+      "N": "187#x30"
+     }
+    ]
+   },
+   "libelleCBTheme": "Des matières du QCM",
+   "listeServicesCompatiblesAvecCompetencesDuQCM": {
+    "_T": 24,
+    "V": []
+   },
+   "L": "QCM 1 - Mathématiques 3e",
+   "categories": {
+    "_T": 24,
+    "V": [
+     {
+      "N": "183#x31"
+     }
+    ]
+   }
+  },
+  {
+   "N": "54#x36",
+   "G": 56,
+   "QCM": {
+    "_T": 24,
+    "V": {
+     "L": "QCM 1 - Mathématiques 3e",
+     "N": "115#x35",
+     "G": 55,
+     "nbQuestionsTotal": 10,
+     "nombreDePointsTotal": 20,
+     "avecQuestionsSoumises": true,
+     "nombreQuestObligatoires": 0,
+     "nbCompetencesTotal": 0
+    }
+   },
+   "ListeThemes": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "Equations",
+      "N": "187#x30"
+     }
+    ]
+   },
+   "fichierDispo": false,
+   "estEnPublication": true,
+   "dateDebutPublication": {
+    "_T": 7,
+    "V": "04/09/2017 08:00:00"
+   },
+   "dateFinPublication": {
+    "_T": 7,
+    "V": "13/09/2017 18:00:00"
+   },
+   "consigne": {
+    "_T": 21,
+    "V": ""
+   },
+   "estLieADevoir": true,
+   "estLieAEvaluation": false,
+   "estUnTAF": false,
+   "estUneActivite": false,
+   "estSupprimable": true,
+   "nbRepondu": 0,
+   "nbRepondant": 0,
+   "estVerrouille": true,
+   "autoriserLaNavigation": true,
+   "homogeneiserNbQuestParNiveau": false,
+   "jeuQuestionFixe": false,
+   "melangerLesQuestionsGlobalement": true,
+   "melangerLesQuestionsParNiveau": false,
+   "melangerLesReponses": true,
+   "ressentiRepondant": true,
+   "publierCorrige": false,
+   "tolererFausses": false,
+   "acceptIncomplet": false,
+   "pointsSelonPourcentage": false,
+   "afficherResultatNote": false,
+   "afficherResultatNiveauMaitrise": false,
+   "modeDiffusionCorrige": 2,
+   "nombreQuestionsSoumises": 0,
+   "dureeMaxQCM": 0.0416666666666667,
+   "nbMaxTentative": 0,
+   "nombreDePoints": 20,
+   "dureeSupplementaire": 0,
+   "nombreQuestionsEnMoins": 0,
+   "listeElevesPA": {
+    "_T": 24,
+    "V": []
+   },
+   "listeProfesseurs": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "M. PROFESSEUR M.",
+      "N": "109#x14"
+     }
+    ]
+   },
+   "ramenerSur20": false,
+   "service": {
+    "_T": 24,
+    "V": {
+     "L": "MATHÉMATIQUES > Écrit",
+     "N": "131#x33"
+    }
+   },
+   "coefficientDevoir": {
+    "_T": 10,
+    "V": "1"
+   },
+   "nomPublic": "3A",
+   "L": {
+    "_T": 21,
+    "V": "du 13/09/2017"
+   }
+  },
+  {
+   "N": "54#x37",
+   "G": 56,
+   "QCM": {
+    "_T": 24,
+    "V": {
+     "L": "QCM 1 - Mathématiques 3e",
+     "N": "115#x35",
+     "G": 55,
+     "nbQuestionsTotal": 10,
+     "nombreDePointsTotal": 20,
+     "avecQuestionsSoumises": true,
+     "nombreQuestObligatoires": 0,
+     "nbCompetencesTotal": 0
+    }
+   },
+   "ListeThemes": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "Equations",
+      "N": "187#x30"
+     }
+    ]
+   },
+   "fichierDispo": false,
+   "estEnPublication": true,
+   "dateDebutPublication": {
+    "_T": 7,
+    "V": "19/09/2022"
+   },
+   "dateFinPublication": {
+    "_T": 7,
+    "V": "19/10/2026 23:59:00"
+   },
+   "consigne": {
+    "_T": 21,
+    "V": ""
+   },
+   "estLieADevoir": false,
+   "estLieAEvaluation": false,
+   "estUnTAF": true,
+   "estUneActivite": false,
+   "estSupprimable": true,
+   "nbRepondu": 0,
+   "nbRepondant": 26,
+   "estVerrouille": true,
+   "autoriserLaNavigation": true,
+   "homogeneiserNbQuestParNiveau": false,
+   "jeuQuestionFixe": false,
+   "melangerLesQuestionsGlobalement": true,
+   "melangerLesQuestionsParNiveau": false,
+   "melangerLesReponses": true,
+   "ressentiRepondant": true,
+   "publierCorrige": true,
+   "tolererFausses": false,
+   "acceptIncomplet": false,
+   "pointsSelonPourcentage": false,
+   "afficherResultatNote": false,
+   "afficherResultatNiveauMaitrise": false,
+   "modeDiffusionCorrige": 2,
+   "nombreQuestionsSoumises": 0,
+   "dureeMaxQCM": 0.0416666666666667,
+   "nbMaxTentative": 0,
+   "nombreDePoints": 20,
+   "dureeSupplementaire": 0,
+   "nombreQuestionsEnMoins": 0,
+   "listeElevesPA": {
+    "_T": 24,
+    "V": []
+   },
+   "listeProfesseurs": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "M. PROFESSEUR M.",
+      "N": "109#x14"
+     }
+    ]
+   },
+   "matiere": {
+    "_T": 24,
+    "V": {
+     "L": "MATHÉMATIQUES",
+     "N": "79#x28"
+    }
+   },
+   "nomPublic": "3A",
+   "L": {
+    "_T": 21,
+    "V": "pour le 19/10/2026"
+   },
+   "listeServices": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "Écrit",
+      "N": "131#x33"
+     },
+     {
+      "L": "Oral",
+      "N": "131#x34"
+     }
+    ]
+   }
+  }
+ ],
+ "listeCategories": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "Devoir à la maison",
+    "N": "183#x31",
+    "couleur": "#F4DAD7"
+   },
+   {
+    "L": "Devoir de rattrapage",
+    "N": "183#x38",
+    "couleur": "#F2ED82"
+   },
+   {
+    "L": "Devoir en classe",
+    "N": "183#x39",
+    "couleur": "#6EBC81"
+   },
+   {
+    "L": "Participation en classe",
+    "N": "183#x40",
+    "couleur": "#F08557"
+   }
+  ]
+ },
+ "avecServicesEvaluation": true
+}

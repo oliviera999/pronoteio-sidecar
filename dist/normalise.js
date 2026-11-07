@@ -80,4 +80,13 @@ export const plainText = (html, max = 300) => {
         .trim();
     return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 };
+/* ---- Lot 2 (0.7.0): grades overview, skills, report comments, messaging, news, locker, quizzes ---- */
+/** Label filter: a wanted label matches a group when equal or when the group starts with it ("1G" keeps "1G3"). */
+export const matchesLabels = (groups, wanted) => {
+    const filter = wanted.map(normalise).filter(Boolean);
+    if (filter.length === 0)
+        return true;
+    const own = groups.map(normalise);
+    return filter.some((label) => own.some((group) => group === label || group.startsWith(label)));
+};
 //# sourceMappingURL=normalise.js.map

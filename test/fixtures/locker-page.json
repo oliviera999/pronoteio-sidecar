@@ -1,0 +1,142 @@
+{
+ "genreRequeteCasier": 0,
+ "avecDocumentsDejaDeposes": false,
+ "listeDocumentsMonCasier": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "Projet pédagogique.docx",
+    "N": "38#x21",
+    "G": 66,
+    "typeConsultation": 1,
+    "memo": "Document de test",
+    "documentCasier": {
+     "_T": 24,
+     "V": {
+      "L": "Projet pédagogique.docx",
+      "N": "38#x21",
+      "G": 1
+     }
+    },
+    "categorie": {
+     "_T": 24,
+     "V": {
+      "L": "Divers",
+      "N": "0",
+      "couleur": "#FFA500"
+     }
+    },
+    "date": {
+     "_T": 7,
+     "V": "08/01/2025"
+    },
+    "estModifiableParDestinataires": false,
+    "hintNomDocument": "Projet pédagogique.docx\n\nNon lu",
+    "infoDepositaire": "SUPERVISEUR (Proviseur)",
+    "estNonLu": true,
+    "estModifiableParUtilisateur": true
+   },
+   {
+    "L": "Préparer le conseil de classe.docx",
+    "N": "38#x22",
+    "G": 66,
+    "typeConsultation": 1,
+    "memo": "",
+    "documentCasier": {
+     "_T": 24,
+     "V": {
+      "L": "Préparer le conseil de classe.docx",
+      "N": "38#x22",
+      "G": 1
+     }
+    },
+    "categorie": {
+     "_T": 24,
+     "V": {
+      "L": "Divers",
+      "N": "0",
+      "couleur": "#FFA500"
+     }
+    },
+    "date": {
+     "_T": 7,
+     "V": "03/09/2025"
+    },
+    "estModifiableParDestinataires": false,
+    "hintNomDocument": "Préparer le conseil de classe.docx\n\nNon lu",
+    "infoDepositaire": "SUPERVISEUR (Proviseur)",
+    "estNonLu": true,
+    "estModifiableParUtilisateur": true
+   },
+   {
+    "L": "Exemple de document.pdf",
+    "N": "38#x23",
+    "G": 66,
+    "typeConsultation": 1,
+    "memo": "",
+    "documentCasier": {
+     "_T": 24,
+     "V": {
+      "L": "Exemple de document.pdf",
+      "N": "38#x23",
+      "G": 1
+     }
+    },
+    "categorie": {
+     "_T": 24,
+     "V": {
+      "L": "Pédagogie",
+      "N": "157#x24",
+      "couleur": "#FFA500"
+     }
+    },
+    "date": {
+     "_T": 7,
+     "V": "07/09/2026"
+    },
+    "estModifiableParDestinataires": false,
+    "hintNomDocument": "Exemple de document.pdf\n\nNon lu",
+    "infoDepositaire": "Index",
+    "estNonLu": true,
+    "estModifiableParUtilisateur": true
+   }
+  ]
+ },
+ "categories": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "Divers",
+    "N": "0",
+    "couleur": "#FFA500"
+   },
+   {
+    "L": "Administration",
+    "N": "157#x25",
+    "couleur": "#FFA500"
+   },
+   {
+    "L": "Pédagogie",
+    "N": "157#x24",
+    "couleur": "#FFA500"
+   },
+   {
+    "L": "Bulletins",
+    "N": "157#x26",
+    "couleur": "#FFA500"
+   }
+  ]
+ },
+ "listeDocumentsSignatureElecASigner": {
+  "_T": 24,
+  "V": []
+ },
+ "listeDocumentsDepositaire": {
+  "_T": 24,
+  "V": []
+ },
+ "listeDocumentsResponsable": {
+  "_T": 24,
+  "V": []
+ }
+}

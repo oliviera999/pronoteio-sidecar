@@ -51,7 +51,27 @@ export type FunctionKey =
   /** Modifies one lesson of the timetable: rooms, memo, move, delete (SaisieCours, tab 16). */
   | "lessonSave"
   /** Resources of the school timetable: classes, teachers, rooms, equipment (RessourceEDT, tab 16). */
-  | "timetableResources";
+  | "timetableResources"
+  /** Skills assessments of a service and period (tab 65; not validated on the demo server). */
+  | "competencyList"
+  /** Levels given in one skills assessment (tab 56; not validated on the demo server). */
+  | "competencyPage"
+  /** Report card comments grid of a service, class and period (tab 25; not validated on the demo server). */
+  | "commentsPage"
+  /** Kinds of general comments of the school (tab 27). */
+  | "commentKinds"
+  /** General comments of the main teacher for a class and period (tab 27; not validated on the demo server). */
+  | "generalCommentsPage"
+  /** Discussions of the messaging (tab 131). */
+  | "discussionsList"
+  /** Messages of a discussion (tab 131; a read when marquerCommeLu is false). */
+  | "discussionMessages"
+  /** Information and surveys (tab 8). */
+  | "newsPage"
+  /** Digital locker (tab 148). */
+  | "lockerPage"
+  /** Quizzes of the teacher (tab 86). */
+  | "quizList";
 
 /**
  * Values read from the PRONOTE 2026.2 teacher client (tabs: 23 grade entry, 105 student list, 113 call sheet,
@@ -75,6 +95,16 @@ const defaults: Record<FunctionKey, TeacherFunction> = {
   assessmentPlanning: { name: "ProgrammerDevoirEvaluationCDT", onglet: 28 },
   lessonSave: { name: "SaisieCours", onglet: 16 },
   timetableResources: { name: "RessourceEDT", onglet: 16 },
+  competencyList: { name: "ListeEvaluations", onglet: 65 },
+  competencyPage: { name: "PageCompetencesParEvaluation", onglet: 56 },
+  commentsPage: { name: "PageApprBulletin", onglet: 25 },
+  commentKinds: { name: "ListeAppreciations", onglet: 27 },
+  generalCommentsPage: { name: "PageAppreciationsGenerales", onglet: 27 },
+  discussionsList: { name: "ListeMessagerie", onglet: 131 },
+  discussionMessages: { name: "ListeMessages", onglet: 131 },
+  newsPage: { name: "PageActualites", onglet: 8 },
+  lockerPage: { name: "Casier", onglet: 148 },
+  quizList: { name: "listeQCM", onglet: 86 },
 };
 
 const load = (): Record<FunctionKey, TeacherFunction> => {

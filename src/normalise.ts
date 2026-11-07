@@ -33,7 +33,16 @@ export type Student = {
   birthdate: number | null;
 };
 
-export type Absence = { id: string; studentid: string; start: number; end: number; justified: boolean; reason: string };
+/** Absence (Pronote genre 13) or late arrival (genre 14) read in a call sheet. */
+export type Absence = {
+  id: string;
+  studentid: string;
+  start: number;
+  end: number;
+  justified: boolean;
+  reason: string;
+  kind: "absence" | "late";
+};
 
 export type Grade = { studentid: string; value: number | null; status: GradeStatus };
 
@@ -316,4 +325,132 @@ export const plainText = (html: string, max = 300): string => {
     .replace(/\s+/g, " ")
     .trim();
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+};
+
+/* ---- Lot 2 (0.7.0): grades overview, skills, report comments, messaging, news, locker, quizzes ---- */
+
+/** Label filter: a wanted label matches a group when equal or when the group starts with it ("1G" keeps "1G3"). */
+export const matchesLabels = (groups: string[], wanted: string[]): boolean => {
+  const filter = wanted.map(normalise).filter(Boolean);
+  if (filter.length === 0) return true;
+  const own = groups.map(normalise);
+  return filter.some((label) => own.some((group) => group === label || group.startsWith(label)));
+};
+
+export type OverviewGrade = {
+  /** "NOM Prénom". */
+  student: string;
+  value: number | null;
+  status: GradeStatus;
+  comment: string;
+};
+
+export type OverviewAssessment = {
+  id: string;
+  title: string;
+  date: number;
+  publication: number | null;
+  max: number | null;
+  coefficient: number | null;
+  optional: boolean;
+  bonus: boolean;
+  locked: boolean;
+  hasGrades: boolean;
+  classAverage: number | null;
+  /** Sub-service ("Écrit", "Oral") the assessment belongs to, "" when the service has none. */
+  subservice: string;
+  grades: OverviewGrade[];
+};
+
+export type OverviewService = Service & { assessments: OverviewAssessment[] };
+
+export type GradeOverview = {
+  periods: Period[];
+  period: { id: string; name: string };
+  services: OverviewService[];
+};
+
+export type Unavailable = { available: false; reason: string };
+
+export type CompetencyRating = { student: string; skill: string; level: number | null; observation: string };
+
+export type CompetencyItem = {
+  id: string;
+  title: string;
+  date: number | null;
+  publication: number | null;
+  subject: string;
+  resourcename: string;
+  type: "class" | "group";
+  skills: { id: string; name: string; domain: string }[];
+  ratings: CompetencyRating[];
+};
+
+export type CompetencyOverview = {
+  available: boolean;
+  reason: string;
+  levels: { code: number; name: string }[];
+  period: { id: string; name: string };
+  items: CompetencyItem[];
+};
+
+export type ReportComments = {
+  available: boolean;
+  reason: string;
+  class: { id: string; name: string };
+  period: { id: string; name: string };
+  service: { id: string; name: string };
+  closed: boolean;
+  maxLength: number | null;
+  classComment: string | null;
+  students: { student: string; comment: string | null; general: string | null }[];
+};
+
+export type DiscussionFolder = "inbox" | "sent" | "drafts" | "archive" | "trash";
+
+export type Discussion = {
+  id: string;
+  subject: string;
+  participants: string[];
+  lastDate: number;
+  unread: boolean;
+  count: number;
+  folder: DiscussionFolder;
+};
+
+export type DiscussionsResult = { available: boolean; reason: string; disabled: boolean; items: Discussion[] };
+
+export type Message = { id: string; author: string; date: number; text: string; attachments: Attachment[] };
+
+export type NewsItem = {
+  id: string;
+  title: string;
+  date: number;
+  author: string;
+  category: string;
+  read: boolean;
+  survey: boolean;
+  /** HTML. */
+  text: string;
+  attachments: Attachment[];
+};
+
+export type LockerItem = {
+  id: string;
+  name: string;
+  date: number;
+  from: string;
+  read: boolean;
+  category: string;
+  files: Attachment[];
+};
+
+export type Quiz = {
+  id: string;
+  name: string;
+  subject: string;
+  level: string;
+  questions: number;
+  tags: string[];
+  executions: number;
 };

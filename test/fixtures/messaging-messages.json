@@ -1,0 +1,91 @@
+{
+ "listeMessages": {
+  "_T": 24,
+  "V": [
+   {
+    "N": "85#x53",
+    "messageSource": {
+     "_T": 24,
+     "V": {
+      "N": "85#x52"
+     }
+    },
+    "possessionMessage": {
+     "_T": 24,
+     "V": {
+      "N": "108#x50"
+     }
+    },
+    "estNonPossede": false,
+    "contenu": "Bonjour, merci pour ce point. Bonne journée.",
+    "estHTML": false,
+    "libelleDate": "jeu. 24/11/22 12h36",
+    "date": {
+     "_T": 7,
+     "V": "24/11/2022 12:36:17"
+    },
+    "estUnAparte": true,
+    "emetteur": false,
+    "public_gauche": "M. PARENT F. - ELEVE Un (3A)",
+    "public_droite": "Moi"
+   },
+   {
+    "N": "85#x52",
+    "messageSource": {
+     "_T": 24,
+     "V": {
+      "N": "0"
+     }
+    },
+    "possessionMessage": {
+     "_T": 24,
+     "V": {
+      "N": "108#x51"
+     }
+    },
+    "estNonPossede": false,
+    "contenu": "Bonjour, merci pour ce point. Bonne journée.",
+    "estHTML": true,
+    "libelleDate": "jeu. 24/11/22 12h34",
+    "date": {
+     "_T": 7,
+     "V": "24/11/2022 12:34:42"
+    },
+    "estUnAparte": false,
+    "emetteur": true,
+    "public_gauche": "Moi",
+    "nbPublic": 2
+   }
+  ]
+ },
+ "messagePourReponse": {
+  "_T": 24,
+  "V": {
+   "N": "85#x52",
+   "G": 0,
+   "nbDestinataires": 2
+  }
+ },
+ "listeBoutons": {
+  "_T": 24,
+  "V": [
+   {
+    "G": 2,
+    "L": "Envoyer"
+   }
+  ]
+ },
+ "destinataires": {
+  "listeDestinataires": {
+   "_T": 24,
+   "V": [
+    {
+     "L": "M. PARENT F. - ELEVE Un (3A)",
+     "N": "128#x60",
+     "G": 5
+    }
+   ]
+  }
+ },
+ "nbPossessionsMessage": 2
+}
