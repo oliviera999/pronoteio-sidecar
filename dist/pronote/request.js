@@ -9,6 +9,9 @@
 import forge from "node-forge";
 import { deflateRaw, inflateRaw } from "pako";
 import { ServerSideError, SessionExpiredError } from "pawnote";
+import { config } from "../config.js";
+import { listOf } from "./encoding.js";
+import { throttle } from "./limiter.js";
 const atLeast = (version, wanted) => {
     for (let i = 0; i < 3; i++) {
         const part = version[i] ?? 0;
@@ -29,7 +32,7 @@ export const propertyKeys = (session) => {
         : { ...base, data: "donnees", signature: "_Signature_" };
 };
 const md5 = (bytes) => forge.md.md5.create().update(bytes).digest().bytes();
-const cipherKeys = (session, firstRequest = false) => {
+export const cipherKeys = (session, firstRequest = false) => {
     const iv = firstRequest ? "" : session.information.aesIV;
     return {
         key: md5(session.information.aesKey),
@@ -91,6 +94,7 @@ export const decodePayload = (session, secure) => {
  */
 export const callPronote = async (session, call) => {
     return session.queue.push(async () => {
+        await throttle(session, config.maxCallsPerMinute);
         const keys = propertyKeys(session);
         const payload = {};
         if (call.signature)
@@ -123,8 +127,26 @@ export const callPronote = async (session, call) => {
         if (decoded?.[keys.signature]?.Erreur !== undefined) {
             throw new ServerSideError(String(decoded[keys.signature].MessageErreur ?? "Server Error"));
         }
+        const refusal = entryRefusal(decoded?.[keys.data]);
+        if (refusal !== null)
+            throw new ServerSideError(refusal);
         return decoded;
     });
+};
+/**
+ * Business refusal of a write ("RapportSaisie" of the answer: closed period, locked assessment, scale too
+ * large...), as the client shows it; null when the answer carries no refusal. Pronote answers HTTP 200 and an
+ * empty "data" to an ignored write, so this is the only explicit signal besides re-reading.
+ */
+export const entryRefusal = (data) => {
+    const report = data?.RapportSaisie;
+    if (!report || typeof report !== "object")
+        return null;
+    const messages = listOf(report._messagesErreur_).map((item) => typeof item === "string" ? item : String(item?.L ?? "")).filter(Boolean);
+    if (report._erreurSaisie_ !== true && messages.length === 0)
+        return null;
+    const title = String(report.titre_Messages_Erreur ?? "").trim();
+    return [title, ...messages].filter(Boolean).join(" : ") || "Saisie refusée par Pronote";
 };
 /** "data" member of a decoded answer, whatever the Pronote version. */
 export const answerData = (session, answer) => answer[propertyKeys(session).data] ?? {};

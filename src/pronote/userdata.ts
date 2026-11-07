@@ -15,8 +15,22 @@ import { decodePayload } from "./request.js";
  */
 export type SchoolResource = { id: string; label: string; genre: 1 | 2; taught: boolean; principal: boolean };
 
-/** "tabs": every tab number of listeOnglets (groups and their tabs), null when not received. */
-export type UserData = { resources: SchoolResource[]; maxScale: number | null; tabs: number[] | null };
+/**
+ * "tabs": every tab number of listeOnglets (groups and their tabs), null when not received.
+ * "rights": raw "autorisations" object of ParametresUtilisateur (absences.*, cours.*, casierNumerique.*...), {} when
+ * not received. "acquisitionLevels": raw listeNiveauxDAcquisitions (skills levels of the school), [] when not
+ * received. "maxCommentLength": General.TailleMaxAppreciation (per kind), null when not received.
+ */
+export type UserData = {
+  resources: SchoolResource[];
+  maxScale: number | null;
+  tabs: number[] | null;
+  rights: Record<string, unknown>;
+  acquisitionLevels: unknown[];
+  maxCommentLength: unknown;
+};
+
+const EMPTY: UserData = { resources: [], maxScale: null, tabs: null, rights: {}, acquisitionLevels: [], maxCommentLength: null };
 
 /** Tab numbers of a listeOnglets tree ([{ G, Onglet: [{ G }...] }...]). */
 export const tabsOf = (value: unknown): number[] => {
@@ -52,13 +66,16 @@ const absorb = (data: UserData, answer: any): void => {
       }));
   }
   if (content.listeOnglets) data.tabs = tabsOf(content.listeOnglets);
+  if (content.autorisations && typeof content.autorisations === "object") data.rights = content.autorisations;
+  if (content.listeNiveauxDAcquisitions) data.acquisitionLevels = listOf(content.listeNiveauxDAcquisitions);
   const maxScale = parseNumber(content.General?.BaremeMaxDevoirs?.V);
   if (maxScale !== null) data.maxScale = maxScale;
+  if (content.General?.TailleMaxAppreciation !== undefined) data.maxCommentLength = content.General.TailleMaxAppreciation;
 };
 
 /** Session handle whose fetcher records the login-only data (read back with userData()). */
 export const createCapturingHandle = (base: Fetcher = compatFetcher): SessionHandle => {
-  const data: UserData = { resources: [], maxScale: null, tabs: null };
+  const data: UserData = { ...EMPTY };
   let handle: SessionHandle | null = null;
   const fetcher: Fetcher = async (request) => {
     const response = await base(request);
@@ -78,5 +95,9 @@ export const createCapturingHandle = (base: Fetcher = compatFetcher): SessionHan
   return handle;
 };
 
-export const userData = (session: SessionHandle): UserData =>
-  store.get(session) ?? { resources: [], maxScale: null, tabs: null };
+export const userData = (session: SessionHandle): UserData => store.get(session) ?? { ...EMPTY };
+
+/** Replaces the login data of a session (tests, or a session handle created outside createCapturingHandle). */
+export const rememberUserData = (session: SessionHandle, data: Partial<UserData>): void => {
+  store.set(session, { ...EMPTY, ...data });
+};

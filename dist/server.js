@@ -1,14 +1,17 @@
 import Fastify from "fastify";
 import { verifySignature } from "./auth.js";
-import { config } from "./config.js";
+import { assertSecret, config } from "./config.js";
 import { toHttp } from "./errors.js";
 import absencesRoutes from "./routes/absences.js";
+import assessmentsRoutes from "./routes/assessments.js";
 import gradesRoutes from "./routes/grades.js";
 import homeworkRoutes from "./routes/homework.js";
+import notebookRoutes from "./routes/notebook.js";
 import reportsRoutes from "./routes/reports.js";
 import rosterRoutes from "./routes/roster.js";
 import sessionRoutes from "./routes/session.js";
 import timetableRoutes from "./routes/timetable.js";
+assertSecret();
 const app = Fastify({
     bodyLimit: 512 * 1024,
     // Request bodies carry passwords and tokens: they are never logged.
@@ -48,6 +51,8 @@ await app.register(rosterRoutes);
 await app.register(absencesRoutes);
 await app.register(gradesRoutes);
 await app.register(reportsRoutes);
+await app.register(notebookRoutes);
+await app.register(assessmentsRoutes);
 // Under Phusion Passenger (cPanel "Setup Node.js App") the server must listen on the socket given by
 // Passenger: its documented way is listen("passenger"), which Fastify's listen() cannot express.
 if ("PhusionPassenger" in globalThis) {

@@ -2,6 +2,7 @@ import { createSessionHandle } from "pawnote";
 import { listOf } from "./encoding.js";
 import { compatFetcher } from "./compat.js";
 import { decodePayload } from "./request.js";
+const EMPTY = { resources: [], maxScale: null, tabs: null, rights: {}, acquisitionLevels: [], maxCommentLength: null };
 /** Tab numbers of a listeOnglets tree ([{ G, Onglet: [{ G }...] }...]). */
 export const tabsOf = (value) => {
     const result = [];
@@ -35,13 +36,19 @@ const absorb = (data, answer) => {
     }
     if (content.listeOnglets)
         data.tabs = tabsOf(content.listeOnglets);
+    if (content.autorisations && typeof content.autorisations === "object")
+        data.rights = content.autorisations;
+    if (content.listeNiveauxDAcquisitions)
+        data.acquisitionLevels = listOf(content.listeNiveauxDAcquisitions);
     const maxScale = parseNumber(content.General?.BaremeMaxDevoirs?.V);
     if (maxScale !== null)
         data.maxScale = maxScale;
+    if (content.General?.TailleMaxAppreciation !== undefined)
+        data.maxCommentLength = content.General.TailleMaxAppreciation;
 };
 /** Session handle whose fetcher records the login-only data (read back with userData()). */
 export const createCapturingHandle = (base = compatFetcher) => {
-    const data = { resources: [], maxScale: null, tabs: null };
+    const data = { ...EMPTY };
     let handle = null;
     const fetcher = async (request) => {
         const response = await base(request);
@@ -61,5 +68,9 @@ export const createCapturingHandle = (base = compatFetcher) => {
     store.set(handle, data);
     return handle;
 };
-export const userData = (session) => store.get(session) ?? { resources: [], maxScale: null, tabs: null };
+export const userData = (session) => store.get(session) ?? { ...EMPTY };
+/** Replaces the login data of a session (tests, or a session handle created outside createCapturingHandle). */
+export const rememberUserData = (session, data) => {
+    store.set(session, { ...EMPTY, ...data });
+};
 //# sourceMappingURL=userdata.js.map

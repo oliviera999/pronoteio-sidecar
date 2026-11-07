@@ -164,3 +164,152 @@ export const splitDisplayName = (label: string): { lastname: string; firstname: 
   if (index === 0) index = 1;
   return { lastname: words.slice(0, index).join(" "), firstname: words.slice(index).join(" ") };
 };
+
+/** Lesson of the teacher read in the teacher space (PageEmploiDuTemps), with its notebook flags. */
+export type TeacherLesson = Lesson & {
+  /** The lesson has a notebook entry ("cahier de textes"). */
+  hasNotebook: boolean;
+  /** The notebook entry is published to students and families. */
+  notebookPublished: boolean;
+  /** The call sheet has been done. */
+  attendanceDone: boolean;
+};
+
+/** File or link attached to a notebook content or homework. The file URL is bound to the current session. */
+export type Attachment = { name: string; kind: "file" | "link"; url: string | null };
+
+/** Category kinds of a notebook content (PageSaisieCahierDeTextes_General.ListeCategories[].G). */
+export const CONTENT_KIND = {
+  custom: 0,
+  lesson: 1,
+  correction: 2,
+  writtenTest: 3,
+  oralTest: 4,
+  td: 5,
+  tp: 6,
+  skillsAssessment: 7,
+  epi: 8,
+  ap: 9,
+  visio: 12,
+  ccf: 13,
+  certifyingAssessment: 14,
+} as const;
+
+/** Content kinds that flag an assessment. */
+export const ASSESSMENT_KINDS: number[] = [
+  CONTENT_KIND.writtenTest,
+  CONTENT_KIND.skillsAssessment,
+  CONTENT_KIND.ccf,
+  CONTENT_KIND.certifyingAssessment,
+];
+
+export type NotebookContent = {
+  id: string;
+  title: string;
+  /** HTML. */
+  description: string;
+  /** HTML. */
+  objectives: string;
+  category: { name: string; kind: number };
+  /** Written test, skills assessment, CCF, certifying assessment, or linked to a graded assessment. */
+  isAssessment: boolean;
+  attachments: Attachment[];
+  themes: string[];
+};
+
+export type NotebookHomework = {
+  id: string;
+  /** HTML. */
+  description: string;
+  /** Due date (seconds). */
+  due: number;
+  /** Date given (seconds), null when unknown. */
+  given: number | null;
+  /** Estimated duration in minutes, null when unset. */
+  minutes: number | null;
+  /** 0 unset, 1 easy, 2 medium, 3 hard. */
+  difficulty: number;
+  /** 0 none, 1 paper, 2 online (Pronote), 3 kiosk, 4 audio recording. */
+  returnKind: number;
+  forAll: boolean;
+  /** "NOM Prénom" of the targeted students, only when not for all. */
+  students: string[];
+  attachments: Attachment[];
+};
+
+/** Notebook entry ("cahier de textes") of one lesson. */
+export type Notebook = {
+  lesson: TeacherLesson;
+  locked: boolean;
+  published: boolean;
+  /** Publication date (seconds), null when unknown. */
+  publication: number | null;
+  /** Note for the next lesson: teacher only, never shown to students. */
+  noteForNext: string;
+  /** Private comment: teacher only. */
+  privateComment: string;
+  contents: NotebookContent[];
+  homework: NotebookHomework[];
+};
+
+export type NotebookResult = { items: Notebook[]; lessons: number; truncated: boolean };
+
+/** Assessment planned in the teacher's notebook, in the grade entry or in the school written tests list. */
+export type PlannedAssessment = {
+  id: string;
+  source: "notebook" | "grades" | "dslist";
+  date: number;
+  end: number | null;
+  subject: string;
+  groups: string[];
+  title: string;
+  /** Notebook: category name; grades: "graded"; dslist: "written test". */
+  kind: string;
+  published: boolean | null;
+  publication: number | null;
+  coefficient: number | null;
+  max: number | null;
+  details: string;
+};
+
+export type SourceState = { available: boolean; reason: string; count: number };
+export type Sources = Record<string, SourceState>;
+export type AssessmentsResult = { items: PlannedAssessment[]; sources: Sources };
+
+/** Information on the open session, for the health check. */
+export type SessionInfo = {
+  displayname: string;
+  version: string;
+  tabs: number[];
+  rights: Record<string, unknown>;
+  maxScale: number | null;
+  functions: Record<string, { name: string; onglet: number | null; configured: boolean }>;
+  writeMode: "simulate" | "live";
+  classes: { id: string; name: string; type: "class" | "group"; taught: boolean; principal: boolean }[];
+};
+
+/** Comparable form of a label: lower case, no accents, single spaces. */
+export const normalise = (value: string): string =>
+  value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** Plain text of an HTML fragment, whitespace collapsed, truncated. */
+export const plainText = (html: string, max = 300): string => {
+  const text = html
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<\/(p|div|li|tr|h[1-6])>/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+};

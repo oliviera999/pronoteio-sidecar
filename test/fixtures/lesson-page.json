@@ -1,0 +1,291 @@
+{
+ "DateCoursDeb": {
+  "_T": 7,
+  "V": "03/11/2026 13:30:00"
+ },
+ "DateCoursFin": {
+  "_T": 7,
+  "V": "03/11/2026 15:30:00"
+ },
+ "avecQCMDevoir": false,
+ "avecQCMEvaluation": false,
+ "listeClassesEleves": {
+  "_T": 24,
+  "V": []
+ },
+ "DateTravailAFaire": {
+  "_T": 7,
+  "V": "06/11/2026"
+ },
+ "CoursSuivant": {
+  "_T": 24,
+  "V": {
+   "N": "29#x6",
+   "NumeroSemaine": 10,
+   "date": {
+    "_T": 7,
+    "V": "06/11/2026"
+   }
+  }
+ },
+ "dateCoursSuivantTAF": {
+  "_T": 7,
+  "V": "06/11/2026"
+ },
+ "CoursPrecedent": {
+  "_T": 24,
+  "V": {
+   "N": "29#x7",
+   "noteProchaineSeance": "",
+   "NumeroSemaine": 10,
+   "date": {
+    "_T": 7,
+    "V": "02/11/2026"
+   }
+  }
+ },
+ "JoursPresenceCours": {
+  "_T": 24,
+  "V": []
+ },
+ "listeCDTsPrecedents": {
+  "_T": 24,
+  "V": []
+ },
+ "listeRessources": {
+  "_T": 24,
+  "V": []
+ },
+ "estEligibleParcours": true,
+ "listeClasses": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "3D",
+    "N": "23#x5",
+    "G": 1
+   }
+  ]
+ },
+ "messageSurNouveauTAF": "",
+ "ListeDocumentsJoints": {
+  "_T": 24,
+  "V": []
+ },
+ "listeCahiersDeTexte": {
+  "_T": 24,
+  "V": [
+   {
+    "N": "18#x13",
+    "cours": {
+     "_T": 24,
+     "V": {
+      "N": "29#x8"
+     }
+    },
+    "verrouille": false,
+    "noteProchaineSeance": "",
+    "commentairePrive": "",
+    "taillePostIt": 10000,
+    "listeGroupes": {
+     "_T": 24,
+     "V": []
+    },
+    "Matiere": {
+     "_T": 24,
+     "V": {
+      "L": "MATHÉMATIQUES",
+      "N": "79#x2"
+     }
+    },
+    "CouleurFond": "#FF8040",
+    "listeProfesseurs": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "M. PROFESSEUR M.",
+       "N": "109#x1"
+      }
+     ]
+    },
+    "Date": {
+     "_T": 7,
+     "V": "03/11/2026 13:30:00"
+    },
+    "DateFin": {
+     "_T": 7,
+     "V": "03/11/2026 15:30:00"
+    },
+    "listeContenus": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Nombres premiers",
+       "N": "27#x12",
+       "descriptif": {
+        "_T": 21,
+        "V": "Multiples et diviseurs<br/>Nombres premiers inférieurs à 30."
+       },
+       "categorie": {
+        "_T": 24,
+        "V": {
+         "L": "Cours",
+         "N": "19#x1",
+         "G": 1,
+         "libelleIcone": ""
+        }
+       },
+       "ListeThemes": {
+        "_T": 24,
+        "V": []
+       },
+       "libelleCBTheme": "Des matières du contenu",
+       "parcoursEducatif": -1,
+       "ListePieceJointe": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "cours.pdf",
+          "N": "37#f1",
+          "G": 1
+         },
+         {
+          "L": "Vidéo",
+          "N": "37#u1",
+          "G": 0,
+          "url": "https://example.org/video"
+         }
+        ]
+       },
+       "training": {
+        "_T": 24,
+        "V": {
+         "ListeExecutionsQCM": []
+        }
+       }
+      },
+      {
+       "L": "DS n°1",
+       "N": "27#c2",
+       "descriptif": {
+        "_T": 21,
+        "V": "<p>Contrôle sur les <b>nombres premiers</b></p>"
+       },
+       "categorie": {
+        "_T": 24,
+        "V": {
+         "L": "Devoir sur table",
+         "N": "19#ds",
+         "G": 3,
+         "libelleIcone": "DS"
+        }
+       },
+       "ListeThemes": {
+        "_T": 24,
+        "V": []
+       },
+       "libelleCBTheme": "Des matières du contenu",
+       "parcoursEducatif": -1,
+       "ListePieceJointe": {
+        "_T": 24,
+        "V": []
+       },
+       "training": {
+        "_T": 24,
+        "V": {
+         "ListeExecutionsQCM": []
+        }
+       }
+      }
+     ]
+    },
+    "listeElementsProgrammeCDT": {
+     "_T": 24,
+     "V": []
+    },
+    "ListeTravailAFaire": {
+     "_T": 24,
+     "V": [
+      {
+       "N": "20#t1",
+       "descriptif": {
+        "_T": 21,
+        "V": "Exercices 3 et 4 p. 45"
+       },
+       "PourLe": {
+        "_T": 7,
+        "V": "06/11/2026"
+       },
+       "DonneLe": {
+        "_T": 7,
+        "V": "03/11/2026"
+       },
+       "duree": 20,
+       "niveauDifficulte": 2,
+       "genreRendu": 0,
+       "estPourTous": true,
+       "listeEleves": {
+        "_T": 24,
+        "V": []
+       },
+       "ListePieceJointe": {
+        "_T": 24,
+        "V": []
+       },
+       "ListeThemes": {
+        "_T": 24,
+        "V": []
+       }
+      },
+      {
+       "N": "20#t2",
+       "descriptif": {
+        "_T": 21,
+        "V": "Rattrapage"
+       },
+       "PourLe": {
+        "_T": 7,
+        "V": "10/11/2026"
+       },
+       "duree": null,
+       "niveauDifficulte": 0,
+       "genreRendu": 2,
+       "estPourTous": false,
+       "listeEleves": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "ELEVE Un",
+          "N": "46#e1",
+          "G": 4
+         },
+         {
+          "L": "ELEVE Deux",
+          "N": "46#e2",
+          "G": 4
+         }
+        ]
+       },
+       "ListePieceJointe": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "fiche.pdf",
+          "N": "37#f2",
+          "G": 1
+         }
+        ]
+       },
+       "ListeThemes": {
+        "_T": 24,
+        "V": []
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "avecElementsProgramme": true,
+ "voirTousLeCDTetCharge": true
+}

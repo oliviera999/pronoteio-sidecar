@@ -9,9 +9,9 @@ const STATE_MODIFIED = 2;
 const TYPE_NUMBER = 10;
 /** Genre of a teacher resource. */
 const GENRE_TEACHER = 3;
-const ref = (item) => ({ N: item.N, ...(item.G !== undefined ? { G: item.G } : {}), ...(item.L ? { L: item.L } : {}) });
+export const ref = (item) => ({ N: item.N, ...(item.G !== undefined ? { G: item.G } : {}), ...(item.L ? { L: item.L } : {}) });
 const number = (value) => ({ _T: TYPE_NUMBER, V: pronoteNumber(value) });
-const call = async (session, key, data) => {
+export const call = async (session, key, data) => {
     const fn = requireFunction(key);
     const answer = await callPronote(session, {
         name: fn.name,
@@ -28,7 +28,7 @@ const normaliseDay = (value) => {
     return match ? `${pad(Number(match[1]))}/${pad(Number(match[2]))}/${match[3]}` : "";
 };
 export const periodKey = (period) => String(period.L ?? "");
-const resourceOf = (service) => service.classe?.V ?? service.groupe?.V;
+export const resourceOf = (service) => service.classe?.V ?? service.groupe?.V;
 const serviceKey = (service) => `${service.matiere?.V?.L ?? service.L ?? ""}|${resourceOf(service)?.L ?? ""}`;
 const studentKey = (student) => String(student.L ?? "");
 const assessmentKey = (assessment) => `${normaliseDay(assessment.date?.V)}|${assessment.commentaire ?? ""}`;
@@ -40,7 +40,7 @@ export const loadPeriods = async (session) => {
     const current = periods.find((p) => p.N === byDefault?.N) ?? periods.find((p) => p.L === byDefault?.L) ?? null;
     return { periods, current };
 };
-const loadServices = async (session, period) => {
+export const loadServices = async (session, period) => {
     const me = session.user.resources[0];
     const data = await call(session, "servicesList", {
         Professeur: { N: me.id, G: GENRE_TEACHER, L: me.name },

@@ -10,10 +10,14 @@ import {
   type RefreshInformation,
   type SessionHandle,
 } from "pawnote";
+import { config } from "../config.js";
 import { HttpError } from "../errors.js";
+import type { SessionInfo } from "../normalise.js";
 import { pronoteBaseUrl } from "../pronote/compat.js";
-import { createCapturingHandle } from "../pronote/userdata.js";
-import { createSession, dropSession } from "../session.js";
+import { createCapturingHandle, userData } from "../pronote/userdata.js";
+import { createSession, dropSession, requireSession } from "../session.js";
+import { functions } from "../teacher/functions.js";
+import { stableId } from "../teacher/ids.js";
 
 type LoginBody = {
   url: string;
@@ -54,6 +58,28 @@ const completeSecurity = async (
   }
   const { authentication, identity, initialUsername } = modal.context;
   return finishLoginManually(handle, authentication, identity, initialUsername);
+};
+
+export const sessionInfo = (session: SessionHandle): SessionInfo => {
+  const data = userData(session);
+  return {
+    displayname: session.user.name,
+    version: session.instance.version.join("."),
+    tabs: data.tabs ?? [],
+    rights: data.rights,
+    maxScale: data.maxScale,
+    functions: Object.fromEntries(
+      Object.entries(functions).map(([key, fn]) => [key, { name: fn.name, onglet: fn.onglet, configured: fn.name !== "" }]),
+    ),
+    writeMode: config.writeMode,
+    classes: data.resources.map((item) => ({
+      id: stableId(item.genre === 1 ? "class" : "group", item.label),
+      name: item.label,
+      type: item.genre === 1 ? ("class" as const) : ("group" as const),
+      taught: item.taught,
+      principal: item.principal,
+    })),
+  };
 };
 
 export default async function sessionRoutes(app: FastifyInstance): Promise<void> {
@@ -97,9 +123,13 @@ export default async function sessionRoutes(app: FastifyInstance): Promise<void>
         // Single-use: Moodle must store it and send it at the next login.
         token: refresh.token,
         displayname: handle.user.name,
+        version: handle.instance.version.join("."),
       };
     },
   );
+
+  /** Information on the open session (version, tabs, rights, functions, write mode), for the health check. */
+  app.get("/session/info", async (request) => sessionInfo(requireSession(request)));
 
   app.post("/session/logout", async (request) => {
     dropSession(request);

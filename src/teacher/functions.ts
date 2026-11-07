@@ -33,11 +33,22 @@ export type FunctionKey =
   /** Call sheet of one lesson (students and their absences), read for each lesson of the range. */
   | "absencesList"
   /** Report card ("bulletin") of one student for a period, read for each student of the class. */
-  | "reportCard";
+  | "reportCard"
+  /** Timetable of a resource for a week ({ ListeCours }), read week by week. */
+  | "timetablePage"
+  /** Notebook ("cahier de textes") of one lesson: contents, homework, students (a read despite its name). */
+  | "lessonPage"
+  /** Notebook entry settings: categories (written test, skills assessment...), templates. */
+  | "lessonSettings"
+  /** School-wide list of written tests of some classes (tab 154, not open to every profile). */
+  | "writtenTestsList"
+  /** Notebook of a class for a period, every teacher (tab 89, not open to every profile). */
+  | "classNotebook";
 
 /**
  * Values read from the PRONOTE 2026.2 teacher client (tabs: 23 grade entry, 105 student list, 113 call sheet,
- * 13 report card).
+ * 13 report card, 16 timetable, 28 notebook entry, 154 written tests, 89 class notebook). See
+ * docs/pronoteio/capture.md and docs/pronote-matrice/1-cahier-de-textes.md in mood_prod.
  */
 const defaults: Record<FunctionKey, TeacherFunction> = {
   periodsList: { name: "ListePeriodes", onglet: 23 },
@@ -47,6 +58,11 @@ const defaults: Record<FunctionKey, TeacherFunction> = {
   gradesSave: { name: "SaisieNotes", onglet: 23 },
   absencesList: { name: "PageSaisieAbsences", onglet: 113 },
   reportCard: { name: "PageBulletins", onglet: 13 },
+  timetablePage: { name: "PageEmploiDuTemps", onglet: 16 },
+  lessonPage: { name: "PageSaisieCahierDeTextes", onglet: 28 },
+  lessonSettings: { name: "PageSaisieCahierDeTextes_General", onglet: 28 },
+  writtenTestsList: { name: "ListeDevoirSurTable", onglet: 154 },
+  classNotebook: { name: "PageCahierDeTexte", onglet: 89 },
 };
 
 const load = (): Record<FunctionKey, TeacherFunction> => {
