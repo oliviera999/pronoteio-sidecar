@@ -4,7 +4,11 @@
  */
 export { absences } from "./absences.js";
 export { assessments } from "./assessments.js";
-export { context as gradeContext, push as pushGrades } from "./grades.js";
+export { overview as competencyOverview } from "./competencies.js";
+export { reportComments } from "./comments.js";
+export { context as gradeContext, overview as gradeOverview, push as pushGrades } from "./grades.js";
+export { discussion, discussions, news } from "./messaging.js";
+export { locker, quizzes } from "./resources.js";
 export { notebook } from "./notebook.js";
 export { resources, roster } from "./roster.js";
 export { reportContext, reports } from "./reports.js";

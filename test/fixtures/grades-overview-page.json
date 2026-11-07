@@ -1,0 +1,941 @@
+{
+ "autorisations": {
+  "_T": 24,
+  "V": {
+   "modifierCoefficientGeneral": true,
+   "modifierParametresServices": true
+  }
+ },
+ "strInfoCloture": "",
+ "listeClasses": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "6A",
+    "N": "23#x1",
+    "typeMoyNR": 2,
+    "service": {
+     "_T": 24,
+     "V": {
+      "L": "MATHÉMATIQUES",
+      "N": "131#x2"
+     }
+    },
+    "listePeriodes": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Trimestre 1",
+       "N": "105#x3",
+       "G": 2,
+       "A": true,
+       "estEvaluationCloturee": false,
+       "coefficientClasse": {
+        "_T": 10,
+        "V": "1"
+       }
+      },
+      {
+       "L": "Trimestre 2",
+       "N": "105#x4",
+       "G": 2,
+       "A": true,
+       "estEvaluationCloturee": false,
+       "coefficientClasse": {
+        "_T": 10,
+        "V": "1"
+       }
+      },
+      {
+       "L": "Trimestre 3",
+       "N": "105#x5",
+       "G": 2,
+       "A": true,
+       "estEvaluationCloturee": false,
+       "coefficientClasse": {
+        "_T": 10,
+        "V": "1"
+       }
+      },
+      {
+       "L": "Hors période",
+       "N": "105#x6",
+       "G": 4,
+       "A": true,
+       "estEvaluationCloturee": false,
+       "coefficientClasse": {
+        "_T": 10,
+        "V": "1"
+       }
+      },
+      {
+       "L": "Contrôle en cours de formation",
+       "N": "105#x7",
+       "G": 4,
+       "A": true,
+       "estEvaluationCloturee": false,
+       "coefficientClasse": {
+        "_T": 10,
+        "V": "1"
+       }
+      }
+     ]
+    },
+    "periodeParDefaut": {
+     "_T": 24,
+     "V": {
+      "L": "Trimestre 1",
+      "N": "105#x3"
+     }
+    }
+   }
+  ]
+ },
+ "listeEleves": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "ELEVE Un",
+    "N": "46#x8",
+    "P": 22,
+    "listePeriodes": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "ELEVE Deux",
+       "N": "105#x7",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Trois",
+       "N": "105#x6",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Quatre",
+       "N": "105#x9",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Cinq",
+       "N": "105#x10",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Six",
+       "N": "105#x11",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Sept",
+       "N": "105#x3",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Huit",
+       "N": "105#x4",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Neuf",
+       "N": "105#x5",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      }
+     ]
+    },
+    "classe": {
+     "_T": 24,
+     "V": {
+      "L": "ELEVE Dix",
+      "N": "23#x1",
+      "datesDebut": [
+       {
+        "_T": 7,
+        "V": "31/08/2026"
+       }
+      ],
+      "datesFin": [
+       {
+        "_T": 7,
+        "V": "29/08/2027"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "L": "ELEVE Un2",
+    "N": "46#x12",
+    "P": 35,
+    "listePeriodes": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "ELEVE Deux",
+       "N": "105#x7",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Trois",
+       "N": "105#x6",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Quatre",
+       "N": "105#x9",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Cinq",
+       "N": "105#x10",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Six",
+       "N": "105#x11",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Sept",
+       "N": "105#x3",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Huit",
+       "N": "105#x4",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Neuf",
+       "N": "105#x5",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      }
+     ]
+    },
+    "classe": {
+     "_T": 24,
+     "V": {
+      "L": "ELEVE Dix",
+      "N": "23#x1",
+      "datesDebut": [
+       {
+        "_T": 7,
+        "V": "31/08/2026"
+       }
+      ],
+      "datesFin": [
+       {
+        "_T": 7,
+        "V": "29/08/2027"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "L": "ELEVE Deux2",
+    "N": "46#x13",
+    "P": 37,
+    "listePeriodes": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "ELEVE Deux",
+       "N": "105#x7",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Trois",
+       "N": "105#x6",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Quatre",
+       "N": "105#x9",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Cinq",
+       "N": "105#x10",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Six",
+       "N": "105#x11",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Sept",
+       "N": "105#x3",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Huit",
+       "N": "105#x4",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Neuf",
+       "N": "105#x5",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      }
+     ]
+    },
+    "classe": {
+     "_T": 24,
+     "V": {
+      "L": "ELEVE Dix",
+      "N": "23#x1",
+      "datesDebut": [
+       {
+        "_T": 7,
+        "V": "31/08/2026"
+       }
+      ],
+      "datesFin": [
+       {
+        "_T": 7,
+        "V": "29/08/2027"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "L": "ELEVE Trois2",
+    "N": "46#x14",
+    "P": 72,
+    "listePeriodes": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "ELEVE Deux",
+       "N": "105#x7",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Trois",
+       "N": "105#x6",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Quatre",
+       "N": "105#x9",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Cinq",
+       "N": "105#x10",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Six",
+       "N": "105#x11",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Sept",
+       "N": "105#x3",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Huit",
+       "N": "105#x4",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      },
+      {
+       "L": "ELEVE Neuf",
+       "N": "105#x5",
+       "bonusMalus": {
+        "_T": 10,
+        "V": "0"
+       }
+      }
+     ]
+    },
+    "classe": {
+     "_T": 24,
+     "V": {
+      "L": "ELEVE Dix",
+      "N": "23#x1",
+      "datesDebut": [
+       {
+        "_T": 7,
+        "V": "31/08/2026"
+       }
+      ],
+      "datesFin": [
+       {
+        "_T": 7,
+        "V": "29/08/2027"
+       }
+      ]
+     }
+    }
+   }
+  ]
+ },
+ "listeDevoirs": {
+  "_T": 24,
+  "V": [
+   {
+    "N": "33#x15",
+    "P": 189,
+    "service": {
+     "_T": 24,
+     "V": {
+      "L": "MATHÉMATIQUES",
+      "N": "131#x2"
+     }
+    },
+    "date": {
+     "_T": 7,
+     "V": "24/12/2026"
+    },
+    "verrouille": false,
+    "bareme": {
+     "_T": 10,
+     "V": "20"
+    },
+    "existesDesNotes": true,
+    "coefficient": {
+     "_T": 10,
+     "V": "1"
+    },
+    "commentaire": "",
+    "commeUnBonus": false,
+    "commeUneNote": false,
+    "ramenerSur20": false,
+    "datePublication": {
+     "_T": 7,
+     "V": "24/12/2026"
+    },
+    "avecCommentaireSurNoteEleve": false,
+    "commentaireVerrouille": false,
+    "baremeVerrouille": false,
+    "coeffVerrouille": false,
+    "ListeThemes": {
+     "_T": 24,
+     "V": []
+    },
+    "libelleCBTheme": "Des matières du devoir",
+    "listeEleves": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "ELEVE Un",
+       "N": "46#x8",
+       "P": 22,
+       "Note": {
+        "_T": 10,
+        "V": "15"
+       }
+      },
+      {
+       "L": "ELEVE Un2",
+       "N": "46#x12",
+       "P": 35,
+       "Note": {
+        "_T": 10,
+        "V": "9"
+       }
+      },
+      {
+       "L": "ELEVE Deux2",
+       "N": "46#x13",
+       "P": 37,
+       "Note": {
+        "_T": 10,
+        "V": "11"
+       }
+      },
+      {
+       "L": "ELEVE Trois2",
+       "N": "46#x14",
+       "P": 72,
+       "Note": {
+        "_T": 10,
+        "V": "20"
+       }
+      }
+     ]
+    },
+    "listeClasses": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "6A",
+       "N": "23#x1",
+       "service": {
+        "_T": 24,
+        "V": {
+         "L": "MATHÉMATIQUES",
+         "N": "131#x2"
+        }
+       },
+       "listePeriodes": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "Trimestre 1",
+          "N": "105#x3",
+          "estEvaluationCloturee": false
+         },
+         {
+          "L": "Trimestre 3",
+          "N": "105#x5",
+          "estEvaluationCloturee": false
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "N": "33#x16",
+    "P": 190,
+    "service": {
+     "_T": 24,
+     "V": {
+      "L": "MATHÉMATIQUES",
+      "N": "131#x2"
+     }
+    },
+    "date": {
+     "_T": 7,
+     "V": "24/12/2026"
+    },
+    "verrouille": false,
+    "bareme": {
+     "_T": 10,
+     "V": "20"
+    },
+    "existesDesNotes": true,
+    "coefficient": {
+     "_T": 10,
+     "V": "1"
+    },
+    "commentaire": "",
+    "commeUnBonus": false,
+    "commeUneNote": false,
+    "ramenerSur20": false,
+    "datePublication": {
+     "_T": 7,
+     "V": "24/12/2026"
+    },
+    "avecCommentaireSurNoteEleve": false,
+    "commentaireVerrouille": false,
+    "baremeVerrouille": false,
+    "coeffVerrouille": false,
+    "ListeThemes": {
+     "_T": 24,
+     "V": []
+    },
+    "libelleCBTheme": "Des matières du devoir",
+    "listeEleves": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "ELEVE Un",
+       "N": "46#x8",
+       "P": 22,
+       "Note": {
+        "_T": 10,
+        "V": "12"
+       }
+      },
+      {
+       "L": "ELEVE Un2",
+       "N": "46#x12",
+       "P": 35,
+       "Note": {
+        "_T": 10,
+        "V": "15"
+       }
+      },
+      {
+       "L": "ELEVE Deux2",
+       "N": "46#x13",
+       "P": 37,
+       "Note": {
+        "_T": 10,
+        "V": "1"
+       }
+      },
+      {
+       "L": "ELEVE Trois2",
+       "N": "46#x14",
+       "P": 72,
+       "Note": {
+        "_T": 10,
+        "V": "13"
+       }
+      }
+     ]
+    },
+    "listeClasses": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "6A",
+       "N": "23#x1",
+       "service": {
+        "_T": 24,
+        "V": {
+         "L": "MATHÉMATIQUES",
+         "N": "131#x2"
+        }
+       },
+       "listePeriodes": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "Trimestre 1",
+          "N": "105#x3",
+          "estEvaluationCloturee": false
+         },
+         {
+          "L": "Trimestre 3",
+          "N": "105#x5",
+          "estEvaluationCloturee": false
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "serviceEntier": {
+  "_T": 24,
+  "V": {
+   "L": "MATHÉMATIQUES",
+   "N": "131#x2"
+  }
+ },
+ "baremeParDefaut": {
+  "_T": 10,
+  "V": "20"
+ },
+ "baremeService": {
+  "_T": 10,
+  "V": "20"
+ },
+ "typeMoyNR": 2,
+ "service": {
+  "_T": 24,
+  "V": {
+   "L": "MATHÉMATIQUES",
+   "N": "131#x2",
+   "A": true,
+   "coefficientGeneral": {
+    "_T": 10,
+    "V": "1"
+   },
+   "afficherCoefficientGeneral": true,
+   "estServiceLVE": false,
+   "estUnService": true,
+   "facultatif": false,
+   "avecDetailNotesNonPublie": false,
+   "classe": {
+    "_T": 24,
+    "V": {
+     "L": "6A",
+     "N": "23#x1"
+    }
+   },
+   "groupe": {
+    "_T": 24,
+    "V": {
+     "N": "0"
+    }
+   },
+   "professeur": {
+    "_T": 24,
+    "V": {
+     "L": "M. PROFESSEUR M.",
+     "N": "109#x17"
+    }
+   },
+   "estCoEnseignement": false,
+   "avecSaisieEvaluation": true,
+   "matiere": {
+    "_T": 24,
+    "V": {
+     "L": "MATHÉMATIQUES",
+     "N": "79#x18",
+     "P": 37,
+     "code": "MATHS",
+     "couleur": "#FF8040"
+    }
+   },
+   "listeEleves": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "ELEVE Un",
+      "N": "46#x8",
+      "P": 22
+     },
+     {
+      "L": "ELEVE Un2",
+      "N": "46#x12",
+      "P": 35
+     },
+     {
+      "L": "ELEVE Deux2",
+      "N": "46#x13",
+      "P": 37
+     },
+     {
+      "L": "ELEVE Trois2",
+      "N": "46#x14",
+      "P": 72
+     },
+     {
+      "L": "ELEVE Quatre2",
+      "N": "46#x19",
+      "P": 97
+     },
+     {
+      "L": "ELEVE Cinq2",
+      "N": "46#x20",
+      "P": 130
+     },
+     {
+      "L": "ELEVE Six2",
+      "N": "46#x21",
+      "P": 135
+     },
+     {
+      "L": "ELEVE Sept2",
+      "N": "46#x22",
+      "P": 154
+     },
+     {
+      "L": "ELEVE Huit2",
+      "N": "46#x23",
+      "P": 308
+     },
+     {
+      "L": "ELEVE Neuf2",
+      "N": "46#x24",
+      "P": 177
+     },
+     {
+      "L": "ELEVE Dix2",
+      "N": "46#x25",
+      "P": 183
+     },
+     {
+      "L": "ELEVE Un3",
+      "N": "46#x26",
+      "P": 187
+     },
+     {
+      "L": "ELEVE Deux3",
+      "N": "46#x27",
+      "P": 211
+     },
+     {
+      "L": "ELEVE Trois3",
+      "N": "46#x28",
+      "P": 229
+     },
+     {
+      "L": "ELEVE Quatre3",
+      "N": "46#x29",
+      "P": 255
+     },
+     {
+      "L": "ELEVE Cinq3",
+      "N": "46#x30",
+      "P": 258
+     },
+     {
+      "L": "ELEVE Six3",
+      "N": "46#x31",
+      "P": 264
+     },
+     {
+      "L": "ELEVE Sept3",
+      "N": "46#x32",
+      "P": 267
+     },
+     {
+      "L": "ELEVE Huit3",
+      "N": "46#x33",
+      "P": 268
+     },
+     {
+      "L": "ELEVE Neuf3",
+      "N": "46#x34",
+      "P": 253
+     },
+     {
+      "L": "ELEVE Dix3",
+      "N": "46#x35",
+      "P": 311
+     },
+     {
+      "L": "ELEVE Un4",
+      "N": "46#x36",
+      "P": 325
+     },
+     {
+      "L": "ELEVE Deux4",
+      "N": "46#x37",
+      "P": 340
+     },
+     {
+      "L": "ELEVE Trois4",
+      "N": "46#x38",
+      "P": 369
+     },
+     {
+      "L": "ELEVE Quatre4",
+      "N": "46#x39",
+      "P": 381
+     },
+     {
+      "L": "ELEVE Cinq4",
+      "N": "46#x40",
+      "P": 411
+     }
+    ]
+   },
+   "listePeriodes": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "Trimestre 1",
+      "N": "105#x3",
+      "coefficient": {
+       "_T": 10,
+       "V": "1"
+      },
+      "moyenneParSousMatiere": false,
+      "moyenneBulletinSurClasse": false,
+      "avecBonusMalus": false,
+      "avecDevoirSupMoy": false,
+      "ponderationNotePlusHaute": {
+       "_T": 10,
+       "V": "1"
+      },
+      "ponderationNotePlusBasse": {
+       "_T": 10,
+       "V": "1"
+      },
+      "arrondiEleve": {
+       "_T": 14,
+       "V": "0"
+      },
+      "arrondiClasse": {
+       "_T": 14,
+       "V": "0"
+      }
+     }
+    ]
+   },
+   "listeServices": {
+    "_T": 24,
+    "V": []
+   }
+  }
+ }
+}
