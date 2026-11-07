@@ -25,10 +25,14 @@ const ref = (notebookPublished = false): LessonRef => ({
     hasNotebook: true,
     notebookPublished,
     attendanceDone: false,
+    editable: false,
+    roomsEditable: false,
   },
   pronoteId: "29#x1",
   week: 10,
   notebookId: "18#x1",
+  label: "",
+  rooms: [{ N: "129#r1", L: "207" }],
 });
 
 test("a notebook entry is read with its contents and homework", () => {

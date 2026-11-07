@@ -10,6 +10,8 @@ export { context as gradeContext, overview as gradeOverview, push as pushGrades 
 export { discussion, discussions, news } from "./messaging.js";
 export { locker, quizzes } from "./resources.js";
 export { notebook } from "./notebook.js";
+export { writeNotebook } from "./notebookWrite.js";
+export { changeLesson } from "./lessonWrite.js";
 export { resources, roster } from "./roster.js";
 export { reportContext, reports } from "./reports.js";
 export { lessons } from "./timetable.js";

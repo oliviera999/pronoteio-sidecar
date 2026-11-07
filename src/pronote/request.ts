@@ -111,6 +111,8 @@ export type PronoteCall = {
   data?: Record<string, unknown>;
   /** Content of the "Signature" member (usually { onglet: number }). */
   signature?: Record<string, unknown>;
+  /** Return the answer even when RapportSaisie reports a refusal (the caller reads the report itself). */
+  keepRefusal?: boolean;
 };
 
 /**
@@ -155,7 +157,7 @@ export const callPronote = async (session: SessionHandle, call: PronoteCall): Pr
     if (decoded?.[keys.signature]?.Erreur !== undefined) {
       throw new ServerSideError(String(decoded[keys.signature].MessageErreur ?? "Server Error"));
     }
-    const refusal = entryRefusal(decoded?.[keys.data]);
+    const refusal = call.keepRefusal ? null : entryRefusal(entryReport(decoded, keys.data));
     if (refusal !== null) throw new ServerSideError(refusal);
     return decoded;
   });
@@ -167,7 +169,8 @@ export const callPronote = async (session: SessionHandle, call: PronoteCall): Pr
  * empty "data" to an ignored write, so this is the only explicit signal besides re-reading.
  */
 export const entryRefusal = (data: unknown): string | null => {
-  const report = (data as { RapportSaisie?: any } | undefined)?.RapportSaisie;
+  const holder = data as { RapportSaisie?: any } | undefined;
+  const report = holder && typeof holder === "object" && "RapportSaisie" in holder ? holder.RapportSaisie : holder;
   if (!report || typeof report !== "object") return null;
   const messages = listOf<unknown>(report._messagesErreur_).map((item) =>
     typeof item === "string" ? item : String((item as { L?: unknown })?.L ?? ""),
@@ -175,6 +178,17 @@ export const entryRefusal = (data: unknown): string | null => {
   if (report._erreurSaisie_ !== true && messages.length === 0) return null;
   const title = String(report.titre_Messages_Erreur ?? "").trim();
   return [title, ...messages].filter(Boolean).join(" : ") || "Saisie refusée par Pronote";
+};
+
+/**
+ * "RapportSaisie" of a decoded answer: the web client reads it at the root of the decoded envelope
+ * (ObjetRequeteJSON: this._jsonRacine.RapportSaisie); it is also looked for inside "data" to be safe.
+ */
+export const entryReport = (decoded: Record<string, any> | undefined, dataKey = "data"): Record<string, any> | null => {
+  const root = decoded?.RapportSaisie;
+  if (root && typeof root === "object") return root;
+  const inner = decoded?.[dataKey]?.RapportSaisie;
+  return inner && typeof inner === "object" ? inner : null;
 };
 
 /** "data" member of a decoded answer, whatever the Pronote version. */
