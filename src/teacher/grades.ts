@@ -22,12 +22,12 @@ const TYPE_NUMBER = 10;
 /** Genre of a teacher resource. */
 const GENRE_TEACHER = 3;
 
-type Element = { N: string; G?: number; L?: string; [key: string]: any };
+export type Element = { N: string; G?: number; L?: string; [key: string]: any };
 
-const ref = (item: Element) => ({ N: item.N, ...(item.G !== undefined ? { G: item.G } : {}), ...(item.L ? { L: item.L } : {}) });
+export const ref = (item: Element) => ({ N: item.N, ...(item.G !== undefined ? { G: item.G } : {}), ...(item.L ? { L: item.L } : {}) });
 const number = (value: number) => ({ _T: TYPE_NUMBER, V: pronoteNumber(value) });
 
-const call = async (session: SessionHandle, key: FunctionKey, data?: Record<string, unknown>) => {
+export const call = async (session: SessionHandle, key: FunctionKey, data?: Record<string, unknown>) => {
   const fn = requireFunction(key);
   const answer = await callPronote(session, {
     name: fn.name,
@@ -46,7 +46,7 @@ const normaliseDay = (value: unknown) => {
 };
 
 export const periodKey = (period: Element) => String(period.L ?? "");
-const resourceOf = (service: Element): Element | undefined => service.classe?.V ?? service.groupe?.V;
+export const resourceOf = (service: Element): Element | undefined => service.classe?.V ?? service.groupe?.V;
 const serviceKey = (service: Element) => `${service.matiere?.V?.L ?? service.L ?? ""}|${resourceOf(service)?.L ?? ""}`;
 const studentKey = (student: Element) => String(student.L ?? "");
 const assessmentKey = (assessment: Element) => `${normaliseDay(assessment.date?.V)}|${assessment.commentaire ?? ""}`;
@@ -60,7 +60,7 @@ export const loadPeriods = async (session: SessionHandle) => {
   return { periods, current };
 };
 
-const loadServices = async (session: SessionHandle, period: Element | null) => {
+export const loadServices = async (session: SessionHandle, period: Element | null) => {
   const me = session.user.resources[0];
   const data = await call(session, "servicesList", {
     Professeur: { N: me.id, G: GENRE_TEACHER, L: me.name },

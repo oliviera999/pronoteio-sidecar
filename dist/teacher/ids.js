@@ -16,6 +16,8 @@ const PREFIX = {
     student: "e",
     assessment: "d",
     absence: "a",
+    lesson: "l",
+    planned: "ev",
 };
 const MAX_KEY = 80;
 const normaliseKey = (key) => key.normalize("NFC").replace(/\s+/g, " ").trim();

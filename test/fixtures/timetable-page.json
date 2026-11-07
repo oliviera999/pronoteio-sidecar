@@ -1,0 +1,249 @@
+{
+ "jourCycleSelectionne": 0,
+ "avecCoursAnnule": true,
+ "ListeCours": {
+  "_T": 24,
+  "V": [
+   {
+    "N": "29#x1",
+    "G": 0,
+    "P": 231,
+    "place": 0,
+    "duree": 2,
+    "DateDuCours": {
+     "_T": 7,
+     "V": "09/11/2026 08:00:00"
+    },
+    "CouleurFond": "#FFFF99",
+    "ListeContenus": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "MATHÉMATIQUES",
+       "N": "79#x1",
+       "G": 16
+      },
+      {
+       "L": "6A",
+       "N": "23#x1",
+       "G": 1
+      },
+      {
+       "L": "207",
+       "N": "129#x1",
+       "G": 17
+      }
+     ]
+    },
+    "AppelFait": true,
+    "afficherNonFait": false,
+    "AvecCdTPublie": true,
+    "AvecCdT": true,
+    "cahierDeTextes": {
+     "_T": 24,
+     "V": {
+      "N": "18#x1"
+     }
+    }
+   },
+   {
+    "N": "29#x2",
+    "G": 0,
+    "P": 50,
+    "place": 2,
+    "duree": 2,
+    "DateDuCours": {
+     "_T": 7,
+     "V": "09/11/2026 09:00:00"
+    },
+    "CouleurFond": "#80FFFF",
+    "ListeContenus": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "MATHÉMATIQUES",
+       "N": "79#x1",
+       "G": 16
+      },
+      {
+       "L": "3D",
+       "N": "23#x2",
+       "G": 1
+      },
+      {
+       "L": "207",
+       "N": "129#x1",
+       "G": 17
+      }
+     ]
+    },
+    "AppelFait": false,
+    "afficherNonFait": false
+   },
+   {
+    "N": "29#x3",
+    "G": 0,
+    "P": 190,
+    "place": 4,
+    "duree": 2,
+    "DateDuCours": {
+     "_T": 7,
+     "V": "09/11/2026 10:00:00"
+    },
+    "CouleurFond": "#80FF00",
+    "ListeContenus": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "MATHÉMATIQUES",
+       "N": "79#x1",
+       "G": 16
+      },
+      {
+       "L": "5C",
+       "N": "23#x3",
+       "G": 1
+      },
+      {
+       "L": "207",
+       "N": "129#x1",
+       "G": 17
+      }
+     ]
+    },
+    "AppelFait": false,
+    "afficherNonFait": false
+   },
+   {
+    "N": "29#x4",
+    "G": 0,
+    "P": 392,
+    "place": 6,
+    "duree": 2,
+    "DateDuCours": {
+     "_T": 7,
+     "V": "09/11/2026 11:00:00"
+    },
+    "CouleurFond": "#80FFFF",
+    "ListeContenus": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "MATHÉMATIQUES",
+       "N": "79#x1",
+       "G": 16
+      },
+      {
+       "L": "3A",
+       "N": "23#x4",
+       "G": 1
+      },
+      {
+       "L": "207",
+       "N": "129#x1",
+       "G": 17
+      }
+     ]
+    },
+    "AvecCdTPublie": false,
+    "cahierDeTextes": {
+     "_T": 24,
+     "V": {
+      "N": "18#x1",
+      "originesCategorie": {
+       "_T": 24,
+       "V": []
+      }
+     }
+    },
+    "AvecCdT": true,
+    "AvecVisa": false,
+    "AppelFait": false,
+    "afficherNonFait": false
+   },
+   {
+    "N": "29#x5",
+    "G": 0,
+    "P": 233,
+    "place": 22,
+    "duree": 2,
+    "DateDuCours": {
+     "_T": 7,
+     "V": "10/11/2026 09:00:00"
+    },
+    "CouleurFond": "#FFFF99",
+    "ListeContenus": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "MATHÉMATIQUES",
+       "N": "79#x1",
+       "G": 16
+      },
+      {
+       "L": "6A",
+       "N": "23#x1",
+       "G": 1
+      },
+      {
+       "L": "207",
+       "N": "129#x1",
+       "G": 17
+      }
+     ]
+    },
+    "AvecCdTPublie": false,
+    "cahierDeTextes": {
+     "_T": 24,
+     "V": {
+      "N": "18#x2",
+      "originesCategorie": {
+       "_T": 24,
+       "V": []
+      }
+     }
+    },
+    "AvecCdT": true,
+    "AvecVisa": false,
+    "AppelFait": false,
+    "afficherNonFait": false
+   },
+   {
+    "N": "29#zz9",
+    "G": 0,
+    "P": 50,
+    "place": 2,
+    "duree": 2,
+    "DateDuCours": {
+     "_T": 7,
+     "V": "12/11/2026 10:00:00"
+    },
+    "CouleurFond": "#80FFFF",
+    "ListeContenus": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "MATHÉMATIQUES",
+       "N": "79#x1",
+       "G": 16
+      },
+      {
+       "L": "3D",
+       "N": "23#x2",
+       "G": 1
+      },
+      {
+       "L": "207",
+       "N": "129#x1",
+       "G": 17
+      }
+     ]
+    },
+    "AppelFait": false,
+    "afficherNonFait": false,
+    "estAnnule": true,
+    "Statut": 2
+   }
+  ]
+ }
+}
