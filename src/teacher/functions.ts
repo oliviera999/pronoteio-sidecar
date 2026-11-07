@@ -71,7 +71,21 @@ export type FunctionKey =
   /** Digital locker (tab 148). */
   | "lockerPage"
   /** Quizzes of the teacher (tab 86). */
-  | "quizList";
+  | "quizList"
+  /** One grade or comment of a student on an assessment (SaisieNotesUnitaire, tab 23). */
+  | "gradeSaveUnit"
+  /** Creates, modifies or deletes a skills assessment and its levels (SaisieEvaluations, tab 65; not validated). */
+  | "competencySave"
+  /** Report card comment of the teacher's service (SaisieAppreciation, tab 25; not validated). */
+  | "commentSave"
+  /** General comment of the main teacher (SaisieAppreciation, tab 27; not validated). */
+  | "generalCommentSave"
+  /** Sends a message or a reply (SaisieMessage, tab 131; irreversible). */
+  | "messageSave"
+  /** Possible recipients of a discussion (ListePublics, tab 131). */
+  | "recipientsList"
+  /** Call sheet of one lesson: absences, late arrivals, done flag (SaisieAbsences, tab 113). */
+  | "attendanceSave";
 
 /**
  * Values read from the PRONOTE 2026.2 teacher client (tabs: 23 grade entry, 105 student list, 113 call sheet,
@@ -105,6 +119,13 @@ const defaults: Record<FunctionKey, TeacherFunction> = {
   newsPage: { name: "PageActualites", onglet: 8 },
   lockerPage: { name: "Casier", onglet: 148 },
   quizList: { name: "listeQCM", onglet: 86 },
+  gradeSaveUnit: { name: "SaisieNotesUnitaire", onglet: 23 },
+  competencySave: { name: "SaisieEvaluations", onglet: 65 },
+  commentSave: { name: "SaisieAppreciation", onglet: 25 },
+  generalCommentSave: { name: "SaisieAppreciation", onglet: 27 },
+  messageSave: { name: "SaisieMessage", onglet: 131 },
+  recipientsList: { name: "ListePublics", onglet: 131 },
+  attendanceSave: { name: "SaisieAbsences", onglet: 113 },
 };
 
 const load = (): Record<FunctionKey, TeacherFunction> => {

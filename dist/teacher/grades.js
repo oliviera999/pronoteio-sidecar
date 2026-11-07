@@ -31,8 +31,8 @@ const normaliseDay = (value) => {
 export const periodKey = (period) => String(period.L ?? "");
 export const resourceOf = (service) => service.classe?.V ?? service.groupe?.V;
 export const serviceKey = (service) => `${service.matiere?.V?.L ?? service.L ?? ""}|${resourceOf(service)?.L ?? ""}`;
-const studentKey = (student) => String(student.L ?? "");
-const assessmentKey = (assessment) => `${normaliseDay(assessment.date?.V)}|${assessment.commentaire ?? ""}`;
+export const studentKey = (student) => String(student.L ?? "");
+export const assessmentKey = (assessment) => `${normaliseDay(assessment.date?.V)}|${assessment.commentaire ?? ""}`;
 export const assessmentIdFor = (date, title) => stableId("assessment", `${dayOf(date)}|${title.trim()}`);
 export const loadPeriods = async (session) => {
     const data = await call(session, "periodsList");
@@ -129,7 +129,7 @@ export const validate = (assessment, grades, maxScale = null) => {
     return rejected;
 };
 /** Service member of SaisieNotes: the service reference plus its settings for the period, as read. */
-const serviceMember = (service, page) => {
+export const serviceMember = (service, page) => {
     const full = page.service?.V ?? {};
     const settings = listOf(full.listePeriodes)[0] ?? {};
     const member = { ...ref(service) };
@@ -156,7 +156,7 @@ const serviceMember = (service, page) => {
     }
     return member;
 };
-const classesMember = (period, page, existing) => {
+export const classesMember = (period, page, existing) => {
     if (existing) {
         return listOf(existing.listeClasses).map((classe) => {
             const periods = listOf(classe.listePeriodes);

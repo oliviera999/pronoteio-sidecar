@@ -1,0 +1,294 @@
+{
+ "DureeRetard": 5,
+ "calculAutoDureeRetard": false,
+ "PlaceGrilleDebut": 1340,
+ "PlaceSaisieDebut": 1342,
+ "PlaceSaisieFin": 1343,
+ "ListeColonnes": {
+  "_T": 24,
+  "V": [
+   {
+    "G": 13,
+    "L": "Absence",
+    "abbr": "Abs.",
+    "A": true
+   },
+   {
+    "G": 14,
+    "L": "Retard",
+    "abbr": "Ret.",
+    "A": true
+   },
+   {
+    "G": 21,
+    "L": "Infirmerie",
+    "A": true
+   },
+   {
+    "G": 41,
+    "L": "Punition",
+    "A": true
+   },
+   {
+    "G": 15,
+    "L": "Exclusion",
+    "A": true
+   },
+   {
+    "G": 40,
+    "L": "Dispense",
+    "A": true
+   },
+   {
+    "L": "Observations",
+    "N": "95#x1",
+    "G": 45,
+    "A": true,
+    "genreObservation": 1,
+    "publiable": true,
+    "avecARObservation": true
+   }
+  ]
+ },
+ "ListeEleves": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "ELEVE Un",
+    "N": "46#x2",
+    "P": 35,
+    "estAttendu": true,
+    "estDispense": false,
+    "estExclu": false,
+    "listeColonnes": {
+     "_T": 24,
+     "V": []
+    },
+    "ListeAbsences": {
+     "_T": 24,
+     "V": [
+      {
+       "N": "1#x3",
+       "G": 13,
+       "justifie": true,
+       "PlaceDebut": 1280,
+       "PlaceFin": 1419,
+       "EstOuverte": false,
+       "reglee": false,
+       "DateDebut": {
+        "_T": 7,
+        "V": "03/11/2026 08:00:00"
+       },
+       "DateFin": {
+        "_T": 7,
+        "V": "09/11/2026 18:00:00"
+       },
+       "listeMotifs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "STAGE EN ENTREPRISE",
+          "N": "89#x4"
+         }
+        ]
+       },
+       "Professeur": {
+        "_T": 24,
+        "V": {
+         "L": "VIE SCOLAIRE",
+         "N": "106#x5",
+         "G": 2
+        }
+       }
+      }
+     ]
+    },
+    "listePunitions": {
+     "_T": 24,
+     "V": []
+    },
+    "ListeDispenses": {
+     "_T": 24,
+     "V": []
+    }
+   },
+   {
+    "L": "ELEVE Deux",
+    "N": "46#x6",
+    "P": 97,
+    "estAttendu": true,
+    "estDispense": false,
+    "estExclu": false,
+    "listeColonnes": {
+     "_T": 24,
+     "V": []
+    },
+    "ListeAbsences": {
+     "_T": 24,
+     "V": [
+      {
+       "N": "1#x7",
+       "G": 13,
+       "justifie": true,
+       "PlaceDebut": 1260,
+       "PlaceFin": 1400,
+       "EstOuverte": false,
+       "reglee": false,
+       "DateDebut": {
+        "_T": 7,
+        "V": "02/11/2026 08:00:00"
+       },
+       "DateFin": {
+        "_T": 7,
+        "V": "09/11/2026 08:30:00"
+       },
+       "listeMotifs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "VISITE MEDICALE",
+          "N": "89#x8"
+         }
+        ]
+       },
+       "Professeur": {
+        "_T": 24,
+        "V": {
+         "L": "VIE SCOLAIRE",
+         "N": "106#x9",
+         "G": 2
+        }
+       }
+      }
+     ]
+    },
+    "listePunitions": {
+     "_T": 24,
+     "V": []
+    },
+    "ListeDispenses": {
+     "_T": 24,
+     "V": []
+    }
+   },
+   {
+    "L": "ELEVE Trois",
+    "N": "46#x10",
+    "P": 130,
+    "estAttendu": true,
+    "estDispense": false,
+    "estExclu": false,
+    "listeColonnes": {
+     "_T": 24,
+     "V": []
+    },
+    "ListeAbsences": {
+     "_T": 24,
+     "V": [
+      {
+       "N": "1#x11",
+       "G": 13,
+       "justifie": true,
+       "PlaceDebut": 1260,
+       "PlaceFin": 1400,
+       "EstOuverte": false,
+       "reglee": false,
+       "DateDebut": {
+        "_T": 7,
+        "V": "02/11/2026 08:00:00"
+       },
+       "DateFin": {
+        "_T": 7,
+        "V": "09/11/2026 08:30:00"
+       },
+       "listeMotifs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "MALADIE SANS CERTIFICAT",
+          "N": "89#x12"
+         }
+        ]
+       },
+       "Professeur": {
+        "_T": 24,
+        "V": {
+         "L": "VIE SCOLAIRE",
+         "N": "106#x9",
+         "G": 2
+        }
+       }
+      }
+     ]
+    },
+    "listePunitions": {
+     "_T": 24,
+     "V": []
+    },
+    "ListeDispenses": {
+     "_T": 24,
+     "V": []
+    }
+   },
+   {
+    "L": "ELEVE Quatre",
+    "N": "46#x13",
+    "P": 154,
+    "estAttendu": true,
+    "estDispense": false,
+    "estExclu": false,
+    "listeColonnes": {
+     "_T": 24,
+     "V": []
+    },
+    "ListeAbsences": {
+     "_T": 24,
+     "V": [
+      {
+       "N": "1#x14",
+       "G": 13,
+       "justifie": true,
+       "PlaceDebut": 1260,
+       "PlaceFin": 1540,
+       "EstOuverte": false,
+       "reglee": false,
+       "DateDebut": {
+        "_T": 7,
+        "V": "02/11/2026 08:00:00"
+       },
+       "DateFin": {
+        "_T": 7,
+        "V": "16/11/2026 08:30:00"
+       },
+       "listeMotifs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "STAGE EN ENTREPRISE",
+          "N": "89#x4"
+         }
+        ]
+       },
+       "Professeur": {
+        "_T": 24,
+        "V": {
+         "L": "VIE SCOLAIRE",
+         "N": "106#x9",
+         "G": 2
+        }
+       }
+      }
+     ]
+    },
+    "listePunitions": {
+     "_T": 24,
+     "V": []
+    },
+    "ListeDispenses": {
+     "_T": 24,
+     "V": []
+    }
+   }
+  ]
+ }
+}

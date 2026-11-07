@@ -37,6 +37,11 @@ export type LessonRef = {
   label: string;
   /** Rooms of the lesson with their session-bound identifiers (SaisieCours: ressourcesRemplacees). */
   rooms: { N: string; L: string }[];
+  /** Weekly place and duration in blocks of the lesson (SaisieAbsences: placeCours, dureeCours). */
+  place: number | null;
+  duration: number;
+  /** The call sheet may not be done: lesson locked (verrouille, estAppelVerrouille) or not usable for the call. */
+  attendanceLocked: boolean;
 };
 
 const pad = (value: number) => String(value).padStart(2, "0");
@@ -107,6 +112,9 @@ export const lessonFromPage = (session: SessionHandle, cours: any, week: number)
     notebookId: typeof notebook === "string" ? notebook : null,
     label: typeof cours.L === "string" ? cours.L : "",
     rooms,
+    place: typeof cours.place === "number" ? cours.place : null,
+    duration: Math.max(1, Number(cours.duree ?? 1)),
+    attendanceLocked: cours.verrouille === true || cours.estAppelVerrouille === true || cours.utilisableAppel === false,
   };
 };
 

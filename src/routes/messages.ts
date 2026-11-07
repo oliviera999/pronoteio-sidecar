@@ -1,5 +1,8 @@
 import type { FastifyInstance } from "fastify";
+import { config } from "../config.js";
+import { HttpError } from "../errors.js";
 import { requireSession } from "../session.js";
+import type { MessageWrite } from "../teacher/messagingWrite.js";
 import * as teacher from "../teacher/index.js";
 import type { DiscussionFolder } from "../normalise.js";
 
@@ -34,5 +37,41 @@ export default async function messagesRoutes(app: FastifyInstance): Promise<void
     "/news",
     { schema: { querystring: { type: "object", properties: { unreadOnly: { type: "boolean", default: false } } } } },
     async (request) => teacher.news(requireSession(request), request.query.unreadOnly ?? false),
+  );
+
+  // Sends a message or a reply: irreversible. Never forwards, reports nor deletes.
+  app.post<{ Body: MessageWrite }>(
+    "/messages",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["mode", "text"],
+          properties: {
+            mode: { type: "string", enum: ["new", "reply"] },
+            subject: { type: "string", maxLength: 255 },
+            text: { type: "string", minLength: 1, maxLength: 20000 },
+            recipients: {
+              type: "array",
+              maxItems: 100,
+              items: {
+                type: "object",
+                required: ["kind", "label"],
+                properties: {
+                  kind: { type: "string", enum: ["class", "teacher", "student", "parent", "staff"] },
+                  label: { type: "string", minLength: 1, maxLength: 200 },
+                },
+              },
+            },
+            discussion: { type: "string", maxLength: 300 },
+            dryRun: { type: "boolean", default: false },
+          },
+        },
+      },
+    },
+    async (request) => {
+      if (!request.body.dryRun && config.writeMode !== "live") throw new HttpError(403, "write_mode_simulate");
+      return teacher.sendMessage(requireSession(request), request.body);
+    },
   );
 }

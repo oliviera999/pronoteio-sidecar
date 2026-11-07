@@ -28,6 +28,9 @@ const ref = (editable = true, roomsEditable = true): LessonRef => ({
   notebookId: null,
   label: "MATHÉMATIQUES 3D",
   rooms: [{ N: "129#r1", L: "207" }],
+  place: 82,
+  duration: 2,
+  attendanceLocked: false,
 });
 
 test("rooms of the school are read from RessourceEDT and resolved by label", () => {
