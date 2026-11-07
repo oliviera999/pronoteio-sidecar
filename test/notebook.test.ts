@@ -33,6 +33,9 @@ const ref = (notebookPublished = false): LessonRef => ({
   notebookId: "18#x1",
   label: "",
   rooms: [{ N: "129#r1", L: "207" }],
+  place: 82,
+  duration: 2,
+  attendanceLocked: false,
 });
 
 test("a notebook entry is read with its contents and homework", () => {
