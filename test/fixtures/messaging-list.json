@@ -1,0 +1,236 @@
+{
+ "listeEtiquettes": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "Archives",
+    "N": "51#x41",
+    "G": 2
+   },
+   {
+    "L": "Brouillons",
+    "N": "51#x42",
+    "G": 4
+   },
+   {
+    "L": "Corbeille",
+    "N": "51#x43",
+    "G": 5
+   },
+   {
+    "L": "Tchat",
+    "N": "51#x44",
+    "G": 13
+   },
+   {
+    "L": "Alerte",
+    "N": "51#x45",
+    "G": 11
+   },
+   {
+    "L": "Contact vie scolaire",
+    "N": "51#x46",
+    "G": 12
+   },
+   {
+    "L": "Bleu",
+    "N": "51#x47",
+    "G": 7,
+    "abr": "B",
+    "couleur": "#3498DB",
+    "estPerso": true
+   },
+   {
+    "L": "Rouge",
+    "N": "51#x48",
+    "G": 9,
+    "abr": "R",
+    "couleur": "#E55039",
+    "estPerso": true
+   },
+   {
+    "L": "Vert",
+    "N": "51#x49",
+    "G": 8,
+    "abr": "V",
+    "couleur": "#57C16E",
+    "estPerso": true
+   }
+  ]
+ },
+ "listeMessagerie": {
+  "_T": 24,
+  "V": [
+   {
+    "N": "0",
+    "estUneDiscussion": true,
+    "nombreMessages": 2,
+    "objet": "Motivation",
+    "listePossessionsMessages": {
+     "_T": 24,
+     "V": [
+      {
+       "N": "108#x50"
+      },
+      {
+       "N": "108#x51"
+      }
+     ]
+    },
+    "avecReponse": true,
+    "messagePourParticipants": {
+     "_T": 24,
+     "V": {
+      "N": "85#x52"
+     }
+    },
+    "nbNonLus": 1,
+    "nbPublic": 3,
+    "dernierPossessionMessage": {
+     "_T": 24,
+     "V": {
+      "N": "108#x51"
+     }
+    },
+    "fermable": true,
+    "dateActivite": {
+     "_T": 7,
+     "V": "24/11/2022"
+    },
+    "messageFenetre": {
+     "_T": 24,
+     "V": {
+      "N": "85#x52",
+      "G": 0
+     }
+    },
+    "avecIODicussion": true,
+    "avecModifObjet": true,
+    "libelleDate": "24/11/22",
+    "estNonPossede": false,
+    "profondeur": 0
+   },
+   {
+    "N": "0",
+    "estUneDiscussion": true,
+    "nombreMessages": 1,
+    "objet": "Motivation",
+    "listePossessionsMessages": {
+     "_T": 24,
+     "V": [
+      {
+       "N": "108#x50"
+      }
+     ]
+    },
+    "messagePourParticipants": {
+     "_T": 24,
+     "V": {
+      "N": "85#x53"
+     }
+    },
+    "nbNonLus": 1,
+    "public": "M. PARENT F. - ELEVE Un (3A)",
+    "libelleDate": "24/11/22",
+    "estNonPossede": false,
+    "indicePere": 0,
+    "profondeur": 1
+   },
+   {
+    "N": "85#x53",
+    "listePossessionsMessages": {
+     "_T": 24,
+     "V": [
+      {
+       "N": "108#x50"
+      }
+     ]
+    },
+    "estNonPossede": false,
+    "indicePere": 1,
+    "profondeur": 2
+   },
+   {
+    "N": "85#x52",
+    "listePossessionsMessages": {
+     "_T": 24,
+     "V": [
+      {
+       "N": "108#x51"
+      }
+     ]
+    },
+    "estNonPossede": false,
+    "indicePere": 0,
+    "profondeur": 1
+   },
+   {
+    "N": "0",
+    "estUneDiscussion": true,
+    "nombreMessages": 3,
+    "objet": "Motivation",
+    "listePossessionsMessages": {
+     "_T": 24,
+     "V": [
+      {
+       "N": "108#x54"
+      },
+      {
+       "N": "108#x55"
+      },
+      {
+       "N": "108#x56"
+      }
+     ]
+    },
+    "avecReponse": true,
+    "messagePourParticipants": {
+     "_T": 24,
+     "V": {
+      "N": "85#x57"
+     }
+    },
+    "public": "M. PARENT F. - ELEVE Un (3A)",
+    "dernierPossessionMessage": {
+     "_T": 24,
+     "V": {
+      "N": "108#x56"
+     }
+    },
+    "fermable": true,
+    "dateActivite": {
+     "_T": 7,
+     "V": "24/11/2022"
+    },
+    "messageFenetre": {
+     "_T": 24,
+     "V": {
+      "N": "85#x57",
+      "G": 0
+     }
+    },
+    "avecIODicussion": true,
+    "avecModifObjet": true,
+    "lu": true,
+    "libelleDate": "24/11/22",
+    "estNonPossede": false,
+    "profondeur": 0
+   },
+   {
+    "N": "85#x58",
+    "listePossessionsMessages": {
+     "_T": 24,
+     "V": [
+      {
+       "N": "108#x54"
+      }
+     ]
+    },
+    "estNonPossede": false,
+    "indicePere": 4,
+    "profondeur": 1
+   }
+  ]
+ },
+ "messagerieDesactivee": true
+}

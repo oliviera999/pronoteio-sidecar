@@ -5,11 +5,19 @@ import type { Assessment, Grade } from "../normalise.js";
 import { GRADE_STATUS } from "../pronote/encoding.js";
 import { requireSession } from "../session.js";
 import * as teacher from "../teacher/index.js";
+import { periodClassesQuery } from "./competencies.js";
+import { classesOf } from "./notebook.js";
 
 type PushBody = { service: string; period: string; assessment: Assessment; grades: Grade[]; dryRun?: boolean };
 
 export default async function gradesRoutes(app: FastifyInstance): Promise<void> {
   app.get("/grades/context", async (request) => teacher.gradeContext(requireSession(request)));
+
+  app.get<{ Querystring: { period?: string; classes?: string } }>(
+    "/grades/overview",
+    { schema: { querystring: periodClassesQuery } },
+    async (request) => teacher.gradeOverview(requireSession(request), request.query.period ?? "", classesOf(request.query.classes)),
+  );
 
   app.post<{ Body: PushBody }>(
     "/grades",
