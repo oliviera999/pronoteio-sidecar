@@ -127,7 +127,7 @@ export const callPronote = async (session, call) => {
         if (decoded?.[keys.signature]?.Erreur !== undefined) {
             throw new ServerSideError(String(decoded[keys.signature].MessageErreur ?? "Server Error"));
         }
-        const refusal = entryRefusal(decoded?.[keys.data]);
+        const refusal = call.keepRefusal ? null : entryRefusal(entryReport(decoded, keys.data));
         if (refusal !== null)
             throw new ServerSideError(refusal);
         return decoded;
@@ -139,7 +139,8 @@ export const callPronote = async (session, call) => {
  * empty "data" to an ignored write, so this is the only explicit signal besides re-reading.
  */
 export const entryRefusal = (data) => {
-    const report = data?.RapportSaisie;
+    const holder = data;
+    const report = holder && typeof holder === "object" && "RapportSaisie" in holder ? holder.RapportSaisie : holder;
     if (!report || typeof report !== "object")
         return null;
     const messages = listOf(report._messagesErreur_).map((item) => typeof item === "string" ? item : String(item?.L ?? "")).filter(Boolean);
@@ -147,6 +148,17 @@ export const entryRefusal = (data) => {
         return null;
     const title = String(report.titre_Messages_Erreur ?? "").trim();
     return [title, ...messages].filter(Boolean).join(" : ") || "Saisie refusée par Pronote";
+};
+/**
+ * "RapportSaisie" of a decoded answer: the web client reads it at the root of the decoded envelope
+ * (ObjetRequeteJSON: this._jsonRacine.RapportSaisie); it is also looked for inside "data" to be safe.
+ */
+export const entryReport = (decoded, dataKey = "data") => {
+    const root = decoded?.RapportSaisie;
+    if (root && typeof root === "object")
+        return root;
+    const inner = decoded?.[dataKey]?.RapportSaisie;
+    return inner && typeof inner === "object" ? inner : null;
 };
 /** "data" member of a decoded answer, whatever the Pronote version. */
 export const answerData = (session, answer) => answer[propertyKeys(session).data] ?? {};

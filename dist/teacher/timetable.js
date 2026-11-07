@@ -76,9 +76,21 @@ export const lessonFromPage = (session, cours, week) => {
         hasNotebook: cours.AvecCdT === true,
         notebookPublished: cours.AvecCdTPublie === true,
         attendanceDone: cours.AppelFait === true,
+        editable: cours.modifiable === true,
+        roomsEditable: cours.modifiable === true && cours.ressourcesModifiables === true,
     };
     const notebook = cours.cahierDeTextes?.V?.N;
-    return { lesson, pronoteId: cours.N, week, notebookId: typeof notebook === "string" ? notebook : null };
+    const rooms = contents
+        .filter((item) => Number(item?.G) === GENRE_ROOM && typeof item?.N === "string")
+        .map((item) => ({ N: String(item.N), L: String(item.L ?? "").trim() }));
+    return {
+        lesson,
+        pronoteId: cours.N,
+        week,
+        notebookId: typeof notebook === "string" ? notebook : null,
+        label: typeof cours.L === "string" ? cours.L : "",
+        rooms,
+    };
 };
 /** Statut of a lesson (typestatutcours.js): 0 normal, 1 class council, 2 replacement, 3 history, 4 substitute. */
 export const statusLabel = (status) => {

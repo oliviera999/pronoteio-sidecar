@@ -6,6 +6,8 @@ export { absences } from "./absences.js";
 export { assessments } from "./assessments.js";
 export { context as gradeContext, push as pushGrades } from "./grades.js";
 export { notebook } from "./notebook.js";
+export { writeNotebook } from "./notebookWrite.js";
+export { changeLesson } from "./lessonWrite.js";
 export { resources, roster } from "./roster.js";
 export { reportContext, reports } from "./reports.js";
 export { lessons } from "./timetable.js";

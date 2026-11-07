@@ -29,6 +29,10 @@ const defaults = {
     lessonSettings: { name: "PageSaisieCahierDeTextes_General", onglet: 28 },
     writtenTestsList: { name: "ListeDevoirSurTable", onglet: 154 },
     classNotebook: { name: "PageCahierDeTexte", onglet: 89 },
+    notebookSave: { name: "SaisieCahierDeTextes", onglet: 28 },
+    assessmentPlanning: { name: "ProgrammerDevoirEvaluationCDT", onglet: 28 },
+    lessonSave: { name: "SaisieCours", onglet: 16 },
+    timetableResources: { name: "RessourceEDT", onglet: 16 },
 };
 const load = () => {
     const file = process.env.PRONOTEIO_FUNCTIONS_FILE;

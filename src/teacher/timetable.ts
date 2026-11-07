@@ -28,7 +28,16 @@ export const MAX_WEEKS = 9;
 const DEFAULT_BLOCK_MINUTES = 55;
 
 /** Lesson with the session-bound data needed by the next calls (never sent back to Moodle). */
-export type LessonRef = { lesson: TeacherLesson; pronoteId: string; week: number; notebookId: string | null };
+export type LessonRef = {
+  lesson: TeacherLesson;
+  pronoteId: string;
+  week: number;
+  notebookId: string | null;
+  /** Label of the lesson in Pronote (cours.L), when sent. */
+  label: string;
+  /** Rooms of the lesson with their session-bound identifiers (SaisieCours: ressourcesRemplacees). */
+  rooms: { N: string; L: string }[];
+};
 
 const pad = (value: number) => String(value).padStart(2, "0");
 const dayKey = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -84,9 +93,21 @@ export const lessonFromPage = (session: SessionHandle, cours: any, week: number)
     hasNotebook: cours.AvecCdT === true,
     notebookPublished: cours.AvecCdTPublie === true,
     attendanceDone: cours.AppelFait === true,
+    editable: cours.modifiable === true,
+    roomsEditable: cours.modifiable === true && cours.ressourcesModifiables === true,
   };
   const notebook = cours.cahierDeTextes?.V?.N;
-  return { lesson, pronoteId: cours.N, week, notebookId: typeof notebook === "string" ? notebook : null };
+  const rooms = contents
+    .filter((item) => Number(item?.G) === GENRE_ROOM && typeof item?.N === "string")
+    .map((item) => ({ N: String(item.N), L: String(item.L ?? "").trim() }));
+  return {
+    lesson,
+    pronoteId: cours.N,
+    week,
+    notebookId: typeof notebook === "string" ? notebook : null,
+    label: typeof cours.L === "string" ? cours.L : "",
+    rooms,
+  };
 };
 
 /** Statut of a lesson (typestatutcours.js): 0 normal, 1 class council, 2 replacement, 3 history, 4 substitute. */
