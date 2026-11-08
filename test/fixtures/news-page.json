@@ -1,0 +1,375 @@
+{
+ "listeNatures": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "Sorties",
+    "N": "70#x1",
+    "estDefaut": false
+   },
+   {
+    "L": "Sports",
+    "N": "70#x2",
+    "estDefaut": false
+   },
+   {
+    "L": "Arts",
+    "N": "70#x3",
+    "estDefaut": false
+   },
+   {
+    "L": "Divers",
+    "N": "70#x4",
+    "estDefaut": true
+   },
+   {
+    "L": "Stage",
+    "N": "70#x5",
+    "estDefaut": false
+   },
+   {
+    "L": "Administration",
+    "N": "70#x6",
+    "estDefaut": false
+   },
+   {
+    "L": "Vie scolaire",
+    "N": "70#x7",
+    "estDefaut": false
+   },
+   {
+    "L": "Autorisation de sortie",
+    "N": "70#x8",
+    "estDefaut": false
+   },
+   {
+    "L": "GEVA-Sco",
+    "N": "70#x9",
+    "estDefaut": false
+   }
+  ]
+ },
+ "listeCategories": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "Bleu",
+    "N": "51#x10",
+    "G": 7,
+    "abr": "B",
+    "couleur": "#3498DB",
+    "estPerso": true
+   },
+   {
+    "L": "Rouge",
+    "N": "51#x11",
+    "G": 9,
+    "abr": "R",
+    "couleur": "#E55039",
+    "estPerso": true
+   },
+   {
+    "L": "Vert",
+    "N": "51#x12",
+    "G": 8,
+    "abr": "V",
+    "couleur": "#57C16E",
+    "estPerso": true
+   }
+  ]
+ },
+ "listeModesAff": [
+  {
+   "G": 0,
+   "listeActualites": {
+    "_T": 24,
+    "V": []
+   }
+  },
+  {
+   "G": 1,
+   "listeActualites": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "SVT",
+      "N": "65#x13",
+      "reponseAnonyme": false,
+      "estInformation": true,
+      "estSondage": false,
+      "nature": {
+       "_T": 24,
+       "V": {
+        "L": "Sorties",
+        "N": "70#x1"
+       }
+      },
+      "lue": false,
+      "dateDebut": {
+       "_T": 7,
+       "V": "17/01/2018"
+      },
+      "dateFin": {
+       "_T": 7,
+       "V": "28/01/2019"
+      },
+      "estProlonge": false,
+      "dateCreation": {
+       "_T": 7,
+       "V": "04/09/2018"
+      },
+      "auteur": "M. PROFESSEUR M.",
+      "estAuteur": true,
+      "elmauteur": {
+       "_T": 24,
+       "V": {
+        "L": "M. PROFESSEUR M.",
+        "N": "109#x14",
+        "G": 3,
+        "avecDiscussion": true
+       }
+      },
+      "publie": true,
+      "detailPublicSuccinct": "3A (Responsables > Un envoi par responsable)",
+      "etatPublication": 2,
+      "date": "Du 17/01/2018 00h00 au 28/01/2019 00h00",
+      "listeIndividusPartage": {
+       "_T": 24,
+       "V": []
+      },
+      "estVerrouille": true,
+      "avecDirecteur": false,
+      "nbIndividusSansReponses": 41,
+      "pourcentRepondu": 21,
+      "public": {
+       "_T": 24,
+       "V": {
+        "L": "M. PROFESSEUR M.",
+        "N": "109#x14",
+        "G": 3
+       }
+      },
+      "genrePublic": 0,
+      "estPublic": false,
+      "estPartage": false,
+      "listeCategories": {
+       "_T": 24,
+       "V": []
+      },
+      "informationListeContenu": {
+       "avecPJ": false,
+       "aToutRepondu": false,
+       "avecCommandeVisuResultat": true
+      }
+     },
+     {
+      "L": "Autorisation de voyage scolaire à Verdun",
+      "N": "65#x15",
+      "reponseAnonyme": false,
+      "estInformation": false,
+      "estSondage": true,
+      "nature": {
+       "_T": 24,
+       "V": {
+        "L": "Autorisation de sortie",
+        "N": "70#x8"
+       }
+      },
+      "lue": false,
+      "dateDebut": {
+       "_T": 7,
+       "V": "20/10/2023"
+      },
+      "dateFin": {
+       "_T": 7,
+       "V": "11/11/2023"
+      },
+      "estProlonge": false,
+      "dateCreation": {
+       "_T": 7,
+       "V": "20/10/2023 15:03:52"
+      },
+      "auteur": "SUPERVISEUR",
+      "estAuteur": false,
+      "elmauteur": {
+       "_T": 24,
+       "V": {
+        "L": "SUPERVISEUR (Proviseur)",
+        "N": "106#x16",
+        "G": 34,
+        "avecDiscussion": true
+       }
+      },
+      "publie": true,
+      "detailPublicSuccinct": "4 Classes (Responsables > Un envoi par responsable)",
+      "etatPublication": 2,
+      "date": "Du 20/10/2023 00h00 au 11/11/2023 00h00",
+      "listeIndividusPartage": {
+       "_T": 24,
+       "V": [
+        {
+         "L": "M. LACAZE H.",
+         "N": "109#x17",
+         "G": 3
+        },
+        {
+         "L": "M. PROFESSEUR M.",
+         "N": "109#x14",
+         "G": 3
+        },
+        {
+         "L": "Mme ALVAREZ S.",
+         "N": "109#x18",
+         "G": 3
+        }
+       ]
+      },
+      "estVerrouille": true,
+      "avecDirecteur": false,
+      "nbIndividusSansReponses": 183,
+      "pourcentRepondu": 1,
+      "public": {
+       "_T": 24,
+       "V": {
+        "L": "M. PROFESSEUR M.",
+        "N": "109#x14",
+        "G": 3
+       }
+      },
+      "genrePublic": 0,
+      "estPublic": false,
+      "estPartage": true,
+      "listeCategories": {
+       "_T": 24,
+       "V": []
+      },
+      "informationListeContenu": {
+       "avecPJ": false,
+       "aToutRepondu": false,
+       "avecCommandeVisuResultat": false
+      }
+     }
+    ]
+   }
+  },
+  {
+   "G": 2,
+   "listeActualites": {
+    "_T": 24,
+    "V": []
+   }
+  },
+  {
+   "G": 3,
+   "listeActualites": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "Autorisation de voyage scolaire",
+      "N": "65#x19",
+      "reponseAnonyme": false,
+      "estInformation": false,
+      "estSondage": true,
+      "nature": {
+       "_T": 24,
+       "V": {
+        "L": "Autorisation de sortie",
+        "N": "70#x8"
+       }
+      },
+      "lue": false,
+      "dateDebut": {
+       "_T": 7,
+       "V": "29/08/2023"
+      },
+      "dateFin": {
+       "_T": 7,
+       "V": "27/08/2024"
+      },
+      "estProlonge": false,
+      "dateCreation": {
+       "_T": 7,
+       "V": "06/07/2023 17:08:40"
+      },
+      "auteur": "Index I.",
+      "estAuteur": false,
+      "estModele": true,
+      "public": {
+       "_T": 24,
+       "V": {
+        "L": "M. PROFESSEUR M.",
+        "N": "109#x14",
+        "G": 3
+       }
+      },
+      "genrePublic": 0,
+      "estPublic": false,
+      "estPartage": true,
+      "listeCategories": {
+       "_T": 24,
+       "V": []
+      },
+      "informationListeContenu": {
+       "avecPJ": false,
+       "aToutRepondu": false,
+       "avecCommandeVisuResultat": false
+      }
+     },
+     {
+      "L": "Questionnaire fin de chapitre  #00",
+      "N": "65#x20",
+      "reponseAnonyme": false,
+      "estInformation": false,
+      "estSondage": true,
+      "nature": {
+       "_T": 24,
+       "V": {
+        "L": "Divers",
+        "N": "70#x4"
+       }
+      },
+      "lue": false,
+      "dateDebut": {
+       "_T": 7,
+       "V": "21/11/2023"
+      },
+      "dateFin": {
+       "_T": 7,
+       "V": "12/12/2023"
+      },
+      "estProlonge": false,
+      "dateCreation": {
+       "_T": 7,
+       "V": "21/11/2023 16:05:20"
+      },
+      "auteur": "M. PROFESSEUR M.",
+      "estAuteur": true,
+      "estModele": true,
+      "public": {
+       "_T": 24,
+       "V": {
+        "L": "M. PROFESSEUR M.",
+        "N": "109#x14",
+        "G": 3
+       }
+      },
+      "genrePublic": 0,
+      "estPublic": false,
+      "estPartage": false,
+      "listeCategories": {
+       "_T": 24,
+       "V": []
+      },
+      "informationListeContenu": {
+       "avecPJ": false,
+       "aToutRepondu": false,
+       "avecCommandeVisuResultat": false
+      }
+     }
+    ]
+   }
+  }
+ ],
+ "messagerieDesactivee": true,
+ "genreRequeteActualite": 0
+}

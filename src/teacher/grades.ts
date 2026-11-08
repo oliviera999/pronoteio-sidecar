@@ -10,9 +10,20 @@
 import type { SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
 import { answerData, callPronote } from "../pronote/request.js";
-import { gradeValue, listOf, pronoteDate, pronoteNumber } from "../pronote/encoding.js";
+import { GRADE_STATUS, gradeValue, listOf, parsePronoteDate, pronoteDate, pronoteNumber, type GradeStatus } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
-import type { Assessment, Grade, GradeContext, PushResult, Service } from "../normalise.js";
+import {
+  matchesLabels,
+  seconds,
+  type Assessment,
+  type Grade,
+  type GradeContext,
+  type GradeOverview,
+  type OverviewAssessment,
+  type OverviewService,
+  type PushResult,
+  type Service,
+} from "../normalise.js";
 import { requireFunction, type FunctionKey } from "./functions.js";
 import { resolve, stableId, stableIds } from "./ids.js";
 
@@ -47,7 +58,7 @@ const normaliseDay = (value: unknown) => {
 
 export const periodKey = (period: Element) => String(period.L ?? "");
 export const resourceOf = (service: Element): Element | undefined => service.classe?.V ?? service.groupe?.V;
-const serviceKey = (service: Element) => `${service.matiere?.V?.L ?? service.L ?? ""}|${resourceOf(service)?.L ?? ""}`;
+export const serviceKey = (service: Element) => `${service.matiere?.V?.L ?? service.L ?? ""}|${resourceOf(service)?.L ?? ""}`;
 const studentKey = (student: Element) => String(student.L ?? "");
 const assessmentKey = (assessment: Element) => `${normaliseDay(assessment.date?.V)}|${assessment.commentaire ?? ""}`;
 export const assessmentIdFor = (date: Date, title: string) => stableId("assessment", `${dayOf(date)}|${title.trim()}`);
@@ -305,4 +316,103 @@ export const push = async (
     else rejected.push({ studentid: item.studentid, reason: "not_saved" });
   }
   return { assessmentid: newId, written, rejected, dryRun: false };
+};
+
+/* ---- Lot 2 (0.7.0): overview of a period (every assessment and grade of the teacher's services) ---- */
+
+/** Status of a grade cell ("|1" → "abs"), "" for a value or an empty cell. */
+export const statusOf = (raw: string): GradeStatus => {
+  if (!raw.startsWith("|")) return "";
+  const code = Number(raw.slice(1));
+  const found = (Object.entries(GRADE_STATUS) as [GradeStatus, number][]).find(([, value]) => value === code);
+  return found ? found[0] : "";
+};
+
+/** Value of a grade cell ("12,5" → 12.5), null for a status or an empty cell. */
+export const valueOf = (raw: string): number | null => {
+  if (raw === "" || raw.startsWith("|")) return null;
+  const parsed = Number.parseFloat(raw.replace(/\s/g, "").replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const cell = (value: unknown): string => {
+  const raw = value !== null && typeof value === "object" && "V" in (value as object) ? (value as { V: unknown }).V : value;
+  return typeof raw === "string" ? raw.trim() : raw === undefined || raw === null ? "" : String(raw);
+};
+
+const numberOf = (value: unknown): number | null => valueOf(cell(value));
+
+/** Period of the grade entry: the one asked (stable id), else the current one, else the first. */
+export const pickPeriod = async (session: SessionHandle, periodId: string) => {
+  const { periods, current } = await loadPeriods(session);
+  const ids = stableIds("period", periods, periodKey);
+  const period = periodId ? resolve("period", periodId, periods, periodKey) : (current ?? periods[0] ?? null);
+  if (!period) throw new HttpError(404, "period_not_found");
+  return {
+    period,
+    periodId: ids[periods.indexOf(period)],
+    periods: periods.map((item, index) => ({ id: ids[index], name: String(item.L ?? ""), current: item === current })),
+  };
+};
+
+/** Assessments of a PageNotes answer ("data" member), with the grades of every student. */
+export const assessmentsFromPage = (page: Record<string, any>): OverviewAssessment[] => {
+  const subservices = new Map(listOf<Element>(page.service?.V?.listeServices).map((item) => [item.N, String(item.L ?? "")]));
+  const result: OverviewAssessment[] = [];
+  for (const devoir of listOf<Element>(page.listeDevoirs)) {
+    const date = parsePronoteDate(devoir.date?.V);
+    if (!date) continue;
+    const publication = parsePronoteDate(devoir.datePublication?.V);
+    const title = String(devoir.commentaire ?? "").trim();
+    result.push({
+      id: assessmentIdFor(date, title),
+      title,
+      date: seconds(date),
+      publication: publication ? seconds(publication) : null,
+      max: numberOf(devoir.bareme),
+      coefficient: numberOf(devoir.coefficient),
+      optional: devoir.commeUneNote === true,
+      bonus: devoir.commeUnBonus === true,
+      locked: devoir.verrouille === true,
+      hasGrades: devoir.existesDesNotes === true,
+      classAverage: numberOf(devoir.moyenneClasse ?? devoir.moyenne),
+      subservice: subservices.get(String(devoir.service?.V?.N ?? "")) ?? "",
+      grades: listOf<Element>(devoir.listeEleves).map((student) => {
+        const raw = cell(student.Note ?? student.note);
+        return {
+          student: String(student.L ?? "").trim(),
+          value: valueOf(raw),
+          status: statusOf(raw),
+          comment: cell(student.commentaire),
+        };
+      }),
+    });
+  }
+  return result.sort((a, b) => a.date - b.date || a.title.localeCompare(b.title));
+};
+
+/** Services, assessments and grades of a period for the teacher's classes (one PageNotes per service). */
+export const overview = async (session: SessionHandle, periodId = "", classes: string[] = []): Promise<GradeOverview> => {
+  const picked = await pickPeriod(session, periodId);
+  const all = await loadServices(session, picked.period);
+  const serviceIds = stableIds("service", all, serviceKey);
+  const services: OverviewService[] = [];
+  for (const [index, service] of all.entries()) {
+    const resourcename = String(resourceOf(service)?.L ?? "");
+    if (!matchesLabels([resourcename], classes)) continue;
+    const page = await call(session, "gradesPage", { service: ref(service), periode: ref(picked.period) });
+    const subject = String(service.matiere?.V?.L ?? service.L ?? "");
+    const type = resourceType(session, resourcename);
+    services.push({
+      id: serviceIds[index],
+      name: [subject, resourcename].filter(Boolean).join(" - "),
+      subject,
+      resourceid: stableId(type, resourcename),
+      resourcename,
+      type,
+      periods: [picked.periodId],
+      assessments: assessmentsFromPage(page),
+    });
+  }
+  return { periods: picked.periods, period: { id: picked.periodId, name: String(picked.period.L ?? "") }, services };
 };

@@ -3,8 +3,11 @@ import { HttpError } from "../errors.js";
 import { GRADE_STATUS } from "../pronote/encoding.js";
 import { requireSession } from "../session.js";
 import * as teacher from "../teacher/index.js";
+import { periodClassesQuery } from "./competencies.js";
+import { classesOf } from "./notebook.js";
 export default async function gradesRoutes(app) {
     app.get("/grades/context", async (request) => teacher.gradeContext(requireSession(request)));
+    app.get("/grades/overview", { schema: { querystring: periodClassesQuery } }, async (request) => teacher.gradeOverview(requireSession(request), request.query.period ?? "", classesOf(request.query.classes)));
     app.post("/grades", {
         schema: {
             body: {

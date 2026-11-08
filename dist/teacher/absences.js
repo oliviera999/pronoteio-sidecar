@@ -1,5 +1,5 @@
 /**
- * Absences of a class or group (read only).
+ * Absences and late arrivals of a class or group (read only).
  *
  * A teacher account has no access to the absence summary tabs (138, 155): only the call sheet of
  * its own lessons (tab 113, PageSaisieAbsences). The sidecar reads the call sheet of every lesson
@@ -13,8 +13,9 @@ import { seconds } from "../normalise.js";
 import { requireFunction } from "./functions.js";
 import { stableId } from "./ids.js";
 import { rosterEntries } from "./roster.js";
-/** Genre of an absence in ListeAbsences (14 = late arrival, 15 = infirmary...). */
+/** Genres in ListeAbsences: 13 absence, 14 late arrival (15 exclusion, 21 infirmary and 46 observation are ignored). */
 const GENRE_ABSENCE = 13;
+const GENRE_LATE = 14;
 /** Genre of a teacher resource. */
 const GENRE_TEACHER = 3;
 /** Absences of the call sheet answer that belong to the given students, keyed to be deduplicated. */
@@ -27,7 +28,7 @@ export const absencesFromCallSheet = (data, students) => {
     const result = [];
     for (const student of listOf(data?.ListeEleves)) {
         for (const item of listOf(student?.ListeAbsences)) {
-            if (item?.G !== GENRE_ABSENCE)
+            if (item?.G !== GENRE_ABSENCE && item?.G !== GENRE_LATE)
                 continue;
             const owner = item.eleve?.V ?? student;
             const entry = byPronoteId.get(String(owner?.N ?? "")) ?? byLabel.get(String(owner?.L ?? ""));
@@ -44,6 +45,7 @@ export const absencesFromCallSheet = (data, students) => {
                 end: seconds(end),
                 justified: item.justifie === true,
                 reason: listOf(item.listeMotifs).map((motif) => String(motif?.L ?? "")).filter(Boolean).join(", "),
+                kind: item.G === GENRE_LATE ? "late" : "absence",
             });
         }
     }
