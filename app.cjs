@@ -29,6 +29,27 @@ const patchPawnote = () => {
   return result.status === 0 ? null : `Pawnote patch failed (${output || result.error || "unknown error"})`;
 };
 
+// Passenger does not read the .env file of the application: when PRONOTEIO_SECRET is missing from the
+// environment (cPanel "Setup Node.js App" recreated without its variables), load the .env of the application
+// folder, as "npm run dev" does, without overriding variables already set. Values are never logged.
+const loadEnvFile = () => {
+  const path = require("path").join(__dirname, ".env");
+  if (!require("fs").existsSync(path)) return;
+  for (const rawLine of require("fs").readFileSync(path, "utf8").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const separator = line.indexOf("=");
+    if (separator <= 0) continue;
+    const key = line.slice(0, separator).trim().replace(/^export\s+/, "");
+    let value = line.slice(separator + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (key && process.env[key] === undefined) process.env[key] = value;
+  }
+};
+loadEnvFile();
+
 let patchError = null;
 if (Number(process.versions.node.split(".")[0]) < 20) {
   startupFailure(`Node.js ${process.versions.node} is too old: choose Node.js 20 or later in Setup Node.js App.`);
