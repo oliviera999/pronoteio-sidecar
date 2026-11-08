@@ -1,7 +1,7 @@
 import { HttpError } from "../errors.js";
 import { listOf, numberSet, pronoteDate } from "../pronote/encoding.js";
 import { normalise, } from "../normalise.js";
-import { callFunction } from "./functions.js";
+import { assertTabOpen, callFunction } from "./functions.js";
 import { findNews, newsPage, newsRowsOf, QUESTION_GENRES } from "./news.js";
 import { loadAllPublics, resolveRecipients } from "./recipients.js";
 import { sendWrite } from "./write.js";
@@ -28,7 +28,16 @@ const answerN = (value) => {
 };
 const html = (value) => ({ _T: TYPE_HTML, V: String(value ?? "") });
 /* ---- Answer to a received item ---- */
-export const isSurveyClosed = (item, now = new Date()) => item.locked || (item.end !== null && item.end * 1000 < now.getTime());
+/** A survey is closed when locked or once the day of dateFin is over (answers stay possible until 23:59:59). */
+export const isSurveyClosed = (item, now = new Date()) => {
+    if (item.locked)
+        return true;
+    if (item.end === null)
+        return false;
+    const endOfDay = new Date(item.end * 1000);
+    endOfDay.setHours(23, 59, 59, 999);
+    return now.getTime() > endOfDay.getTime();
+};
 /** SaisieActualites JSON of an answer (saisieActualite false), exactly Pawnote's newsRead / newsSurveySend. */
 export const newsResponseRequest = (row, response) => {
     const raw = row.raw;
@@ -93,6 +102,7 @@ export const plannedResponse = (item, response) => ({
     }),
 });
 export const writeNewsResponse = async (session, id, response, dryRun) => {
+    assertTabOpen(session, "newsSave");
     const page = await newsPage(session);
     const row = findNews(session, page, id);
     const answering = response.acknowledge === true || (response.answers?.length ?? 0) > 0;
@@ -181,14 +191,16 @@ export const audienceMembers = (write, audience) => {
 /** SaisieActualites JSON of a creation or a modification (publie always false). */
 export const newsSaveRequest = (write, existing, nature, audience) => {
     const kind = write.kind ?? (existing?.estSondage === true ? "survey" : "information");
+    // An information carries its text as its single "none" question: a new text replaces that question.
+    const textOnly = !write.questions?.length && kind === "information" && (write.text !== undefined || !existing);
     const questions = write.questions?.length
         ? write.questions
-        : kind === "information" && !existing ? [{ text: write.text ?? "", kind: "none" }] : [];
+        : textOnly ? [{ text: write.text ?? "", kind: "none" }] : [];
     const members = questions.map((question, index) => questionMember(question, index + 1, index === 0 ? write.attachments : []));
     const existingQuestions = listOf(existing?.listeQuestions);
-    const listeQuestions = existing && write.questions?.length
+    const listeQuestions = existing && members.length
         ? [...existingQuestions.map((question) => ({ ...question, E: STATE_DELETED })), ...members]
-        : existing && !write.questions?.length ? existingQuestions : members;
+        : existing ? existingQuestions : members;
     const start = write.start !== undefined ? pronoteDate(new Date(write.start * 1000)) : existing?.dateDebut ?? pronoteDate(new Date());
     const end = write.end === undefined ? existing?.dateFin ?? null : write.end === null ? null : pronoteDate(new Date(write.end * 1000));
     return {
@@ -210,7 +222,8 @@ export const newsSaveRequest = (write, existing, nature, audience) => {
                 reponseAnonyme: write.anonymous ?? existing?.reponseAnonyme === true,
                 publicationPageEtablissement: existing?.publicationPageEtablissement === true,
                 listeIndividusPartage: listOf(existing?.listeIndividusPartage).map((who) => ({ N: who?.N, G: who?.G })),
-                avecModificationPublic: true,
+                // Without an audience in the write, the public members read in the raw item (spread above) are kept as they are.
+                avecModificationPublic: Boolean(write.audience) || !existing,
                 ...(write.audience || !existing ? audienceMembers(write, audience) : {}),
                 listeQuestions,
                 listeDocuments: [],
@@ -277,15 +290,22 @@ const findOwn = (session, page, predicate) => {
     }
     return null;
 };
+/** Stable ids of the account's items (sent and drafts) in a page, for the before/after proof. */
+const ownIds = (session, page) => new Set(["sent", "drafts"].flatMap((scope) => newsRowsOf(session, page, scope).map((row) => row.item.id)));
 export const writeNews = async (session, write, dryRun) => {
+    assertTabOpen(session, "newsSave");
     const page = await newsPage(session);
+    const idsBefore = ownIds(session, page);
     let before = null;
     if (write.mode !== "create") {
         if (!write.id)
-            throw new HttpError(400, "news_id_required");
+            throw new HttpError(400, "invalid_request:news_id_required");
         before = findOwn(session, page, (row) => row.item.id === write.id);
         if (!before)
             throw new HttpError(404, "news_not_found");
+        // An item shared by a colleague is listed with one's own: only the author may change it.
+        if (!before.item.mine)
+            throw new HttpError(409, "pronote_refused:Information d'un autre auteur");
         if (before.item.locked)
             throw new HttpError(409, "news_locked");
     }
@@ -299,11 +319,11 @@ export const writeNews = async (session, write, dryRun) => {
         limits.maxAnswer = integer(init?.tailleMaxReponse);
         const title = String(write.title ?? before?.item.title ?? "").trim();
         if (!title)
-            throw new HttpError(400, "title_required");
+            throw new HttpError(400, "invalid_request:title_required");
         if (limits.maxTitle !== null && title.length > limits.maxTitle)
-            throw new HttpError(400, "title_too_long");
+            throw new HttpError(400, "invalid_request:title_too_long");
         if (write.mode === "create" && (write.kind === "survey" ? !write.questions?.length : !write.text && !write.questions?.length))
-            throw new HttpError(400, "content_required");
+            throw new HttpError(400, "invalid_request:content_required");
         const audience = await resolveAudience(session, write.audience);
         if (write.mode === "create" && audience.entities.length === 0 && audience.individuals.length === 0)
             throw new HttpError(400, "audience_required");
@@ -328,17 +348,35 @@ export const writeNews = async (session, write, dryRun) => {
                 state: write.mode === "publish" ? "published" : write.template || before?.item.state === "template" ? "template" : "draft",
                 scope: write.mode === "publish" ? "sent" : before?.item.scope ?? "drafts",
                 mine: true,
+                audience: write.audience
+                    ? {
+                        classes: write.audience.classes ?? [],
+                        groups: write.audience.groups ?? [],
+                        students: write.audience.students === true,
+                        parents: write.audience.parents ?? "none",
+                        mainTeachers: write.audience.mainTeachers === true,
+                        tutors: write.audience.tutors === true,
+                        individuals: (write.audience.individuals ?? []).map((item) => ({ label: item.label, kind: item.kind })),
+                    }
+                    : before?.item.audience ?? null,
             };
         return { before: before?.item ?? null, after: planned, written: false, dryRun: true, request, irreversible, limits, audienceCount, validated: false };
     }
     await sendWrite(session, "newsSave", request);
     const reread = await newsPage(session);
-    const found = findOwn(session, reread, (row) => normalise(row.item.title) === title && row.item.mine);
+    const idsAfter = ownIds(session, reread);
     if (write.mode === "delete") {
-        if (found)
+        // Proof by the stable id: the deleted item must have left the account's lists (a colleague's item never counts).
+        if (idsAfter.has(before.item.id))
             throw new HttpError(502, "news_not_saved");
         return { before: before.item, after: null, written: true, dryRun: false, request, irreversible, limits, audienceCount, validated: false };
     }
+    // Creation: an item of the account absent before the write; modification: the same id, or a new id when the start
+    // date changed (the id is built on title and start date), never a pre-existing item with the same title.
+    const found = write.mode === "create"
+        ? findOwn(session, reread, (row) => row.item.mine && !idsBefore.has(row.item.id) && normalise(row.item.title) === title)
+        : findOwn(session, reread, (row) => row.item.id === before.item.id)
+            ?? (write.mode === "update" ? findOwn(session, reread, (row) => row.item.mine && !idsBefore.has(row.item.id) && normalise(row.item.title) === title) : null);
     if (!found)
         throw new HttpError(502, "news_not_saved");
     if (write.mode === "publish" && !found.item.published)
@@ -371,5 +409,6 @@ const emptyItem = (title) => ({
     withoutAnswer: null,
     answeredPercent: null,
     questions: [],
+    audience: null,
 });
 //# sourceMappingURL=newsWrite.js.map

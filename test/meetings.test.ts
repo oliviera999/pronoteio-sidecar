@@ -78,7 +78,7 @@ test("meeting wishes: SaisieRencontreDesiderata and SaisieRencontreIndisponibili
   assert.deepEqual(unavailabilityRequest("150#s1", [206, 204, 206]), { session: { N: "150#s1" }, indisponibilites: { _T: 26, V: "[204,206]" } });
   assert.deepEqual(wishesRequest("150#s1", [{ N: "151#r1", duree: 10, voeu: 2, validationvoeu: true }]).listeRencontres, [{ N: "151#r1", duree: 10, voeu: 2, validationvoeu: true }]);
   const session = fakeSession({ SessionRencontres: () => data.sessions, RencontresParentsProfs: () => data.details });
-  rememberUserData(session, { tabs: [90] });
+  rememberUserData(session, { tabs: [90, 91, 92] });
   const id = "mt:Rencontres parents-professeurs 3e|12/12/2026";
   const result = await writeMeetingWishes(session, id, { wishes: [{ id: "w2", wish: 2, duration: 20 }], unavailability: [204, 210] }, true);
   assert.equal(result.written, false);
@@ -96,7 +96,42 @@ test("meeting wishes: SaisieRencontreDesiderata and SaisieRencontreIndisponibili
   await assert.rejects(writeMeetingWishes(session, id, { wishes: [{ id: "w9", wish: 1 }] }, true), /wish_not_found/);
   await assert.rejects(writeMeetingWishes(session, "mt:absente|x", { unavailability: [] }, true), /session_not_found/);
   const closed = fakeSession({ SessionRencontres: () => data.sessions, RencontresParentsProfs: () => data.closed });
-  rememberUserData(closed, { tabs: [90] });
+  rememberUserData(closed, { tabs: [90, 91, 92] });
   await assert.rejects(writeMeetingWishes(closed, id, { unavailability: [204] }, true), /meeting_entry_closed/);
   assert.ok(session.calls.every((call) => !call.name.startsWith("Saisie")), "dryRun writes nothing");
+  const noTab = fakeSession({ SessionRencontres: () => data.sessions, RencontresParentsProfs: () => data.details });
+  rememberUserData(noTab, { tabs: [90] });
+  await assert.rejects(writeMeetingWishes(noTab, id, { unavailability: [204] }, true), /tab_closed:SaisieRencontreIndisponibilites/);
+  await assert.rejects(writeMeetingWishes(noTab, id, { wishes: [{ id: "w1", wish: 2 }] }, true), /tab_closed:SaisieRencontreDesiderata/);
+  assert.equal(noTab.calls.length, 0, "refused before any call");
+});
+
+test("clearing a wish (null) is proved by a voeu 0 read back; unavailability is proved by set equality, an empty set included", async () => {
+  const id = "mt:Rencontres parents-professeurs 3e|12/12/2026";
+  let details = structuredClone(data.details);
+  const session = fakeSession({
+    SessionRencontres: () => data.sessions,
+    RencontresParentsProfs: () => details,
+    SaisieRencontreDesiderata: (sent) => {
+      const [rencontre] = sent!.listeRencontres as any[];
+      details.desiderata.listeRencontres.V[0] = { ...details.desiderata.listeRencontres.V[0], voeu: rencontre.voeu, duree: rencontre.duree };
+      return {};
+    },
+    SaisieRencontreIndisponibilites: (sent) => {
+      details.indisponibilites.placesIndisponibilitesPersonnelles = sent!.indisponibilites;
+      return {};
+    },
+  });
+  rememberUserData(session, { tabs: [90, 91, 92] });
+  const cleared = await writeMeetingWishes(session, id, { wishes: [{ id: "w1", wish: null }] }, false);
+  assert.equal(cleared.written, true);
+  assert.equal(cleared.after.wishes[0].wish, 0, "Pronote reads a cleared wish back as 0");
+  const emptied = await writeMeetingWishes(session, id, { unavailability: [] }, false);
+  assert.equal(emptied.written, true);
+  assert.deepEqual(emptied.after.unavailability.mine, []);
+  // An ignored write ({}) that leaves the old set in place is not accepted as a proof.
+  details = structuredClone(data.details);
+  const ignoring = fakeSession({ SessionRencontres: () => data.sessions, RencontresParentsProfs: () => details, SaisieRencontreIndisponibilites: () => ({}) });
+  rememberUserData(ignoring, { tabs: [90, 91, 92] });
+  await assert.rejects(writeMeetingWishes(ignoring, id, { unavailability: [204] }, false), /wishes_not_saved/, "[204] is included in [204,205] but not equal");
 });

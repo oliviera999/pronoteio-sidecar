@@ -1,12 +1,14 @@
 import { HttpError } from "../errors.js";
 import { listOf, parsePronoteDate } from "../pronote/encoding.js";
 import { seconds, } from "../normalise.js";
-import { callFunction } from "./functions.js";
+import { isAccessDenied } from "./competencies.js";
+import { callFunction, functions } from "./functions.js";
 import { stableIds } from "./ids.js";
 import { attachmentsOf } from "./notebook.js";
 export { news, newsFromAnswer } from "./news.js";
 /** Genres of the messaging labels (listeEtiquettes[].G). */
 const LABEL_FOLDERS = { 1: "inbox", 2: "archive", 3: "sent", 4: "drafts", 5: "trash" };
+const FOLDER_PRIORITY = { inbox: 0, sent: 1, drafts: 2, archive: 3, trash: 4 };
 /** TypeHttpRessource of a participant → kind. */
 const PARTICIPANT_KINDS = { 1: "class", 2: "group", 3: "teacher", 4: "student", 5: "parent", 34: "staff" };
 export const participantKind = (genre) => PARTICIPANT_KINDS[Number(genre)] ?? "unknown";
@@ -36,11 +38,13 @@ export const discussionsFromAnswer = (data) => {
     };
     const ids = stableIds("discussion", roots, (row) => `${String(row?.objet ?? "")}|${String(row?.dateActivite?.V ?? "")}`);
     const rows = roots.map((row, index) => {
+        // A row may carry several labels: the most specific folder wins (trash > archive > drafts > sent > inbox).
         let folder = "inbox";
         for (const label of listOf(row?.listeEtiquettes)) {
             const genre = labels.get(String(label?.N ?? "")) ?? Number(label?.G ?? 0);
-            if (LABEL_FOLDERS[genre])
-                folder = LABEL_FOLDERS[genre];
+            const candidate = LABEL_FOLDERS[genre];
+            if (candidate && FOLDER_PRIORITY[candidate] > FOLDER_PRIORITY[folder])
+                folder = candidate;
         }
         const date = parsePronoteDate(row?.dateActivite?.V);
         const participantsMessage = row?.messagePourParticipants?.V?.N ?? row?.messagePourParticipants?.N;
@@ -88,12 +92,19 @@ export const messagesRequest = (possessions) => ({
     nbMessagesVus: 0,
     estNonPossede: false,
 });
-/** Whether a ListeMessages answer offers a reply button and a message to answer. */
-export const canReplyFrom = (data) => {
-    const button = listOf(data?.listeBoutons).find((item) => typeof item?.G === "number");
-    const target = data?.messagePourReponse?.V ?? data?.messagePourReponse;
-    return Boolean(button && target?.N);
+/** Send button of a ListeMessages answer: the one labelled "Envoyer…", else the first with a genre; null when none. */
+export const replyButton = (data) => {
+    const buttons = listOf(data?.listeBoutons).filter((item) => typeof item?.G === "number");
+    const button = buttons.find((item) => /^envoyer/i.test(String(item?.L ?? "").trim())) ?? buttons[0];
+    return button ? { G: Number(button.G), L: String(button.L ?? "") } : null;
 };
+/** Message to answer in a discussion (messagePourReponse.N), "" when none. */
+export const replyTarget = (data) => {
+    const target = data?.messagePourReponse?.V ?? data?.messagePourReponse;
+    return typeof target?.N === "string" ? target.N : "";
+};
+/** Whether a ListeMessages answer offers a reply button and a message to answer. */
+export const canReplyFrom = (data) => replyButton(data) !== null && replyTarget(data) !== "";
 /** Participants of a discussion (SaisiePublicMessage); [] when the call fails or the discussion has no message. */
 export const participantsDetail = async (session, messageN) => {
     if (!messageN)
@@ -173,7 +184,16 @@ export const reopensAt = (prefs, now = new Date()) => {
 export const messagingPreferences = async (session, now = new Date()) => {
     const { disabled } = await listDiscussions(session);
     // Request data of PreferenceMessagerie not captured: sent empty (not validated on a real server).
-    const prefs = preferencesFromAnswer(await callFunction(session, "messagingPreferences", {}));
+    let prefs;
+    try {
+        prefs = preferencesFromAnswer(await callFunction(session, "messagingPreferences", {}));
+    }
+    catch (error) {
+        // A refusal must not look like a server failure (Moodle would fall back on the whole account).
+        if (isAccessDenied(error))
+            throw new HttpError(409, `tab_closed:${functions.messagingPreferences.name}`);
+        throw error;
+    }
     return { disabled, ...prefs, reopensAt: disabled ? reopensAt(prefs, now) : null };
 };
 //# sourceMappingURL=messaging.js.map

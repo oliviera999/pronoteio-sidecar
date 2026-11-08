@@ -2,8 +2,9 @@ import { HttpError } from "../errors.js";
 import { listOf, numberSet } from "../pronote/encoding.js";
 import { hasRight, userData } from "../pronote/userdata.js";
 import { normalise } from "../normalise.js";
-import { callFunction } from "./functions.js";
-import { stableId } from "./ids.js";
+import { isAccessDenied } from "./competencies.js";
+import { callFunction, functions } from "./functions.js";
+import { stableIds } from "./ids.js";
 import { listDiscussions } from "./messaging.js";
 /** TypeHttpRessource of each recipient kind in ListePublics. */
 export const RECIPIENT_GENRES = { class: 1, group: 2, teacher: 3, student: 4, parent: 5, staff: 34 };
@@ -34,22 +35,30 @@ const taughtOf = (session, kind, item) => {
     return userData(session).resources.some((resource) => resource.taught && normalise(resource.label) === name);
 };
 /** Publics of one kind of a ListePublics (or ListeRessourcesPourCommunication) answer, minimised. */
-export const publicsOf = (session, kind, data) => listOf(data?.listePublics ?? data?.listeRessources ?? data?.liste)
-    .filter((item) => typeof item?.N === "string")
-    .map((item) => {
-    const text = String(item.L ?? "").trim();
-    const recipient = {
-        id: stableId("recipient", `${kind}|${text}`),
-        kind,
-        label: text,
-        classes: kind === "student" ? labels(item?.classes) : [],
-        refuses: item?.discussionInterdit === true || item?.refusMess === true,
-        children: kind === "parent" ? listOf(item?.eleves).map((child) => ({ label: label(child), class: childClass(child) })).filter((child) => child.label) : [],
-        role: roleOf(kind, item),
-        taught: taughtOf(session, kind, item),
-    };
-    return { N: String(item.N), G: Number(item.G ?? RECIPIENT_GENRES[kind]), L: text, refuses: recipient.refuses, recipient };
-});
+export const publicsOf = (session, kind, data) => {
+    const items = listOf(data?.listePublics ?? data?.listeRessourcesPourCommunication).filter((item) => typeof item?.N === "string");
+    // Homonyms get "~2", "~3"… in Pronote order, like every stable id of the sidecar.
+    const ids = stableIds("recipient", items, (item) => `${kind}|${String(item.L ?? "").trim()}`);
+    return items.map((item, index) => {
+        const text = String(item.L ?? "").trim();
+        const recipient = {
+            id: ids[index],
+            kind,
+            label: text,
+            classes: kind === "student" ? labels(item?.classes) : [],
+            refuses: item?.discussionInterdit === true || item?.refusMess === true,
+            children: kind === "parent" ? listOf(item?.eleves).map((child) => ({ label: label(child), class: childClass(child) })).filter((child) => child.label) : [],
+            role: roleOf(kind, item),
+            taught: taughtOf(session, kind, item),
+        };
+        return { N: String(item.N), G: Number(item.G ?? RECIPIENT_GENRES[kind]), L: text, refuses: recipient.refuses, recipient };
+    });
+};
+/** The connected teacher as Pawnote's userResource ({ N, G, L }), for filtreElement. */
+const connectedTeacher = (session) => {
+    const user = session.userResource ?? session.user?.resources?.[0] ?? session.user ?? {};
+    return { N: String(user.id ?? ""), G: Number(user.kind ?? RECIPIENT_GENRES.teacher), L: String(user.name ?? "") };
+};
 /** Whether the account has the "discussion avancée" right (ListePublics); null when the rights are unknown. */
 export const advancedMessaging = (session) => hasRight(userData(session).rights, "communication", "avecDiscussionAvancee");
 /**
@@ -62,15 +71,23 @@ export const loadPublics = async (session, kind) => {
         const data = await callFunction(session, "recipientsList", { pourMessagerie: true, genres: numberSet([genre]), sansFiltreSurEleve: true, avecFonctionPersonnel: true });
         return publicsOf(session, kind, data);
     }
-    const data = await callFunction(session, "recipientsFallback", { onglet: { N: 0, G: genre } });
-    const publics = publicsOf(session, kind, data);
+    const data = await callFunction(session, "recipientsFallback", { onglet: { N: 0, G: genre }, filtreElement: connectedTeacher(session) });
+    const publics = publicsOf(session, kind, { listeRessourcesPourCommunication: listOf(data?.listeRessourcesPourCommunication).filter((item) => item?.avecDiscussion === true) });
     return publics.length ? publics : null;
 };
 /** Publics of several kinds, or 409 recipients_unavailable when the account cannot list them. */
 export const loadAllPublics = async (session, kinds) => {
     const result = {};
     for (const kind of [...new Set(kinds)]) {
-        const publics = await loadPublics(session, kind);
+        let publics;
+        try {
+            publics = await loadPublics(session, kind);
+        }
+        catch (error) {
+            if (isAccessDenied(error))
+                throw new HttpError(409, `tab_closed:${functions.recipientsList.name}`);
+            throw error;
+        }
         if (publics === null)
             throw new HttpError(409, "recipients_unavailable");
         result[kind] = publics;
@@ -128,7 +145,15 @@ export const recipients = async (session, kinds, filter = {}) => {
     const wanted = kinds.length ? kinds : RECIPIENT_KINDS;
     const items = [];
     for (const kind of wanted) {
-        const publics = await loadPublics(session, kind);
+        let publics;
+        try {
+            publics = await loadPublics(session, kind);
+        }
+        catch (error) {
+            if (isAccessDenied(error))
+                return { available: false, reason: "access_denied", disabled, items: [], total: 0, truncated: false };
+            throw error;
+        }
         if (publics === null)
             return { available: false, reason: "recipients_unavailable", disabled, items: [], total: 0, truncated: false };
         items.push(...publics.map((item) => item.recipient));

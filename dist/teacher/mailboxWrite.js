@@ -1,4 +1,5 @@
 import { HttpError } from "../errors.js";
+import { assertTabOpen } from "./functions.js";
 import { listDiscussions } from "./messaging.js";
 import { sendWrite } from "./write.js";
 /** SaisieMessage JSON of one mailbox action on the possessions of the selected discussions. */
@@ -21,7 +22,8 @@ export const mailboxRequest = (action, possessions) => {
 };
 /** Expected state of a discussion after an action (folder and unread flag, null when unchanged). */
 export const expectedState = (action, before) => {
-    const folder = { read: null, unread: null, archive: "archive", unarchive: "inbox", trash: "trash", restore: "inbox" };
+    // unarchive and restore put the copy back where it was (inbox, or sent for a discussion the teacher started).
+    const folder = { read: null, unread: null, archive: "archive", unarchive: before.folder === "archive" ? "inbox" : before.folder, trash: "trash", restore: before.folder === "trash" ? "inbox" : before.folder };
     return { ...before, folder: folder[action] ?? before.folder, unread: action === "read" ? false : action === "unread" ? true : before.unread };
 };
 const stateOf = (row) => ({
@@ -31,6 +33,7 @@ const stateOf = (row) => ({
     unread: row.discussion.unread,
 });
 export const mailbox = async (session, action, ids, dryRun) => {
+    assertTabOpen(session, "messageSave");
     const listing = await listDiscussions(session);
     if (listing.disabled)
         throw new HttpError(409, "messaging_disabled");
@@ -53,8 +56,8 @@ export const mailbox = async (session, action, ids, dryRun) => {
         if (!row)
             throw new HttpError(502, "mailbox_not_applied");
         const state = stateOf(row);
-        // "restore" puts the copy back where it was (inbox or archive): any folder but the trash is accepted.
-        const folderOk = action === "restore" ? state.folder !== "trash" : state.folder === expected.folder;
+        // "restore" and "unarchive" put the copy back where it was (inbox or sent): any folder but the one left is accepted.
+        const folderOk = action === "restore" ? state.folder !== "trash" : action === "unarchive" ? state.folder !== "archive" : state.folder === expected.folder;
         if (!folderOk || state.unread !== expected.unread)
             throw new HttpError(502, "mailbox_not_applied");
         return state;

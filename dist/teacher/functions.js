@@ -85,6 +85,11 @@ const load = () => {
 export const functions = load();
 /** Whether the tab of a function is closed to the account (tabs received at login and lacking it). */
 export const isTabClosed = (session, key) => tabClosed(session, functions[key].onglet);
+/** Refuses a write before any call when the tab of its function is closed to the account: 409 tab_closed:<function>. */
+export const assertTabOpen = (session, key) => {
+    if (isTabClosed(session, key))
+        throw new HttpError(409, `tab_closed:${functions[key].name}`);
+};
 /**
  * Sends a read function through callPronote and returns its "data". The data member is left out when
  * "data" is undefined (CentraleNotifications is called without data).

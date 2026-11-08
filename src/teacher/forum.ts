@@ -90,6 +90,11 @@ export const forum = async (session: SessionHandle, topicId?: string): Promise<F
   if (!topicId) return { available: true, reason: "", topics: rows.map((row) => row.topic) };
   const row = rows.find((item) => item.topic.id === topicId);
   if (!row) throw new HttpError(404, "topic_not_found");
-  const data = await callFunction(session, "forum", { type: "fpcr_Posts", sujet: { N: row.raw.N }, avecSujet: true, modeVisuMembre: false });
-  return { available: true, reason: "", topic: row.topic, posts: postsFromAnswer(data, row.topic.id) };
+  try {
+    const data = await callFunction(session, "forum", { type: "fpcr_Posts", sujet: { N: row.raw.N }, avecSujet: true, modeVisuMembre: false });
+    return { available: true, reason: "", topic: row.topic, posts: postsFromAnswer(data, row.topic.id) };
+  } catch (error) {
+    if (isAccessDenied(error)) return { available: false, reason: "access_denied", topic: row.topic, posts: [] };
+    throw error;
+  }
 };

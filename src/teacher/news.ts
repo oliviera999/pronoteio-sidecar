@@ -17,13 +17,16 @@ import { listOf, numberSet, parseNumberSet, parsePronoteDate } from "../pronote/
 import {
   seconds,
   type NewsAnswer,
+  type NewsAudienceDetail,
   type NewsItem,
+  type ParticipantKind,
   type NewsQuestion,
   type NewsQuestionKind,
   type NewsResults,
   type NewsScope,
 } from "../normalise.js";
-import { callFunction } from "./functions.js";
+import { isAccessDenied } from "./competencies.js";
+import { callFunction, functions } from "./functions.js";
 import { stableIds } from "./ids.js";
 import { attachmentsOf } from "./notebook.js";
 
@@ -85,6 +88,31 @@ export const questionsOf = (items: unknown): NewsQuestion[] =>
     };
   });
 
+const INDIVIDUAL_KINDS: Record<number, ParticipantKind> = { 1: "class", 2: "group", 3: "teacher", 4: "student", 5: "parent", 34: "staff" };
+
+const AUDIENCE_MEMBERS = ["listePublicEntite", "listePublicIndividu", "avecEleve", "avecResp1", "avecResp2", "avecProfsPrincipaux", "avecTuteurs"];
+
+/**
+ * Audience of a sent or draft item from its raw members (labels only), null when Pronote sends none of them (received
+ * items, templates of other authors). Moodle needs it to recreate an item after a deletion.
+ */
+export const audienceOf = (raw: any): NewsAudienceDetail | null => {
+  if (!raw || typeof raw !== "object" || !AUDIENCE_MEMBERS.some((member) => member in raw)) return null;
+  const entities = listOf<any>(raw.listePublicEntite);
+  const entityLabel = (item: any) => String(item?.L ?? "").trim();
+  return {
+    classes: entities.filter((item) => Number(item?.G) === 1).map(entityLabel).filter(Boolean),
+    groups: entities.filter((item) => Number(item?.G) === 2).map(entityLabel).filter(Boolean),
+    students: raw.avecEleve === true,
+    parents: raw.avecResp2 === true ? "all" : raw.avecResp1 === true ? "one" : "none",
+    mainTeachers: raw.avecProfsPrincipaux === true,
+    tutors: raw.avecTuteurs === true,
+    individuals: listOf<any>(raw.listePublicIndividu)
+      .map((item) => ({ label: String(item?.L ?? "").trim(), kind: INDIVIDUAL_KINDS[Number(item?.G)] ?? "unknown" as ParticipantKind }))
+      .filter((item) => item.label),
+  };
+};
+
 /** Raw item with its scope and stable id (ids are computed per scope, as GET /news does). */
 export type NewsRow = { item: NewsItem; raw: Record<string, any>; scope: NewsScope };
 
@@ -121,6 +149,7 @@ const itemOf = (session: SessionHandle, raw: any, id: string, scope: NewsScope):
     withoutAnswer: integer(raw?.nbIndividusSansReponses),
     answeredPercent: integer(raw?.pourcentRepondu),
     questions,
+    audience: audienceOf(raw),
   };
 };
 
@@ -246,6 +275,12 @@ export const newsResults = async (session: SessionHandle, id: string, nominative
   const page = await newsPage(session);
   const row = findNews(session, page, id);
   // The function expects the item as received (genreRequeteActualite 1 refuses a reduced { N, L, G }).
-  const data = await callFunction(session, "newsResults", { actualite: row.raw });
-  return resultsFromAnswer(row, data, nominative);
+  try {
+    const data = await callFunction(session, "newsResults", { actualite: row.raw });
+    return resultsFromAnswer(row, data, nominative);
+  } catch (error) {
+    // Results of another author's item, or a closed tab: an explicit refusal, never a server failure.
+    if (isAccessDenied(error)) throw new HttpError(409, `tab_closed:${functions.newsResults.name}`);
+    throw error;
+  }
 };

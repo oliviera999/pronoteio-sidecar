@@ -522,6 +522,19 @@ export type NewsItem = {
   withoutAnswer: number | null;
   answeredPercent: number | null;
   questions: NewsQuestion[];
+  /** Audience read from the raw members (sent and draft items), null when Pronote does not send them. */
+  audience: NewsAudienceDetail | null;
+};
+
+/** Audience of an item as read (labels only): what POST /news needs to recreate it. */
+export type NewsAudienceDetail = {
+  classes: string[];
+  groups: string[];
+  students: boolean;
+  parents: "none" | "one" | "all";
+  mainTeachers: boolean;
+  tutors: boolean;
+  individuals: Participant[];
 };
 
 export type NewsResults = {
@@ -657,8 +670,8 @@ export type MessageWrite = {
 };
 
 export type MessageWriteResult = {
-  /** Draft modes add the draft text, so that Moodle can restore it. */
-  before: (Discussion & { text?: string }) | null;
+  /** Draft modes add the draft text and attachment names, so that Moodle can restore it (or report lost files). */
+  before: (Discussion & { text?: string; attachments?: string[] }) | null;
   after: { subject: string; recipients: string[]; text: string; attachments: string[]; discussion: Discussion | null; deleted: boolean };
   /** True for new and reply, false for drafts. */
   irreversible: boolean;
