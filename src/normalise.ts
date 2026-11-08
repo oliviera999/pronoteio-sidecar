@@ -657,7 +657,8 @@ export type MessageWrite = {
 };
 
 export type MessageWriteResult = {
-  before: Discussion | null;
+  /** Draft modes add the draft text, so that Moodle can restore it. */
+  before: (Discussion & { text?: string }) | null;
   after: { subject: string; recipients: string[]; text: string; attachments: string[]; discussion: Discussion | null; deleted: boolean };
   /** True for new and reply, false for drafts. */
   irreversible: boolean;

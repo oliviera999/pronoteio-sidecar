@@ -4,7 +4,7 @@ import { hasRight, userData } from "../pronote/userdata.js";
 import { normalise } from "../normalise.js";
 import { callFunction } from "./functions.js";
 import { findList, loadLists } from "./lists.js";
-import { DISCUSSIONS_REQUEST, discussionsFromAnswer, listDiscussions, messagesRequest } from "./messaging.js";
+import { DISCUSSIONS_REQUEST, discussionsFromAnswer, listDiscussions, messagesRequest, participantKind } from "./messaging.js";
 import { loadAllPublics, RECIPIENT_GENRES, resolveRecipients } from "./recipients.js";
 import { sendWrite } from "./write.js";
 export { RECIPIENT_GENRES };
@@ -78,6 +78,22 @@ const requireText = (write) => {
         throw new HttpError(400, "empty_message");
     return text;
 };
+/** Text of a message content (plain string or { _T: 21, V: html }). */
+const contentText = (value) => {
+    const raw = value !== null && typeof value === "object" && "V" in value ? value.V : value;
+    return typeof raw === "string" ? raw : "";
+};
+/**
+ * State of a draft before a write: the discussion row plus the draft text and its recipients (ListeMessages), so that
+ * Moodle can restore the draft after a deletion or a modification.
+ */
+const draftBefore = (row, messages) => {
+    const draft = listOf(messages?.listeMessages).find((item) => item?.brouillon === true) ?? listOf(messages?.listeMessages)[0];
+    const recipients = listOf(messages?.destinataires?.listeDestinataires)
+        .filter((item) => item && typeof item === "object")
+        .map((item) => ({ label: String(item?.L ?? "").trim(), kind: participantKind(item?.G) }));
+    return { ...row.discussion, participantsDetail: recipients.length ? recipients : row.discussion.participantsDetail, text: contentText(draft?.contenu) };
+};
 const requireRow = (rows, id, folder) => {
     const row = rows.find((item) => item.discussion.id === id);
     if (!row || (folder && row.discussion.folder !== folder))
@@ -136,15 +152,16 @@ export const sendMessage = async (session, write) => {
     }
     const row = requireRow(listing.rows, write.discussion, "drafts");
     if (write.mode === "draft_delete") {
+        const before = draftBefore(row, await callFunction(session, "discussionMessages", messagesRequest(row.possessions)));
         const request = deleteDraftRequest(row.possessions);
         const after = { subject: row.discussion.subject, recipients: row.discussion.participants, text: "", attachments: [], discussion: null, deleted: true };
         if (write.dryRun)
-            return result(row.discussion, after, request, false, false);
+            return result(before, after, request, false, false);
         await sendWrite(session, "messageSave", request);
         const reread = await rereadDiscussions(session);
         if (reread.some((item) => item.id === row.discussion.id && item.folder === "drafts"))
             throw new HttpError(502, "draft_not_deleted");
-        return result(row.discussion, after, request, true, false);
+        return result(before, after, request, true, false);
     }
     // draft_update: the draft message (brouillon: true) and its current recipients come from ListeMessages.
     const text = requireText(write);
@@ -160,15 +177,16 @@ export const sendMessage = async (session, write) => {
         : listOf(messages?.destinataires?.listeDestinataires).filter((item) => typeof item?.N === "string").map((item) => ({ N: String(item.N), G: Number(item.G ?? 0), L: String(item.L ?? "").trim() }));
     if (!targets.length)
         throw new HttpError(400, "recipients_required");
+    const before = draftBefore(row, messages);
     const request = draftRequest(subject, contentOf(session, text), targets, files, String(draft.N));
     const after = { subject, recipients: targets.map((item) => item.L), text, attachments: attachmentNames, discussion: row.discussion, deleted: false };
     if (write.dryRun)
-        return result(row.discussion, after, request, false, false);
+        return result(before, after, request, false, false);
     await sendWrite(session, "messageSave", request);
     const reread = await rereadDiscussions(session);
     const updated = reread.filter((item) => item.folder === "drafts" && normalise(item.subject) === normalise(subject)).sort((a, b) => b.lastDate - a.lastDate)[0] ?? null;
     if (!updated)
         throw new HttpError(502, "draft_not_saved");
-    return result(row.discussion, { ...after, discussion: updated }, request, true, false);
+    return result(before, { ...after, discussion: updated }, request, true, false);
 };
 //# sourceMappingURL=messagingWrite.js.map
