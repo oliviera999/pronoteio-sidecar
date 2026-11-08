@@ -408,6 +408,11 @@ export type ReportComments = {
 
 export type DiscussionFolder = "inbox" | "sent" | "drafts" | "archive" | "trash";
 
+/** Kind of a messaging participant or recipient, from its TypeHttpRessource (1, 2, 3, 4, 5, 34). */
+export type ParticipantKind = "class" | "group" | "teacher" | "student" | "parent" | "staff" | "unknown";
+
+export type Participant = { label: string; kind: ParticipantKind };
+
 export type Discussion = {
   id: string;
   subject: string;
@@ -416,11 +421,79 @@ export type Discussion = {
   unread: boolean;
   count: number;
   folder: DiscussionFolder;
+  /** Participants read with SaisiePublicMessage ([] in listings and when the call fails). */
+  participantsDetail: Participant[];
+  canReply: boolean;
+  /** Discussion of the "drafts" folder. */
+  draft: boolean;
 };
 
 export type DiscussionsResult = { available: boolean; reason: string; disabled: boolean; items: Discussion[] };
 
-export type Message = { id: string; author: string; date: number; text: string; attachments: Attachment[] };
+export type Message = { id: string; author: string; date: number; text: string; attachments: Attachment[]; draft: boolean };
+
+/* ---- Communication (0.2.0), docs/pronoteio/communication.md section 4 ---- */
+
+export type RecipientKind = "class" | "group" | "teacher" | "student" | "parent" | "staff";
+
+/** Possible recipient of a message (ListePublics), minimised: label, nature, classes and children only. */
+export type Recipient = {
+  /** "r:<kind>|<label>". */
+  id: string;
+  kind: RecipientKind;
+  label: string;
+  /** Student: his or her classes; class or group: []. */
+  classes: string[];
+  /** Refuses messages (discussionInterdit / refusMess). */
+  refuses: boolean;
+  /** Parent only: label and class of each child. */
+  children: { label: string; class: string }[];
+  /** Teacher: "main" | "tutor" | ""; staff: function label; otherwise "". */
+  role: string;
+  /** Student, class or group taught by the account. */
+  taught: boolean;
+};
+
+export type RecipientsResult = {
+  available: boolean;
+  reason: string;
+  disabled: boolean;
+  items: Recipient[];
+  total: number;
+  truncated: boolean;
+};
+
+export type MessagingPrefs = {
+  disabled: boolean;
+  onlyParentsStudents: boolean;
+  /** Hour from which messages are sent, null when unknown. */
+  hourBefore: number | null;
+  /** Hour until which messages are sent, null when unknown. */
+  hourAfter: number | null;
+  /** 1 Monday … 7 Sunday. */
+  workingDays: { day: number; active: boolean }[];
+  nonWorkingDays: { day: number; active: boolean; holiday: boolean }[];
+  autoReply: string;
+  /** Next opening computed from the ranges (seconds), null when open or unknown. */
+  reopensAt: number | null;
+};
+
+export type NewsScope = "received" | "sent" | "drafts" | "templates" | "library";
+
+export type NewsQuestionKind = "ack" | "text" | "single" | "multiple" | "none" | "noanswer";
+
+export type NewsAnswer = { choices: number[]; text: string; acknowledged: boolean };
+
+export type NewsQuestion = {
+  /** "q1", "q2"… */
+  id: string;
+  /** HTML. */
+  text: string;
+  kind: NewsQuestionKind;
+  choices: { rank: number; label: string; free: boolean }[];
+  maxLength: number | null;
+  answer: NewsAnswer | null;
+};
 
 export type NewsItem = {
   id: string;
@@ -430,9 +503,271 @@ export type NewsItem = {
   category: string;
   read: boolean;
   survey: boolean;
-  /** HTML. */
+  /** HTML (texts of the questions, kept for compatibility). */
   text: string;
   attachments: Attachment[];
+  kind: "information" | "survey";
+  scope: NewsScope;
+  published: boolean;
+  state: "published" | "future" | "past" | "draft" | "template";
+  start: number | null;
+  end: number | null;
+  /** detailPublicSuccinct. */
+  publicSummary: string;
+  sharedWith: string[];
+  locked: boolean;
+  anonymous: boolean;
+  /** estAuteur. */
+  mine: boolean;
+  withoutAnswer: number | null;
+  answeredPercent: number | null;
+  questions: NewsQuestion[];
+};
+
+export type NewsResults = {
+  news: { id: string; title: string; kind: "information" | "survey"; anonymous: boolean; recipients: number | null; answered: number | null };
+  nominative: boolean;
+  questions: {
+    id: string;
+    /** Raw text (HTML as Pronote sends it). */
+    text: string;
+    kind: NewsQuestionKind;
+    total: number | null;
+    answered: number | null;
+    choices: { rank: number; label: string; count: number }[];
+    /** Free answers, without names. */
+    texts: string[];
+    /** [] unless nominative. */
+    respondents: { label: string; class: string; date: number | null; answer: NewsAnswer }[];
+  }[];
+};
+
+export type DistributionList = {
+  /** "dl:<label>". */
+  id: string;
+  label: string;
+  public: boolean;
+  mine: boolean;
+  author: string;
+  members: Participant[];
+  count: number;
+};
+
+export type Notification = {
+  id: string;
+  /** Label of the notification group. */
+  group: string;
+  /** Raw "type". */
+  kind: string;
+  action: string;
+  date: number;
+  title: string;
+  text: string;
+  count: number | null;
+};
+
+export type MeetingWish = {
+  /** "w<n>". */
+  id: string;
+  /** Label of the parent. */
+  with: string;
+  student: string;
+  class: string;
+  duration: number | null;
+  wish: number | null;
+  validated: boolean | null;
+};
+
+export type MeetingSession = {
+  /** "mt:<label>|<date>". */
+  id: string;
+  label: string;
+  date: number;
+  /** "HH:MM". */
+  start: string;
+  end: string;
+  entryFrom: number | null;
+  entryTo: number | null;
+  canEnterWishes: boolean;
+  canEnterUnavailability: boolean;
+  wishOptions: { code: number; label: string }[];
+  wishes: MeetingWish[];
+  unavailability: { slotStart: number | null; slotMinutes: number | null; session: number[]; mine: number[] };
+  planningVisible: boolean;
+  planning: { start: number; end: number | null; with: string; student: string; room: string; happened: boolean | null; visio: boolean }[];
+};
+
+export type Appointment = {
+  /** "rdv:<date>|<subject>". */
+  id: string;
+  date: number;
+  end: number | null;
+  subject: string;
+  /** Raw description. */
+  description: string;
+  participants: string[];
+  place: string;
+  status: string;
+  mode: string;
+};
+
+export type ForumTopic = {
+  /** "ft:<title>|<date>". */
+  id: string;
+  title: string;
+  author: string;
+  subject: string;
+  themes: string[];
+  state: string;
+  moderated: boolean;
+  unread: number;
+  members: number;
+  toModerate: number;
+  excluded: number;
+  date: number;
+};
+
+export type ForumPost = {
+  id: string;
+  author: string;
+  date: number;
+  /** HTML. */
+  text: string;
+  important: boolean;
+  state: string;
+};
+
+/* ---- Write inputs and results of the communication lot ---- */
+
+export type WriteAttachmentRef = { name: string; fileId?: string; url?: string };
+
+export type MessageRecipientKind = RecipientKind | "list";
+
+export type MessageWrite = {
+  mode: "new" | "reply" | "draft" | "draft_update" | "draft_delete";
+  subject?: string;
+  /** Plain text: lines become paragraphs. */
+  text?: string;
+  /** "list": distribution list, replaced by its members. */
+  recipients?: { kind: MessageRecipientKind; label: string }[];
+  /** Reply: id of the discussion; draft update or deletion: id of the discussion of the "drafts" folder. */
+  discussion?: string;
+  attachments?: WriteAttachmentRef[];
+  dryRun: boolean;
+};
+
+export type MessageWriteResult = {
+  before: Discussion | null;
+  after: { subject: string; recipients: string[]; text: string; attachments: string[]; discussion: Discussion | null; deleted: boolean };
+  /** True for new and reply, false for drafts. */
+  irreversible: boolean;
+  written: boolean;
+  dryRun: boolean;
+  request: Record<string, unknown>;
+  validated: false;
+};
+
+export type MailboxAction = "read" | "unread" | "archive" | "unarchive" | "trash" | "restore";
+
+export type MailboxState = { id: string; subject: string; folder: DiscussionFolder; unread: boolean };
+
+export type MailboxResult = {
+  before: MailboxState[];
+  after: MailboxState[];
+  written: boolean;
+  dryRun: boolean;
+  requests: Record<string, unknown>[];
+  validated: false;
+};
+
+export type DistributionListWrite = {
+  action: "create" | "update" | "delete";
+  /** update, delete: "dl:<label>". */
+  id?: string;
+  label?: string;
+  public?: boolean;
+  members?: { kind: RecipientKind; label: string }[];
+};
+
+export type DistributionListWriteResult = {
+  before: DistributionList | null;
+  after: DistributionList | null;
+  written: boolean;
+  dryRun: boolean;
+  request: Record<string, unknown>;
+  validated: false;
+};
+
+export type NewsResponseWrite = {
+  read?: boolean | null;
+  acknowledge?: boolean | null;
+  answers?: { question: string; choices?: number[]; text?: string }[];
+  remove?: boolean;
+};
+
+export type NewsResponseResult = {
+  before: NewsItem;
+  after: NewsItem;
+  written: boolean;
+  dryRun: boolean;
+  request: Record<string, unknown>;
+  irreversible: boolean;
+  validated: false;
+};
+
+export type NewsAudience = {
+  classes?: string[];
+  groups?: string[];
+  students?: boolean;
+  /** avecResp1 / avecResp2. */
+  parents?: "none" | "one" | "all";
+  mainTeachers?: boolean;
+  tutors?: boolean;
+  individuals?: { kind: RecipientKind; label: string }[];
+};
+
+export type NewsWrite = {
+  mode: "create" | "update" | "delete" | "publish" | "unpublish";
+  id?: string;
+  kind?: "information" | "survey";
+  title?: string;
+  /** Nature label. */
+  category?: string;
+  /** HTML: content of an information, optional introduction of a survey. */
+  text?: string;
+  start?: number;
+  end?: number | null;
+  anonymous?: boolean;
+  template?: boolean;
+  audience?: NewsAudience;
+  questions?: { text: string; kind: "ack" | "text" | "single" | "multiple" | "none"; choices?: { label: string; free?: boolean }[]; maxLength?: number | null }[];
+  attachments?: WriteAttachmentRef[];
+};
+
+export type NewsWriteResult = {
+  before: NewsItem | null;
+  after: NewsItem | null;
+  written: boolean;
+  dryRun: boolean;
+  request: Record<string, unknown>;
+  irreversible: boolean;
+  limits: { maxTitle: number | null; maxAnswer: number | null };
+  audienceCount: { parents: number | null; mainTeachers: number | null; tutors: number | null };
+  validated: false;
+};
+
+export type MeetingWishesWrite = {
+  wishes?: { id: string; duration?: number | null; wish?: number | null }[];
+  unavailability?: number[] | null;
+};
+
+export type MeetingWishesResult = {
+  before: MeetingSession;
+  after: MeetingSession;
+  written: boolean;
+  dryRun: boolean;
+  requests: Record<string, unknown>[];
+  validated: false;
 };
 
 export type LockerItem = {

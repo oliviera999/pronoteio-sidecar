@@ -11,7 +11,8 @@ import { HttpError } from "../errors.js";
 
 export type IdKind =
   | "class" | "group" | "period" | "service" | "student" | "assessment" | "absence" | "lesson" | "planned"
-  | "discussion" | "competency" | "news" | "document" | "quiz";
+  | "discussion" | "competency" | "news" | "document" | "quiz"
+  | "recipient" | "list" | "meeting" | "appointment" | "forumTopic";
 
 const PREFIX: Record<IdKind, string> = {
   class: "c",
@@ -28,6 +29,11 @@ const PREFIX: Record<IdKind, string> = {
   news: "n",
   document: "doc",
   quiz: "q",
+  recipient: "r",
+  list: "dl",
+  meeting: "mt",
+  appointment: "rdv",
+  forumTopic: "ft",
 };
 
 const MAX_KEY = 80;

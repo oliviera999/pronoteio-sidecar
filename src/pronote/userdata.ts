@@ -97,6 +97,32 @@ export const createCapturingHandle = (base: Fetcher = compatFetcher): SessionHan
 
 export const userData = (session: SessionHandle): UserData => store.get(session) ?? { ...EMPTY };
 
+const lower = (value: string) => value.toLowerCase();
+
+/**
+ * Whether a right ("autorisations" of ParametresUtilisateur) is granted, looked up case-insensitively either
+ * inside its group ({ communication: { avecDiscussionAvancee: true } }) or at the root ({ avecDiscussionAvancee }).
+ * null when the rights were not received or the right is not listed at all.
+ */
+export const hasRight = (rights: Record<string, unknown>, group: string, name: string): boolean | null => {
+  if (!rights || typeof rights !== "object") return null;
+  const groupKey = Object.keys(rights).find((key) => lower(key) === lower(group));
+  const inGroup = groupKey ? (rights[groupKey] as Record<string, unknown> | undefined) : undefined;
+  if (inGroup && typeof inGroup === "object") {
+    const key = Object.keys(inGroup).find((item) => lower(item) === lower(name));
+    if (key) return inGroup[key] === true;
+  }
+  const flat = Object.keys(rights).find((key) => lower(key) === lower(name) || lower(key) === lower(`${group}.${name}`));
+  if (flat) return rights[flat] === true;
+  return null;
+};
+
+/** Whether the tab of a function is closed to the account: true only when the tabs were received and lack it. */
+export const tabClosed = (session: SessionHandle, onglet: number | null): boolean => {
+  const tabs = userData(session).tabs;
+  return onglet !== null && Array.isArray(tabs) && !tabs.includes(onglet);
+};
+
 /** Replaces the login data of a session (tests, or a session handle created outside createCapturingHandle). */
 export const rememberUserData = (session: SessionHandle, data: Partial<UserData>): void => {
   store.set(session, { ...EMPTY, ...data });
