@@ -4,19 +4,9 @@ import { HttpError } from "../errors.js";
 import { requireSession } from "../session.js";
 import * as teacher from "../teacher/index.js";
 import type { WriteEntry } from "../teacher/notebookWrite.js";
-import { intervalQuery, type IntervalQuery } from "./schemas.js";
+import { attachmentSchema, intervalQuery, type IntervalQuery } from "./schemas.js";
 
 export type NotebookWriteBody = { lesson: string; entry: WriteEntry; dryRun?: boolean; force?: boolean };
-
-const attachmentSchema = {
-  type: "object",
-  required: ["name"],
-  properties: {
-    name: { type: "string", maxLength: 255 },
-    fileId: { type: "string", maxLength: 100 },
-    url: { type: "string", maxLength: 2000 },
-  },
-} as const;
 
 export const notebookWriteBody = {
   type: "object",

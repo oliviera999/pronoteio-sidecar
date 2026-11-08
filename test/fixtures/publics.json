@@ -1,0 +1,32 @@
+{
+  "comment": "ListePublics answers per genre (captures 0077-0084 on the demo server), anonymised: no real name, no real N.",
+  "1": { "listePublics": { "_T": 24, "V": [
+    { "L": "3A", "N": "23#c1", "G": 1, "enseigne": true },
+    { "L": "3B", "N": "23#c2", "G": 1, "enseigne": false },
+    { "L": "1G3", "N": "23#c3", "G": 1 }
+  ] } },
+  "2": { "listePublics": { "_T": 24, "V": [] } },
+  "3": { "listePublics": { "_T": 24, "V": [
+    { "L": "M. PROFESSEUR M.", "N": "109#t1", "G": 3, "estProfPrincipal": true, "estProfTuteur": false },
+    { "L": "Mme COLLEGUE A.", "N": "109#t2", "G": 3, "estProfPrincipal": false, "estProfTuteur": true },
+    { "L": "M. AUTRE B.", "N": "109#t3", "G": 3, "discussionInterdit": true }
+  ] } },
+  "4": { "listePublics": { "_T": 24, "V": [
+    { "L": "ELEVE Un", "N": "46#x1", "G": 4, "P": 6, "discussionInterdit": false, "enseigne": true,
+      "classes": { "_T": 24, "V": [{ "L": "3A", "N": "23#c1", "G": 1 }] }, "groupes": { "_T": 24, "V": [] },
+      "regimeEleve": { "_T": 24, "V": { "L": "Demi-pensionnaire", "G": 2 } },
+      "listeProjetsAcc": { "_T": 24, "V": [{ "L": "PAP", "N": "77#p1" }] } },
+    { "L": "ELEVE Deux", "N": "46#x2", "G": 4, "P": 7, "discussionInterdit": true, "enseigne": true,
+      "classes": { "_T": 24, "V": [{ "L": "3A", "N": "23#c1", "G": 1 }] }, "regimeEleve": { "_T": 24, "V": { "L": "Externe", "G": 1 } } },
+    { "L": "ELEVE Trois", "N": "46#x3", "G": 4, "enseigne": false, "classes": { "_T": 24, "V": [{ "L": "1G3", "N": "23#c3", "G": 1 }] } }
+  ] } },
+  "5": { "listePublics": { "_T": 24, "V": [
+    { "L": "M. PARENT F.", "N": "128#r1", "G": 5, "niveauResponsabilite": 1,
+      "eleves": { "_T": 24, "V": [{ "L": "ELEVE Un", "N": "46#x1", "G": 4, "classe": { "_T": 24, "V": { "L": "3A", "N": "23#c1", "G": 1 } } }] } },
+    { "L": "Mme PARENT G.", "N": "128#r2", "G": 5, "niveauResponsabilite": 2, "refusMess": true,
+      "eleves": { "_T": 24, "V": [{ "L": "ELEVE Trois", "N": "46#x3", "G": 4, "classe": { "_T": 24, "V": { "L": "1G3", "N": "23#c3", "G": 1 } } }] } }
+  ] } },
+  "34": { "listePublics": { "_T": 24, "V": [
+    { "L": "Mme DIRECTION H.", "N": "106#s1", "G": 34, "fonction": { "_T": 24, "V": { "L": "Proviseur", "N": "88#f1" } } }
+  ] } }
+}

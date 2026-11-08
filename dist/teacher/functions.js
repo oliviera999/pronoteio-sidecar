@@ -11,6 +11,8 @@
  */
 import { readFileSync } from "node:fs";
 import { HttpError } from "../errors.js";
+import { answerData, callPronote } from "../pronote/request.js";
+import { tabClosed } from "../pronote/userdata.js";
 /**
  * Values read from the PRONOTE 2026.2 teacher client (tabs: 23 grade entry, 105 student list, 113 call sheet,
  * 13 report card, 16 timetable, 28 notebook entry, 154 written tests, 89 class notebook). See
@@ -50,6 +52,24 @@ const defaults = {
     messageSave: { name: "SaisieMessage", onglet: 131 },
     recipientsList: { name: "ListePublics", onglet: 131 },
     attendanceSave: { name: "SaisieAbsences", onglet: 113 },
+    participantsList: { name: "SaisiePublicMessage", onglet: 131 },
+    messagingPreferences: { name: "PreferenceMessagerie", onglet: 131 },
+    messagingPreferencesSave: { name: "SaisiePreferenceMessagerie", onglet: 131 },
+    recipientsFallback: { name: "ListeRessourcesPourCommunication", onglet: 131 },
+    distributionLists: { name: "ListeDiffusion", onglet: 158 },
+    distributionListSave: { name: "SaisieListeDiffusion", onglet: 158 },
+    newsResults: { name: "PageActualitesResultats", onglet: 8 },
+    newsEdit: { name: "DonneesEditionInformation", onglet: 8 },
+    newsSave: { name: "SaisieActualites", onglet: 8 },
+    surveyLibrary: { name: "ListeSondagesDeBiblioEtablissement", onglet: 8 },
+    notifications: { name: "CentraleNotifications", onglet: 7 },
+    meetingSessions: { name: "SessionRencontres", onglet: 90 },
+    meetingDetails: { name: "RencontresParentsProfs", onglet: 90 },
+    meetingPlanning: { name: "RencontrePlanning", onglet: 94 },
+    meetingWishesSave: { name: "SaisieRencontreDesiderata", onglet: 92 },
+    meetingUnavailabilitySave: { name: "SaisieRencontreIndisponibilites", onglet: 91 },
+    appointments: { name: "RDV", onglet: 284 },
+    forum: { name: "ForumPedagogique", onglet: 275 },
 };
 const load = () => {
     const file = process.env.PRONOTEIO_FUNCTIONS_FILE;
@@ -63,6 +83,17 @@ const load = () => {
     return merged;
 };
 export const functions = load();
+/** Whether the tab of a function is closed to the account (tabs received at login and lacking it). */
+export const isTabClosed = (session, key) => tabClosed(session, functions[key].onglet);
+/**
+ * Sends a read function through callPronote and returns its "data". The data member is left out when
+ * "data" is undefined (CentraleNotifications is called without data).
+ */
+export const callFunction = async (session, key, data) => {
+    const fn = requireFunction(key);
+    const answer = await callPronote(session, { name: fn.name, data, signature: fn.onglet !== null ? { onglet: fn.onglet } : undefined });
+    return answerData(session, answer);
+};
 /** Configured function, or HTTP 501 when the capture has not been done yet. */
 export const requireFunction = (key) => {
     const fn = functions[key];

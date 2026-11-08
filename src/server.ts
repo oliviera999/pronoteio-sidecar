@@ -5,6 +5,11 @@ import { toHttp } from "./errors.js";
 import absencesRoutes from "./routes/absences.js";
 import assessmentsRoutes from "./routes/assessments.js";
 import filesRoutes from "./routes/files.js";
+import forumRoutes from "./routes/forum.js";
+import listsRoutes from "./routes/lists.js";
+import meetingsRoutes from "./routes/meetings.js";
+import newsRoutes from "./routes/news.js";
+import notificationsRoutes from "./routes/notifications.js";
 import competenciesRoutes from "./routes/competencies.js";
 import gradesRoutes from "./routes/grades.js";
 import homeworkRoutes from "./routes/homework.js";
@@ -66,6 +71,11 @@ await app.register(filesRoutes);
 await app.register(competenciesRoutes);
 await app.register(messagesRoutes);
 await app.register(resourcesRoutes);
+await app.register(newsRoutes);
+await app.register(listsRoutes);
+await app.register(notificationsRoutes);
+await app.register(meetingsRoutes);
+await app.register(forumRoutes);
 
 // Under Phusion Passenger (cPanel "Setup Node.js App") the server must listen on the socket given by
 // Passenger: its documented way is listen("passenger"), which Fastify's listen() cannot express.

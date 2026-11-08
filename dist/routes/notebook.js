@@ -2,16 +2,7 @@ import { config } from "../config.js";
 import { HttpError } from "../errors.js";
 import { requireSession } from "../session.js";
 import * as teacher from "../teacher/index.js";
-import { intervalQuery } from "./schemas.js";
-const attachmentSchema = {
-    type: "object",
-    required: ["name"],
-    properties: {
-        name: { type: "string", maxLength: 255 },
-        fileId: { type: "string", maxLength: 100 },
-        url: { type: "string", maxLength: 2000 },
-    },
-};
+import { attachmentSchema, intervalQuery } from "./schemas.js";
 export const notebookWriteBody = {
     type: "object",
     required: ["lesson", "entry"],

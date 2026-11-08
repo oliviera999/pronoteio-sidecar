@@ -10,7 +10,10 @@
  * PRONOTEIO_FUNCTIONS_FILE (same keys as below).
  */
 import { readFileSync } from "node:fs";
+import type { SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
+import { answerData, callPronote } from "../pronote/request.js";
+import { tabClosed } from "../pronote/userdata.js";
 
 export type TeacherFunction = {
   /** Pronote function name sent in "id"/"nom". */
@@ -85,7 +88,44 @@ export type FunctionKey =
   /** Possible recipients of a discussion (ListePublics, tab 131). */
   | "recipientsList"
   /** Call sheet of one lesson: absences, late arrivals, done flag (SaisieAbsences, tab 113). */
-  | "attendanceSave";
+  | "attendanceSave"
+  /* ---- Communication (0.2.0), docs/pronoteio/communication.md section 2 ---- */
+  /** Participants of a discussion (SaisiePublicMessage, tab 131: a read despite its name). */
+  | "participantsList"
+  /** Messaging preferences: disconnection hours and days, automatic reply (PreferenceMessagerie, tab 131). */
+  | "messagingPreferences"
+  /** Saves a messaging preference (SaisiePreferenceMessagerie, tab 131; declared, never called). */
+  | "messagingPreferencesSave"
+  /** Possible recipients of the accounts without "discussion avancée" (ListeRessourcesPourCommunication, tab 131). */
+  | "recipientsFallback"
+  /** Distribution lists (ListeDiffusion, tab 158). */
+  | "distributionLists"
+  /** Creates, modifies or deletes a distribution list of the teacher (SaisieListeDiffusion, tab 158). */
+  | "distributionListSave"
+  /** Results of a survey or an information (PageActualitesResultats, tab 8). */
+  | "newsResults"
+  /** Limits, natures and publics before creating an information (DonneesEditionInformation, tab 8). */
+  | "newsEdit"
+  /** Answer to a news item (saisieActualite false) or creation (saisieActualite true) (SaisieActualites, tab 8). */
+  | "newsSave"
+  /** Survey templates of the school (ListeSondagesDeBiblioEtablissement, tab 8). */
+  | "surveyLibrary"
+  /** Notification centre (CentraleNotifications, tab 7). */
+  | "notifications"
+  /** Parent-teacher meeting sessions (SessionRencontres, tab 90). */
+  | "meetingSessions"
+  /** Wishes, unavailability and rights of one meeting session (RencontresParentsProfs, tab 90). */
+  | "meetingDetails"
+  /** Planning of one meeting session (RencontrePlanning, tab 94, often closed). */
+  | "meetingPlanning"
+  /** Wishes ("desiderata") of the teacher for a meeting session (SaisieRencontreDesiderata, tab 92). */
+  | "meetingWishesSave"
+  /** Unavailability of the teacher for a meeting session (SaisieRencontreIndisponibilites, tab 91). */
+  | "meetingUnavailabilitySave"
+  /** Appointments (RDV, tab 284; read with type rdvcr_RDV only). */
+  | "appointments"
+  /** Pedagogical forum (ForumPedagogique, tab 275; read with fpcr_Sujets and fpcr_Posts only). */
+  | "forum";
 
 /**
  * Values read from the PRONOTE 2026.2 teacher client (tabs: 23 grade entry, 105 student list, 113 call sheet,
@@ -126,6 +166,24 @@ const defaults: Record<FunctionKey, TeacherFunction> = {
   messageSave: { name: "SaisieMessage", onglet: 131 },
   recipientsList: { name: "ListePublics", onglet: 131 },
   attendanceSave: { name: "SaisieAbsences", onglet: 113 },
+  participantsList: { name: "SaisiePublicMessage", onglet: 131 },
+  messagingPreferences: { name: "PreferenceMessagerie", onglet: 131 },
+  messagingPreferencesSave: { name: "SaisiePreferenceMessagerie", onglet: 131 },
+  recipientsFallback: { name: "ListeRessourcesPourCommunication", onglet: 131 },
+  distributionLists: { name: "ListeDiffusion", onglet: 158 },
+  distributionListSave: { name: "SaisieListeDiffusion", onglet: 158 },
+  newsResults: { name: "PageActualitesResultats", onglet: 8 },
+  newsEdit: { name: "DonneesEditionInformation", onglet: 8 },
+  newsSave: { name: "SaisieActualites", onglet: 8 },
+  surveyLibrary: { name: "ListeSondagesDeBiblioEtablissement", onglet: 8 },
+  notifications: { name: "CentraleNotifications", onglet: 7 },
+  meetingSessions: { name: "SessionRencontres", onglet: 90 },
+  meetingDetails: { name: "RencontresParentsProfs", onglet: 90 },
+  meetingPlanning: { name: "RencontrePlanning", onglet: 94 },
+  meetingWishesSave: { name: "SaisieRencontreDesiderata", onglet: 92 },
+  meetingUnavailabilitySave: { name: "SaisieRencontreIndisponibilites", onglet: 91 },
+  appointments: { name: "RDV", onglet: 284 },
+  forum: { name: "ForumPedagogique", onglet: 275 },
 };
 
 const load = (): Record<FunctionKey, TeacherFunction> => {
@@ -140,6 +198,19 @@ const load = (): Record<FunctionKey, TeacherFunction> => {
 };
 
 export const functions = load();
+
+/** Whether the tab of a function is closed to the account (tabs received at login and lacking it). */
+export const isTabClosed = (session: SessionHandle, key: FunctionKey): boolean => tabClosed(session, functions[key].onglet);
+
+/**
+ * Sends a read function through callPronote and returns its "data". The data member is left out when
+ * "data" is undefined (CentraleNotifications is called without data).
+ */
+export const callFunction = async (session: SessionHandle, key: FunctionKey, data?: Record<string, unknown>): Promise<Record<string, any>> => {
+  const fn = requireFunction(key);
+  const answer = await callPronote(session, { name: fn.name, data, signature: fn.onglet !== null ? { onglet: fn.onglet } : undefined });
+  return answerData(session, answer);
+};
 
 /** Configured function, or HTTP 501 when the capture has not been done yet. */
 export const requireFunction = (key: FunctionKey): TeacherFunction => {

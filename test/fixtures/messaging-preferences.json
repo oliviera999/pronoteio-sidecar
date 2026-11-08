@@ -1,0 +1,13 @@
+{
+  "comment": "PreferenceMessagerie answer (capture 0007 on the demo server): disconnection 20h-7h, week-end and holidays active.",
+  "uniquementParentEleve": false,
+  "heureAvant": 7,
+  "heureApres": 20,
+  "listeJoursOuvres": { "_T": 24, "V": [
+    { "jour": 1, "actif": true }, { "jour": 2, "actif": true }, { "jour": 3, "actif": true }, { "jour": 4, "actif": true }, { "jour": 5, "actif": true }
+  ] },
+  "listeJoursNonOuvres": { "_T": 24, "V": [
+    { "jour": 6, "actif": true }, { "jour": 7, "actif": true }, { "estJourFerie": true, "actif": true }
+  ] },
+  "messageAuto": { "_T": 21, "V": "<p>Je réponds aux messages pendant les heures ouvrées.</p>" }
+}

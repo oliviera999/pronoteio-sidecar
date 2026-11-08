@@ -1,0 +1,16 @@
+{
+  "comment": "PageActualitesResultats answer built from the static reading of the client (listeQuestions[{ N, listeRepondant[] }]): not captured on a real server.",
+  "listeQuestions": { "_T": 24, "V": [
+    { "N": "66#q2", "L": "Présence", "genreReponse": 2, "texte": { "_T": 21, "V": "<p>Serez-vous présent ?</p>" },
+      "listeChoix": { "_T": 24, "V": [{ "L": "Oui", "rang": 1 }, { "L": "Non", "rang": 2 }, { "L": "Autre", "rang": 3 }] },
+      "listeRepondant": { "_T": 24, "V": [
+        { "L": "M. PARENT F.", "classe": { "_T": 24, "V": { "L": "3A" } }, "reponse": { "_T": 24, "V": { "N": "68#a1", "avecReponse": true, "valeurReponse": { "_T": 8, "V": "[1]" }, "reponduLe": { "_T": 7, "V": "03/11/2026 18:00:00" } } } },
+        { "L": "Mme PARENT G.", "classe": { "_T": 24, "V": { "L": "1G3" } }, "reponse": { "_T": 24, "V": { "N": "68#a2", "avecReponse": true, "valeurReponse": { "_T": 8, "V": "[3]" }, "valeurReponseLibre": "Peut-être" } } },
+        { "L": "M. PARENT I.", "classe": { "_T": 24, "V": { "L": "3A" } }, "reponse": { "_T": 24, "V": { "N": "0", "avecReponse": false } } }
+      ] } },
+    { "N": "66#q3", "L": "Remarques", "genreReponse": 1, "texte": { "_T": 21, "V": "<p>Remarques</p>" }, "listeChoix": { "_T": 24, "V": [] },
+      "listeRepondant": { "_T": 24, "V": [
+        { "L": "M. PARENT F.", "reponse": { "_T": 24, "V": { "N": "68#a3", "avecReponse": true, "valeurReponse": "Merci pour l'organisation" } } }
+      ] } }
+  ] }
+}

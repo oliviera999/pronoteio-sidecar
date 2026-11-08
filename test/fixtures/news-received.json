@@ -1,0 +1,33 @@
+{
+  "comment": "Received survey of PageActualites mode 0, in the shape Pawnote decodes (listeQuestions with reponse), anonymised.",
+  "L": "Autorisation de sortie au musée",
+  "N": "65#x30",
+  "reponseAnonyme": false,
+  "estInformation": false,
+  "estSondage": true,
+  "nature": { "_T": 24, "V": { "L": "Autorisation de sortie", "N": "70#x8" } },
+  "lue": false,
+  "dateDebut": { "_T": 7, "V": "02/11/2026" },
+  "dateFin": { "_T": 7, "V": "30/11/2026" },
+  "dateCreation": { "_T": 7, "V": "01/11/2026 09:00:00" },
+  "auteur": "SUPERVISEUR",
+  "estAuteur": false,
+  "publie": true,
+  "etatPublication": 0,
+  "detailPublicSuccinct": "3A (Professeurs)",
+  "public": { "_T": 24, "V": { "L": "M. PROFESSEUR M.", "N": "109#x14", "G": 3 } },
+  "genrePublic": 3,
+  "estVerrouille": false,
+  "listeQuestions": { "_T": 24, "V": [
+    { "N": "66#q1", "L": "Accusé de réception", "rang": 1, "genreReponse": 0, "texte": { "_T": 21, "V": "<p>Merci d'accuser réception.</p>" },
+      "listeChoix": { "_T": 24, "V": [] }, "listePiecesJointes": { "_T": 24, "V": [] },
+      "reponse": { "_T": 24, "V": { "N": "0", "avecReponse": false, "estReponseAttendue": true } } },
+    { "N": "66#q2", "L": "Présence", "rang": 2, "genreReponse": 2, "texte": { "_T": 21, "V": "<p>Serez-vous présent ?</p>" },
+      "listeChoix": { "_T": 24, "V": [{ "L": "Oui", "rang": 1, "estReponseLibre": false }, { "L": "Non", "rang": 2, "estReponseLibre": false }, { "L": "Autre", "rang": 3, "estReponseLibre": true }] },
+      "listePiecesJointes": { "_T": 24, "V": [{ "L": "programme.pdf", "N": "67#d1", "G": 1 }] },
+      "reponse": { "_T": 24, "V": { "N": "68#a2", "avecReponse": true, "estReponseAttendue": true, "valeurReponse": { "_T": 8, "V": "[3]" }, "valeurReponseLibre": "Peut-être" } } },
+    { "N": "66#q3", "L": "Remarques", "rang": 3, "genreReponse": 1, "texte": { "_T": 21, "V": "<p>Remarques</p>" }, "tailleReponse": 500,
+      "listeChoix": { "_T": 24, "V": [] }, "listePiecesJointes": { "_T": 24, "V": [] },
+      "reponse": { "_T": 24, "V": { "N": "0", "avecReponse": false, "estReponseAttendue": false } } }
+  ] }
+}
