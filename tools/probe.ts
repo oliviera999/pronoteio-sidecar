@@ -5,7 +5,7 @@
  *   npx tsx --env-file=.env tools/probe.ts <FunctionName> [onglet] [data.json] [--write]
  *
  * .env keys: PROBE_URL, PROBE_USERNAME, PROBE_PASSWORD, PROBE_PIN (double authentication).
- * Function names containing "Saisie" (writes) are refused unless --write is given.
+ * Function names starting with "Saisie" or "Deposer" (writes) are refused unless --write is given.
  * The decoded answer is printed as JSON; the refreshed token is kept in .probe-token (see probe-login.ts).
  */
 import { readFileSync } from "node:fs";
@@ -17,7 +17,8 @@ if (!name) {
   console.error("Usage: tools/probe.ts <FunctionName> [onglet|-] [data.json|-] [--write]");
   process.exit(2);
 }
-if (/saisie/i.test(name) && !flags.includes("--write")) {
+// Functions that write start with "Saisie" or "Deposer"; "PageSaisieCahierDeTextes" is a read.
+if (/^(Saisie|Deposer)/i.test(name) && !flags.includes("--write")) {
   console.error(`Refusing to call "${name}" without --write (it may modify Pronote data).`);
   process.exit(2);
 }

@@ -1,0 +1,540 @@
+{
+ "service": {
+  "_T": 24,
+  "V": {
+   "L": "MATHÉMATIQUES",
+   "N": "131#x1",
+   "A": true,
+   "coefficientGeneral": {
+    "_T": 10,
+    "V": "1"
+   },
+   "afficherCoefficientGeneral": true,
+   "estServiceLVE": false,
+   "estUnService": true,
+   "facultatif": false,
+   "avecDetailNotesNonPublie": false,
+   "classe": {
+    "_T": 24,
+    "V": {
+     "L": "3A",
+     "N": "23#x6"
+    }
+   },
+   "groupe": {
+    "_T": 24,
+    "V": {
+     "N": "0"
+    }
+   },
+   "estCoEnseignement": false,
+   "avecSaisieEvaluation": true,
+   "matiere": {
+    "_T": 24,
+    "V": {
+     "L": "MATHÉMATIQUES",
+     "N": "79#x2",
+     "P": 37,
+     "code": "MATHS",
+     "couleur": "#FF8040"
+    }
+   },
+   "listePeriodes": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "Trimestre 1",
+      "N": "105#x1",
+      "coefficient": {
+       "_T": 10,
+       "V": "1"
+      },
+      "moyenneParSousMatiere": true,
+      "moyenneBulletinSurClasse": false,
+      "avecBonusMalus": false,
+      "avecDevoirSupMoy": false,
+      "ponderationNotePlusHaute": {
+       "_T": 10,
+       "V": "1"
+      },
+      "ponderationNotePlusBasse": {
+       "_T": 10,
+       "V": "1"
+      },
+      "arrondiEleve": {
+       "_T": 14,
+       "V": "0"
+      },
+      "arrondiClasse": {
+       "_T": 14,
+       "V": "0"
+      }
+     }
+    ]
+   },
+   "listeServices": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "Écrit",
+      "N": "131#x2",
+      "A": true,
+      "coefficientGeneral": {
+       "_T": 10,
+       "V": "1"
+      },
+      "afficherCoefficientGeneral": true,
+      "estServiceLVE": false,
+      "estUnService": false,
+      "facultatif": false,
+      "avecDetailNotesNonPublie": false,
+      "classe": {
+       "_T": 24,
+       "V": {
+        "L": "3A",
+        "N": "23#x6"
+       }
+      },
+      "groupe": {
+       "_T": 24,
+       "V": {
+        "N": "0"
+       }
+      },
+      "estCoEnseignement": false,
+      "avecSaisieEvaluation": true,
+      "matiere": {
+       "_T": 24,
+       "V": {
+        "L": "Écrit",
+        "N": "137#x1",
+        "P": 2,
+        "couleur": "#FF8040"
+       }
+      },
+      "listePeriodes": {
+       "_T": 24,
+       "V": [
+        {
+         "L": "Trimestre 1",
+         "N": "105#x1",
+         "coefficient": {
+          "_T": 10,
+          "V": "1"
+         },
+         "moyenneParSousMatiere": false,
+         "moyenneBulletinSurClasse": false,
+         "avecBonusMalus": false,
+         "avecDevoirSupMoy": false,
+         "ponderationNotePlusHaute": {
+          "_T": 10,
+          "V": "1"
+         },
+         "ponderationNotePlusBasse": {
+          "_T": 10,
+          "V": "1"
+         },
+         "arrondiEleve": {
+          "_T": 14,
+          "V": "0"
+         },
+         "arrondiClasse": {
+          "_T": 14,
+          "V": "0"
+         }
+        }
+       ]
+      },
+      "listeServices": {
+       "_T": 24,
+       "V": []
+      }
+     },
+     {
+      "L": "Oral",
+      "N": "131#x3",
+      "A": true,
+      "coefficientGeneral": {
+       "_T": 10,
+       "V": "1"
+      },
+      "afficherCoefficientGeneral": true,
+      "estServiceLVE": false,
+      "estUnService": false,
+      "facultatif": false,
+      "avecDetailNotesNonPublie": false,
+      "classe": {
+       "_T": 24,
+       "V": {
+        "L": "3A",
+        "N": "23#x6"
+       }
+      },
+      "groupe": {
+       "_T": 24,
+       "V": {
+        "N": "0"
+       }
+      },
+      "estCoEnseignement": false,
+      "avecSaisieEvaluation": true,
+      "matiere": {
+       "_T": 24,
+       "V": {
+        "L": "Oral",
+        "N": "137#x2",
+        "P": 12,
+        "couleur": "#FF8040"
+       }
+      },
+      "listePeriodes": {
+       "_T": 24,
+       "V": [
+        {
+         "L": "Trimestre 1",
+         "N": "105#x1",
+         "coefficient": {
+          "_T": 10,
+          "V": "1"
+         },
+         "moyenneParSousMatiere": false,
+         "moyenneBulletinSurClasse": false,
+         "avecBonusMalus": false,
+         "avecDevoirSupMoy": false,
+         "ponderationNotePlusHaute": {
+          "_T": 10,
+          "V": "1"
+         },
+         "ponderationNotePlusBasse": {
+          "_T": 10,
+          "V": "1"
+         },
+         "arrondiEleve": {
+          "_T": 14,
+          "V": "0"
+         },
+         "arrondiClasse": {
+          "_T": 14,
+          "V": "0"
+         }
+        }
+       ]
+      },
+      "listeServices": {
+       "_T": 24,
+       "V": []
+      }
+     }
+    ]
+   }
+  }
+ },
+ "listeClasses": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "3A",
+    "N": "23#x6",
+    "typeMoyNR": 2,
+    "service": {
+     "_T": 24,
+     "V": {
+      "L": "MATHÉMATIQUES",
+      "N": "131#x1"
+     }
+    },
+    "listePeriodes": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Trimestre 1",
+       "N": "105#x1",
+       "G": 2,
+       "A": true,
+       "estEvaluationCloturee": false,
+       "coefficientClasse": {
+        "_T": 10,
+        "V": "1"
+       }
+      },
+      {
+       "L": "Trimestre 2",
+       "N": "105#x2",
+       "G": 2,
+       "A": true,
+       "estEvaluationCloturee": false,
+       "coefficientClasse": {
+        "_T": 10,
+        "V": "1"
+       }
+      },
+      {
+       "L": "Trimestre 3",
+       "N": "105#x3",
+       "G": 2,
+       "A": true,
+       "estEvaluationCloturee": false,
+       "coefficientClasse": {
+        "_T": 10,
+        "V": "1"
+       }
+      },
+      {
+       "L": "ELEVE Un",
+       "N": "105#x4",
+       "G": 4,
+       "A": true,
+       "estEvaluationCloturee": false,
+       "coefficientClasse": {
+        "_T": 10,
+        "V": "1"
+       }
+      },
+      {
+       "L": "ELEVE Un",
+       "N": "105#x5",
+       "G": 4,
+       "A": true,
+       "estEvaluationCloturee": false,
+       "coefficientClasse": {
+        "_T": 10,
+        "V": "1"
+       }
+      }
+     ]
+    },
+    "periodeParDefaut": {
+     "_T": 24,
+     "V": {
+      "L": "Trimestre 1",
+      "N": "105#x1"
+     }
+    }
+   }
+  ]
+ },
+ "listeDevoirs": {
+  "_T": 24,
+  "V": [
+   {
+    "N": "33#x1",
+    "P": 137,
+    "service": {
+     "_T": 24,
+     "V": {
+      "L": "Écrit",
+      "N": "131#x2"
+     }
+    },
+    "date": {
+     "_T": 7,
+     "V": "10/11/2026"
+    },
+    "verrouille": false,
+    "bareme": {
+     "_T": 10,
+     "V": "20"
+    },
+    "existesDesNotes": true,
+    "coefficient": {
+     "_T": 10,
+     "V": "1"
+    },
+    "commentaire": "1er devoir",
+    "commeUnBonus": false,
+    "commeUneNote": false,
+    "ramenerSur20": false,
+    "datePublication": {
+     "_T": 7,
+     "V": "10/11/2026"
+    },
+    "avecCommentaireSurNoteEleve": false,
+    "commentaireVerrouille": false,
+    "baremeVerrouille": false,
+    "coeffVerrouille": false,
+    "ListeThemes": {
+     "_T": 24,
+     "V": []
+    },
+    "libelleCBTheme": "Des matières du devoir",
+    "listeClasses": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "3A",
+       "N": "23#x6",
+       "service": {
+        "_T": 24,
+        "V": {
+         "L": "Écrit",
+         "N": "131#x2"
+        }
+       },
+       "listePeriodes": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "Trimestre 1",
+          "N": "105#x1",
+          "estEvaluationCloturee": false
+         },
+         {
+          "L": "Trimestre 3",
+          "N": "105#x3",
+          "estEvaluationCloturee": false
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "N": "33#x2",
+    "P": 67,
+    "service": {
+     "_T": 24,
+     "V": {
+      "L": "Écrit",
+      "N": "131#x2"
+     }
+    },
+    "date": {
+     "_T": 7,
+     "V": "12/10/2026"
+    },
+    "verrouille": false,
+    "bareme": {
+     "_T": 10,
+     "V": "20"
+    },
+    "existesDesNotes": true,
+    "coefficient": {
+     "_T": 10,
+     "V": "1"
+    },
+    "commentaire": "2nd devoir",
+    "commeUnBonus": false,
+    "commeUneNote": false,
+    "ramenerSur20": false,
+    "datePublication": {
+     "_T": 7,
+     "V": "12/10/2026"
+    },
+    "avecCommentaireSurNoteEleve": false,
+    "commentaireVerrouille": false,
+    "baremeVerrouille": false,
+    "coeffVerrouille": false,
+    "ListeThemes": {
+     "_T": 24,
+     "V": []
+    },
+    "libelleCBTheme": "Des matières du devoir",
+    "listeClasses": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "3A",
+       "N": "23#x6",
+       "service": {
+        "_T": 24,
+        "V": {
+         "L": "Écrit",
+         "N": "131#x2"
+        }
+       },
+       "listePeriodes": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "Trimestre 1",
+          "N": "105#x1",
+          "estEvaluationCloturee": false
+         },
+         {
+          "L": "Trimestre 3",
+          "N": "105#x3",
+          "estEvaluationCloturee": false
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "N": "33#x3",
+    "P": 78,
+    "service": {
+     "_T": 24,
+     "V": {
+      "L": "Écrit",
+      "N": "131#x2"
+     }
+    },
+    "date": {
+     "_T": 7,
+     "V": "14/10/2026"
+    },
+    "verrouille": false,
+    "bareme": {
+     "_T": 10,
+     "V": "20"
+    },
+    "existesDesNotes": true,
+    "coefficient": {
+     "_T": 10,
+     "V": "1"
+    },
+    "commentaire": "3ème devoir",
+    "commeUnBonus": false,
+    "commeUneNote": false,
+    "ramenerSur20": false,
+    "datePublication": {
+     "_T": 7,
+     "V": "14/10/2026"
+    },
+    "avecCommentaireSurNoteEleve": false,
+    "commentaireVerrouille": false,
+    "baremeVerrouille": false,
+    "coeffVerrouille": false,
+    "ListeThemes": {
+     "_T": 24,
+     "V": []
+    },
+    "libelleCBTheme": "Des matières du devoir",
+    "listeClasses": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "3A",
+       "N": "23#x6",
+       "service": {
+        "_T": 24,
+        "V": {
+         "L": "Écrit",
+         "N": "131#x2"
+        }
+       },
+       "listePeriodes": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "Trimestre 1",
+          "N": "105#x1",
+          "estEvaluationCloturee": false
+         },
+         {
+          "L": "Trimestre 2",
+          "N": "105#x2",
+          "estEvaluationCloturee": false
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  ]
+ }
+}

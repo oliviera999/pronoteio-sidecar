@@ -13,7 +13,8 @@ import { readFileSync } from "node:fs";
 import { HttpError } from "../errors.js";
 /**
  * Values read from the PRONOTE 2026.2 teacher client (tabs: 23 grade entry, 105 student list, 113 call sheet,
- * 13 report card).
+ * 13 report card, 16 timetable, 28 notebook entry, 154 written tests, 89 class notebook). See
+ * docs/pronoteio/capture.md and docs/pronote-matrice/1-cahier-de-textes.md in mood_prod.
  */
 const defaults = {
     periodsList: { name: "ListePeriodes", onglet: 23 },
@@ -23,6 +24,11 @@ const defaults = {
     gradesSave: { name: "SaisieNotes", onglet: 23 },
     absencesList: { name: "PageSaisieAbsences", onglet: 113 },
     reportCard: { name: "PageBulletins", onglet: 13 },
+    timetablePage: { name: "PageEmploiDuTemps", onglet: 16 },
+    lessonPage: { name: "PageSaisieCahierDeTextes", onglet: 28 },
+    lessonSettings: { name: "PageSaisieCahierDeTextes_General", onglet: 28 },
+    writtenTestsList: { name: "ListeDevoirSurTable", onglet: 154 },
+    classNotebook: { name: "PageCahierDeTexte", onglet: 89 },
 };
 const load = () => {
     const file = process.env.PRONOTEIO_FUNCTIONS_FILE;

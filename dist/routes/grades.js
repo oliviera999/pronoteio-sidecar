@@ -48,8 +48,8 @@ export default async function gradesRoutes(app) {
         },
     }, async (request) => {
         const { service, period, assessment, grades, dryRun = false } = request.body;
-        if (!dryRun && !config.enableGradeWrite) {
-            throw new HttpError(403, "grade_write_disabled");
+        if (!dryRun && config.writeMode !== "live") {
+            throw new HttpError(403, "write_mode_simulate");
         }
         return teacher.pushGrades(requireSession(request), service, period, { ...assessment, id: assessment.id ?? null, publication: assessment.publication ?? null }, grades, dryRun);
     });

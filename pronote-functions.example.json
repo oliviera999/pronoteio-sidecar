@@ -5,5 +5,10 @@
   "studentsList": { "name": "ListeEleves", "onglet": 105 },
   "gradesSave": { "name": "SaisieNotes", "onglet": 23 },
   "absencesList": { "name": "PageSaisieAbsences", "onglet": 113 },
-  "reportCard": { "name": "PageBulletins", "onglet": 13 }
+  "reportCard": { "name": "PageBulletins", "onglet": 13 },
+  "timetablePage": { "name": "PageEmploiDuTemps", "onglet": 16 },
+  "lessonPage": { "name": "PageSaisieCahierDeTextes", "onglet": 28 },
+  "lessonSettings": { "name": "PageSaisieCahierDeTextes_General", "onglet": 28 },
+  "writtenTestsList": { "name": "ListeDevoirSurTable", "onglet": 154 },
+  "classNotebook": { "name": "PageCahierDeTexte", "onglet": 89 }
 }

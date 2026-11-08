@@ -9,7 +9,7 @@
 import { createHash } from "node:crypto";
 import { HttpError } from "../errors.js";
 
-export type IdKind = "class" | "group" | "period" | "service" | "student" | "assessment" | "absence";
+export type IdKind = "class" | "group" | "period" | "service" | "student" | "assessment" | "absence" | "lesson" | "planned";
 
 const PREFIX: Record<IdKind, string> = {
   class: "c",
@@ -19,6 +19,8 @@ const PREFIX: Record<IdKind, string> = {
   student: "e",
   assessment: "d",
   absence: "a",
+  lesson: "l",
+  planned: "ev",
 };
 
 const MAX_KEY = 80;

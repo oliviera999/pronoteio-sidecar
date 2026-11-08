@@ -34,4 +34,50 @@ export const splitDisplayName = (label) => {
         index = 1;
     return { lastname: words.slice(0, index).join(" "), firstname: words.slice(index).join(" ") };
 };
+/** Category kinds of a notebook content (PageSaisieCahierDeTextes_General.ListeCategories[].G). */
+export const CONTENT_KIND = {
+    custom: 0,
+    lesson: 1,
+    correction: 2,
+    writtenTest: 3,
+    oralTest: 4,
+    td: 5,
+    tp: 6,
+    skillsAssessment: 7,
+    epi: 8,
+    ap: 9,
+    visio: 12,
+    ccf: 13,
+    certifyingAssessment: 14,
+};
+/** Content kinds that flag an assessment. */
+export const ASSESSMENT_KINDS = [
+    CONTENT_KIND.writtenTest,
+    CONTENT_KIND.skillsAssessment,
+    CONTENT_KIND.ccf,
+    CONTENT_KIND.certifyingAssessment,
+];
+/** Comparable form of a label: lower case, no accents, single spaces. */
+export const normalise = (value) => value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+/** Plain text of an HTML fragment, whitespace collapsed, truncated. */
+export const plainText = (html, max = 300) => {
+    const text = html
+        .replace(/<br\s*\/?>/gi, " ")
+        .replace(/<\/(p|div|li|tr|h[1-6])>/gi, " ")
+        .replace(/<[^>]+>/g, "")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/\s+/g, " ")
+        .trim();
+    return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+};
 //# sourceMappingURL=normalise.js.map

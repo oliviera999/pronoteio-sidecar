@@ -1,0 +1,77 @@
+{
+ "DateCoursDeb": {
+  "_T": 7,
+  "V": "09/11/2026 09:00:00"
+ },
+ "DateCoursFin": {
+  "_T": 7,
+  "V": "09/11/2026 10:00:00"
+ },
+ "avecQCMDevoir": false,
+ "avecQCMEvaluation": false,
+ "listeClassesEleves": {
+  "_T": 24,
+  "V": []
+ },
+ "DateTravailAFaire": {
+  "_T": 7,
+  "V": "10/11/2026"
+ },
+ "CoursSuivant": {
+  "_T": 24,
+  "V": {
+   "N": "29#x9",
+   "NumeroSemaine": 11,
+   "date": {
+    "_T": 7,
+    "V": "10/11/2026"
+   }
+  }
+ },
+ "dateCoursSuivantTAF": {
+  "_T": 7,
+  "V": "10/11/2026"
+ },
+ "CoursPrecedent": {
+  "_T": 24,
+  "V": {
+   "N": "29#x10",
+   "noteProchaineSeance": "",
+   "NumeroSemaine": 10,
+   "date": {
+    "_T": 7,
+    "V": "06/11/2026"
+   }
+  }
+ },
+ "listeCDTsPrecedents": {
+  "_T": 24,
+  "V": []
+ },
+ "listeRessources": {
+  "_T": 24,
+  "V": []
+ },
+ "estEligibleParcours": true,
+ "listeClasses": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "3D",
+    "N": "23#x2",
+    "G": 1
+   }
+  ]
+ },
+ "messageSurNouveauTAF": "",
+ "ListeDocumentsJoints": {
+  "_T": 24,
+  "V": []
+ },
+ "listeCahiersDeTexte": {
+  "_T": 24,
+  "V": []
+ },
+ "avecElementsProgramme": true,
+ "voirTousLeCDTetCharge": true
+}
