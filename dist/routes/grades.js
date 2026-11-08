@@ -31,6 +31,8 @@ export default async function gradesRoutes(app) {
                             optional: { type: "boolean", default: false },
                             bonus: { type: "boolean", default: false },
                             comment: { type: "string", maxLength: 1000, default: "" },
+                            /** Deletes the existing assessment (id required) with its grades: no undo. */
+                            delete: { type: "boolean", default: false },
                         },
                     },
                     grades: {
@@ -54,7 +56,35 @@ export default async function gradesRoutes(app) {
         if (!dryRun && config.writeMode !== "live") {
             throw new HttpError(403, "write_mode_simulate");
         }
+        if (assessment.delete) {
+            if (!assessment.id)
+                throw new HttpError(400, "delete_without_id");
+            return teacher.removeAssessment(requireSession(request), service, period, assessment.id, dryRun);
+        }
         return teacher.pushGrades(requireSession(request), service, period, { ...assessment, id: assessment.id ?? null, publication: assessment.publication ?? null }, grades, dryRun);
+    });
+    app.post("/grades/comment", {
+        schema: {
+            body: {
+                type: "object",
+                required: ["service", "period", "assessment", "student", "comment"],
+                properties: {
+                    service: { type: "string", minLength: 1 },
+                    period: { type: "string", minLength: 1 },
+                    assessment: { type: "string", minLength: 1 },
+                    student: { type: "string", minLength: 1, maxLength: 200 },
+                    value: { type: ["number", "null"] },
+                    status: { type: "string", enum: ["", ...Object.keys(GRADE_STATUS)] },
+                    comment: { type: "string", maxLength: 1000 },
+                    dryRun: { type: "boolean", default: false },
+                },
+            },
+        },
+    }, async (request) => {
+        const { service, period, assessment, student, value, status, comment, dryRun = false } = request.body;
+        if (!dryRun && config.writeMode !== "live")
+            throw new HttpError(403, "write_mode_simulate");
+        return teacher.writeGradeComment(requireSession(request), service, period, assessment, { student, value, status, comment, dryRun });
     });
 }
 //# sourceMappingURL=grades.js.map

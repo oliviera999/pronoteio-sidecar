@@ -90,6 +90,9 @@ export const lessonFromPage = (session, cours, week) => {
         notebookId: typeof notebook === "string" ? notebook : null,
         label: typeof cours.L === "string" ? cours.L : "",
         rooms,
+        place: typeof cours.place === "number" ? cours.place : null,
+        duration: Math.max(1, Number(cours.duree ?? 1)),
+        attendanceLocked: cours.verrouille === true || cours.estAppelVerrouille === true || cours.utilisableAppel === false,
     };
 };
 /** Statut of a lesson (typestatutcours.js): 0 normal, 1 class council, 2 replacement, 3 history, 4 substitute. */

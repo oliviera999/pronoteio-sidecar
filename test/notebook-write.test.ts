@@ -43,6 +43,9 @@ const ref = (): LessonRef => ({
   notebookId: "18#x13",
   label: "",
   rooms: [{ N: "129#r1", L: "207" }],
+  place: 82,
+  duration: 2,
+  attendanceLocked: false,
 });
 
 /** Page with the students of the lesson (the captured page had an empty list). */

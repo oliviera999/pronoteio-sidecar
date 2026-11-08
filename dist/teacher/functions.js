@@ -43,6 +43,13 @@ const defaults = {
     newsPage: { name: "PageActualites", onglet: 8 },
     lockerPage: { name: "Casier", onglet: 148 },
     quizList: { name: "listeQCM", onglet: 86 },
+    gradeSaveUnit: { name: "SaisieNotesUnitaire", onglet: 23 },
+    competencySave: { name: "SaisieEvaluations", onglet: 65 },
+    commentSave: { name: "SaisieAppreciation", onglet: 25 },
+    generalCommentSave: { name: "SaisieAppreciation", onglet: 27 },
+    messageSave: { name: "SaisieMessage", onglet: 131 },
+    recipientsList: { name: "ListePublics", onglet: 131 },
+    attendanceSave: { name: "SaisieAbsences", onglet: 113 },
 };
 const load = () => {
     const file = process.env.PRONOTEIO_FUNCTIONS_FILE;
