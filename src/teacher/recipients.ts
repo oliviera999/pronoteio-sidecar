@@ -9,16 +9,19 @@
  * Pronote N leaves the sidecar: ids are built on the labels ("r:<kind>|<label>").
  *
  * ListePublics is the call of the client when the right communication.avecDiscussionAvancee is granted; the
- * accounts without it use ListeRessourcesPourCommunication { onglet: { N: 0, G: genre } } (empty on the demo,
- * captures 0041-0046: not validated), and an empty answer gives available: false, reason recipients_unavailable.
+ * accounts without it use ListeRessourcesPourCommunication { onglet: { N: 0, G: genre }, filtreElement: { N, G, L }
+ * of the connected teacher } whose answer is listeRessourcesPourCommunication[] filtered on avecDiscussion (as
+ * Pawnote's newDiscussionRecipients; empty on the demo, captures 0041-0046: not validated), and an empty answer
+ * gives available: false, reason recipients_unavailable.
  */
 import type { SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
 import { listOf, numberSet } from "../pronote/encoding.js";
 import { hasRight, userData } from "../pronote/userdata.js";
 import { normalise, type Recipient, type RecipientKind, type RecipientsResult } from "../normalise.js";
-import { callFunction } from "./functions.js";
-import { stableId } from "./ids.js";
+import { isAccessDenied } from "./competencies.js";
+import { callFunction, functions } from "./functions.js";
+import { stableIds } from "./ids.js";
 import { listDiscussions } from "./messaging.js";
 
 /** TypeHttpRessource of each recipient kind in ListePublics. */
@@ -55,13 +58,14 @@ const taughtOf = (session: SessionHandle, kind: RecipientKind, item: any): boole
 };
 
 /** Publics of one kind of a ListePublics (or ListeRessourcesPourCommunication) answer, minimised. */
-export const publicsOf = (session: SessionHandle, kind: RecipientKind, data: Record<string, any>): Public[] =>
-  listOf<any>(data?.listePublics ?? data?.listeRessources ?? data?.liste)
-    .filter((item) => typeof item?.N === "string")
-    .map((item) => {
+export const publicsOf = (session: SessionHandle, kind: RecipientKind, data: Record<string, any>): Public[] => {
+  const items = listOf<any>(data?.listePublics ?? data?.listeRessourcesPourCommunication).filter((item) => typeof item?.N === "string");
+  // Homonyms get "~2", "~3"… in Pronote order, like every stable id of the sidecar.
+  const ids = stableIds("recipient", items, (item) => `${kind}|${String(item.L ?? "").trim()}`);
+  return items.map((item, index) => {
       const text = String(item.L ?? "").trim();
       const recipient: Recipient = {
-        id: stableId("recipient", `${kind}|${text}`),
+        id: ids[index],
         kind,
         label: text,
         classes: kind === "student" ? labels(item?.classes) : [],
@@ -72,6 +76,13 @@ export const publicsOf = (session: SessionHandle, kind: RecipientKind, data: Rec
       };
       return { N: String(item.N), G: Number(item.G ?? RECIPIENT_GENRES[kind]), L: text, refuses: recipient.refuses, recipient };
     });
+};
+
+/** The connected teacher as Pawnote's userResource ({ N, G, L }), for filtreElement. */
+const connectedTeacher = (session: SessionHandle): { N: string; G: number; L: string } => {
+  const user = (session as any).userResource ?? (session as any).user?.resources?.[0] ?? (session as any).user ?? {};
+  return { N: String(user.id ?? ""), G: Number(user.kind ?? RECIPIENT_GENRES.teacher), L: String(user.name ?? "") };
+};
 
 /** Whether the account has the "discussion avancée" right (ListePublics); null when the rights are unknown. */
 export const advancedMessaging = (session: SessionHandle): boolean | null =>
@@ -87,8 +98,8 @@ export const loadPublics = async (session: SessionHandle, kind: RecipientKind): 
     const data = await callFunction(session, "recipientsList", { pourMessagerie: true, genres: numberSet([genre]), sansFiltreSurEleve: true, avecFonctionPersonnel: true });
     return publicsOf(session, kind, data);
   }
-  const data = await callFunction(session, "recipientsFallback", { onglet: { N: 0, G: genre } });
-  const publics = publicsOf(session, kind, data);
+  const data = await callFunction(session, "recipientsFallback", { onglet: { N: 0, G: genre }, filtreElement: connectedTeacher(session) });
+  const publics = publicsOf(session, kind, { listeRessourcesPourCommunication: listOf<any>(data?.listeRessourcesPourCommunication).filter((item) => item?.avecDiscussion === true) });
   return publics.length ? publics : null;
 };
 
@@ -96,7 +107,13 @@ export const loadPublics = async (session: SessionHandle, kind: RecipientKind): 
 export const loadAllPublics = async (session: SessionHandle, kinds: RecipientKind[]): Promise<Record<RecipientKind, Public[]>> => {
   const result = {} as Record<RecipientKind, Public[]>;
   for (const kind of [...new Set(kinds)]) {
-    const publics = await loadPublics(session, kind);
+    let publics: Public[] | null;
+    try {
+      publics = await loadPublics(session, kind);
+    } catch (error) {
+      if (isAccessDenied(error)) throw new HttpError(409, `tab_closed:${functions.recipientsList.name}`);
+      throw error;
+    }
     if (publics === null) throw new HttpError(409, "recipients_unavailable");
     result[kind] = publics;
   }
@@ -156,7 +173,13 @@ export const recipients = async (session: SessionHandle, kinds: RecipientKind[],
   const wanted = kinds.length ? kinds : RECIPIENT_KINDS;
   const items: Recipient[] = [];
   for (const kind of wanted) {
-    const publics = await loadPublics(session, kind);
+    let publics: Public[] | null;
+    try {
+      publics = await loadPublics(session, kind);
+    } catch (error) {
+      if (isAccessDenied(error)) return { available: false, reason: "access_denied", disabled, items: [], total: 0, truncated: false };
+      throw error;
+    }
     if (publics === null) return { available: false, reason: "recipients_unavailable", disabled, items: [], total: 0, truncated: false };
     items.push(...publics.map((item) => item.recipient));
   }

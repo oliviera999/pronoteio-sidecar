@@ -42,18 +42,22 @@ test("SaisieMessage requests follow Pawnote's newDiscussion plus genreDiscussion
     listeDestinataires: [{ N: "46#x1", G: 4, E: 2 }, { N: "23#k1", G: 1, E: 2 }],
     genreDiscussion: 0,
   });
-  assert.deepEqual(replyRequest({ _T: 21, V: "<p>Merci</p>" }, 2, "85#m1"), {
+  assert.deepEqual(replyRequest({ _T: 21, V: "<p>Merci</p>" }, 2, "85#m1", [], -1), {
     contenu: { _T: 21, V: "<p>Merci</p>" },
     bouton: { N: 0, G: 2 },
+    brouillon: { N: -1, E: 1 },
+    genreDiscussion: 0,
     messagePourReponse: { N: "85#m1", G: 0 },
     listeFichiers: [],
-  });
+  }, "Pawnote's discussionSendMessage: a temporary draft and genreDiscussion 0 beside the button");
+  const generated = replyRequest("x", 2, "85#m1") as any;
+  assert.ok(Number.isInteger(generated.brouillon.N) && generated.brouillon.N < 0, "a negative temporary id is generated");
 });
 
 test("a draft is saved with the brouillon command, created without 'brouillon' and modified with { N, E: 2 }", () => {
   const files = filesOf([{ name: "sortie.pdf", fileId: "reqUpl_1_1" }, { name: "Site", url: "https://example.org" }]);
   assert.deepEqual(files, [{ idFichier: "reqUpl_1_1", nomFichier: "sortie.pdf" }, { nomFichier: "Site", url: "https://example.org" }]);
-  assert.throws(() => filesOf([{ name: "x" }]), /attachment_without_file_or_url/);
+  assert.throws(() => filesOf([{ name: "x" }]), /invalid_request:attachment_without_file_or_url/);
   assert.deepEqual(draftRequest("Sortie", "Bonjour", [students[0]], files, null), {
     commande: "brouillon",
     objet: "Sortie",

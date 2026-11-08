@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import type { SessionHandle } from "pawnote";
 import { rememberUserData } from "../src/pronote/userdata.js";
-import { filterRecipients, publicsOf, recipients, RECIPIENT_GENRES } from "../src/teacher/recipients.js";
+import { filterRecipients, loadAllPublics, publicsOf, recipients, RECIPIENT_GENRES } from "../src/teacher/recipients.js";
 import { fakeSession } from "./fake-session.js";
 
 const fixture = (name: string) => JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8"));
@@ -68,16 +68,38 @@ test("GET /messages/recipients reads ListeMessagerie for the disabled flag and L
   assert.deepEqual(session.calls.map((call) => call.name), ["ListeMessagerie", "ListePublics", "ListePublics"]);
 });
 
-test("without the advanced messaging right, ListeRessourcesPourCommunication is tried and an empty answer gives recipients_unavailable", async () => {
+test("without the advanced messaging right, ListeRessourcesPourCommunication is called like Pawnote and read on listeRessourcesPourCommunication", async () => {
+  const answer = { listeRessourcesPourCommunication: { _T: 24, V: [
+    { L: "ELEVE Un", N: "46#x1", G: 4, avecDiscussion: true, classes: { _T: 24, V: [{ L: "3A" }] } },
+    { L: "ELEVE Deux", N: "46#x2", G: 4, avecDiscussion: false },
+  ] } };
   const session = fakeSession({
     ListeMessagerie: () => ({ listeMessagerie: { _T: 24, V: [] }, messagerieDesactivee: false }),
     ListeRessourcesPourCommunication: (data) => {
-      assert.deepEqual(data, { onglet: { N: 0, G: 4 } });
-      return { listeRessources: { _T: 24, V: [] } };
+      assert.deepEqual(data, { onglet: { N: 0, G: 4 }, filtreElement: { N: "109#p", G: 3, L: "Prof" } }, "the connected teacher as filtreElement");
+      return answer;
     },
   });
   rememberUserData(session, { rights: { Communication: { AvecDiscussionAvancee: false } } });
   const result = await recipients(session, ["student"]);
-  assert.deepEqual(result, { available: false, reason: "recipients_unavailable", disabled: false, items: [], total: 0, truncated: false });
+  assert.equal(result.available, true);
+  assert.deepEqual(result.items.map((item) => item.label), ["ELEVE Un"], "only avecDiscussion resources are kept");
+  assert.deepEqual(result.items[0].classes, ["3A"]);
   assert.ok(!session.calls.some((call) => call.name === "ListePublics"));
+
+  const empty = fakeSession({
+    ListeMessagerie: () => ({ listeMessagerie: { _T: 24, V: [] }, messagerieDesactivee: false }),
+    ListeRessourcesPourCommunication: () => ({ listeRessourcesPourCommunication: { _T: 24, V: [] } }),
+  });
+  rememberUserData(empty, { rights: { Communication: { AvecDiscussionAvancee: false } } });
+  assert.deepEqual(await recipients(empty, ["student"]), { available: false, reason: "recipients_unavailable", disabled: false, items: [], total: 0, truncated: false });
+});
+
+test("homonyms get distinct stable ids; a refused ListePublics is access_denied in reading and tab_closed in writing", async () => {
+  const twins = publicsOf(bare, "student", { listePublics: { _T: 24, V: [{ L: "ELEVE Trois", N: "46#x3", G: 4 }, { L: "ELEVE Trois", N: "46#x4", G: 4 }] } });
+  assert.deepEqual(twins.map((item) => item.recipient.id), ["r:student|ELEVE Trois", "r:student|ELEVE Trois~2"]);
+  const refused = fakeSession({ ListeMessagerie: () => ({ listeMessagerie: { _T: 24, V: [] }, messagerieDesactivee: false }) });
+  rememberUserData(refused, { rights: { communication: { avecDiscussionAvancee: true } } });
+  assert.deepEqual(await recipients(refused, ["teacher"]), { available: false, reason: "access_denied", disabled: false, items: [], total: 0, truncated: false });
+  await assert.rejects(loadAllPublics(refused, ["teacher"]), /tab_closed:ListePublics/);
 });

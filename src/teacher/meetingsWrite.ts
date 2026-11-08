@@ -11,6 +11,7 @@ import type { SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
 import { listOf, numberSet } from "../pronote/encoding.js";
 import type { MeetingWishesResult, MeetingWishesWrite } from "../normalise.js";
+import { assertTabOpen } from "./functions.js";
 import { findSession, loadSessions } from "./meetings.js";
 import { sendWrite } from "./write.js";
 
@@ -33,6 +34,8 @@ const wishIndex = (id: string, count: number): number => {
 };
 
 export const writeMeetingWishes = async (session: SessionHandle, sessionId: string, write: MeetingWishesWrite, dryRun: boolean): Promise<MeetingWishesResult> => {
+  if (write.wishes?.length) assertTabOpen(session, "meetingWishesSave");
+  if (write.unavailability !== undefined && write.unavailability !== null) assertTabOpen(session, "meetingUnavailabilitySave");
   const rows = await loadSessions(session);
   const row = findSession(rows, sessionId);
   const details = row.details ?? {};
@@ -60,7 +63,7 @@ export const writeMeetingWishes = async (session: SessionHandle, sessionId: stri
     requests.push(unavailabilityRequest(String(row.raw.N), write.unavailability));
   }
 
-  if (requests.length === 0) throw new HttpError(400, "nothing_to_write");
+  if (requests.length === 0) throw new HttpError(400, "invalid_request:nothing_to_write");
   if (dryRun) return { before: row.session, after: planned, written: false, dryRun: true, requests, validated: false };
 
   const keys = ["meetingWishesSave", "meetingUnavailabilitySave"] as const;
@@ -71,13 +74,15 @@ export const writeMeetingWishes = async (session: SessionHandle, sessionId: stri
   for (const wish of write.wishes ?? []) {
     const index = wishIndex(wish.id, after.wishes.length);
     const expected = planned.wishes[index];
-    if (after.wishes[index].wish !== expected.wish || (wish.duration !== undefined && after.wishes[index].duration !== expected.duration)) {
+    // A cleared wish is sent as voeu 0 and read back as 0: null and 0 are the same state.
+    if ((after.wishes[index].wish ?? 0) !== (expected.wish ?? 0) || (wish.duration !== undefined && (after.wishes[index].duration ?? 0) !== (expected.duration ?? 0))) {
       throw new HttpError(502, "wishes_not_saved");
     }
   }
   if (write.unavailability !== undefined && write.unavailability !== null) {
-    const mine = new Set(after.unavailability.mine);
-    if (!planned.unavailability.mine.every((slot) => mine.has(slot))) throw new HttpError(502, "wishes_not_saved");
+    // The whole set is written: the re-read set must be equal (a cleared set is proved by an empty one).
+    const mine = [...new Set(after.unavailability.mine)].sort((a, b) => a - b);
+    if (mine.length !== planned.unavailability.mine.length || mine.some((slot, index) => slot !== planned.unavailability.mine[index])) throw new HttpError(502, "wishes_not_saved");
   }
   return { before: row.session, after, written: true, dryRun: false, requests, validated: false };
 };

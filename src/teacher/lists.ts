@@ -12,7 +12,7 @@ import { HttpError } from "../errors.js";
 import { listOf } from "../pronote/encoding.js";
 import { normalise, type DistributionList, type DistributionListWrite, type DistributionListWriteResult, type RecipientKind } from "../normalise.js";
 import { isAccessDenied } from "./competencies.js";
-import { callFunction, isTabClosed } from "./functions.js";
+import { assertTabOpen, callFunction, isTabClosed } from "./functions.js";
 import { stableIds } from "./ids.js";
 import { participantsOf } from "./messaging.js";
 import { loadAllPublics, resolveRecipients } from "./recipients.js";
@@ -72,15 +72,16 @@ export const listRequest = (state: number, N: string | 0, label: string, isPubli
 });
 
 export const writeDistributionList = async (session: SessionHandle, write: DistributionListWrite, dryRun: boolean): Promise<DistributionListWriteResult> => {
+  assertTabOpen(session, "distributionListSave");
   const rows = await loadLists(session);
   let before: ListRow | null = null;
   if (write.action !== "create") {
-    if (!write.id) throw new HttpError(400, "list_id_required");
+    if (!write.id) throw new HttpError(400, "invalid_request:list_id_required");
     before = findList(rows, write.id);
     if (!before.list.mine) throw new HttpError(409, "list_not_mine");
   }
   const label = String(write.label ?? before?.list.label ?? "").trim();
-  if (!label) throw new HttpError(400, "label_required");
+  if (!label) throw new HttpError(400, "invalid_request:label_required");
   const isPublic = write.public ?? before?.list.public ?? false;
   let members = before?.members ?? [];
   if (write.action !== "delete" && write.members !== undefined) {

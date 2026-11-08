@@ -10,6 +10,7 @@
 import type { SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
 import type { DiscussionFolder, MailboxAction, MailboxResult, MailboxState } from "../normalise.js";
+import { assertTabOpen } from "./functions.js";
 import { listDiscussions, type DiscussionRow } from "./messaging.js";
 import { sendWrite } from "./write.js";
 
@@ -34,7 +35,8 @@ export const mailboxRequest = (action: MailboxAction, possessions: { N: string }
 
 /** Expected state of a discussion after an action (folder and unread flag, null when unchanged). */
 export const expectedState = (action: MailboxAction, before: MailboxState): MailboxState => {
-  const folder: Record<MailboxAction, DiscussionFolder | null> = { read: null, unread: null, archive: "archive", unarchive: "inbox", trash: "trash", restore: "inbox" };
+  // unarchive and restore put the copy back where it was (inbox, or sent for a discussion the teacher started).
+  const folder: Record<MailboxAction, DiscussionFolder | null> = { read: null, unread: null, archive: "archive", unarchive: before.folder === "archive" ? "inbox" : before.folder, trash: "trash", restore: before.folder === "trash" ? "inbox" : before.folder };
   return { ...before, folder: folder[action] ?? before.folder, unread: action === "read" ? false : action === "unread" ? true : before.unread };
 };
 
@@ -46,6 +48,7 @@ const stateOf = (row: DiscussionRow): MailboxState => ({
 });
 
 export const mailbox = async (session: SessionHandle, action: MailboxAction, ids: string[], dryRun: boolean): Promise<MailboxResult> => {
+  assertTabOpen(session, "messageSave");
   const listing = await listDiscussions(session);
   if (listing.disabled) throw new HttpError(409, "messaging_disabled");
   const rows = ids.map((id) => {
@@ -63,8 +66,8 @@ export const mailbox = async (session: SessionHandle, action: MailboxAction, ids
     const row = reread.rows.find((item) => item.discussion.id === expected.id);
     if (!row) throw new HttpError(502, "mailbox_not_applied");
     const state = stateOf(row);
-    // "restore" puts the copy back where it was (inbox or archive): any folder but the trash is accepted.
-    const folderOk = action === "restore" ? state.folder !== "trash" : state.folder === expected.folder;
+    // "restore" and "unarchive" put the copy back where it was (inbox or sent): any folder but the one left is accepted.
+    const folderOk = action === "restore" ? state.folder !== "trash" : action === "unarchive" ? state.folder !== "archive" : state.folder === expected.folder;
     if (!folderOk || state.unread !== expected.unread) throw new HttpError(502, "mailbox_not_applied");
     return state;
   });
