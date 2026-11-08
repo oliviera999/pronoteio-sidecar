@@ -1,0 +1,13 @@
+{
+  "comment": "CentraleNotifications answer (capture 0024 on the demo server), anonymised.",
+  "liste": { "_T": 24, "V": [
+    { "L": "Messagerie", "ident": "messagerie", "liste": { "_T": 24, "V": [
+      { "type": "message", "action": "ouvrir", "date": { "_T": 7, "V": "07/11/2026 08:12:00" }, "id": "notif-1",
+        "titre": { "_T": 21, "V": "<b>2 nouveaux messages</b>" }, "message": { "_T": 21, "V": "<p>M. PARENT F. &amp; ELEVE Un (3A)</p><p>Motivation</p>" }, "modalites": 0, "compteur": 2 }
+    ] } },
+    { "L": "Informations", "ident": "actualites", "liste": { "_T": 24, "V": [
+      { "type": "sondage", "action": "repondre", "date": { "_T": 7, "V": "06/11/2026" },
+        "titre": { "_T": 21, "V": "Sondage à compléter" }, "message": { "_T": 21, "V": "<div>Autorisation de sortie</div>" } }
+    ] } }
+  ] }
+}

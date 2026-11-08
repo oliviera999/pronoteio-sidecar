@@ -1,0 +1,15 @@
+{
+  "comment": "ForumPedagogique answers (captures 0067 and 0089 on the demo server), anonymised.",
+  "topics": { "listeSujets": { "_T": 24, "V": [
+    { "N": "170#f1", "titre": "Exposés sur l'énergie", "strAuteur": "M. PROFESSEUR M.", "genreModeration": 1, "matiere": { "_T": 24, "V": { "L": "PHYSIQUE-CHIMIE", "N": "33#m1" } },
+      "listeThemes": { "_T": 24, "V": [{ "L": "Énergie", "N": "34#th1" }] }, "etatPub": 1, "roles": { "_T": 26, "V": "[0,1]" }, "nbNonLu": 2, "nbMembres": 28, "nbAModerer": 1, "nbExclus": 0,
+      "dateTri": { "_T": 7, "V": "05/11/2026 10:15:00" } }
+  ] } },
+  "posts": {
+    "sujet": { "N": "170#f1", "titre": "Exposés sur l'énergie", "htmlPost": { "_T": 21, "V": "<p>Consigne</p>" } },
+    "listePosts": { "_T": 24, "V": [
+      { "N": "171#p1", "etatHeader": 0, "strAuteur": "ELEVE Un", "strDate": "jeu. 06/11/26 14h02", "estImportant": false, "actions": { "_T": 26, "V": "[1,2]" }, "contenu": { "_T": 21, "V": "<p>Bonjour, voici notre plan.</p>" } },
+      { "N": "171#p2", "etatHeader": 1, "strAuteur": "M. PROFESSEUR M.", "strDate": "jeu. 06/11/26 15h10", "estImportant": true, "actions": { "_T": 26, "V": "[]" }, "contenu": { "_T": 21, "V": "<p>Merci.</p>" } }
+    ] }
+  }
+}

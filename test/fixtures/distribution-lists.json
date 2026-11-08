@@ -1,0 +1,14 @@
+{
+  "comment": "ListeDiffusion answer (capture 0008 on the demo server), anonymised.",
+  "liste": { "_T": 24, "V": [
+    { "L": "Équipe 3A", "N": "140#l1", "estPublique": false, "estAuteur": true, "libelleAuteur": "M. PROFESSEUR M.",
+      "listePublicIndividu": { "_T": 24, "V": [
+        { "L": "Mme COLLEGUE A.", "N": "109#t2", "G": 3, "P": 1 },
+        { "L": "Mme DIRECTION H.", "N": "106#s1", "G": 34, "P": 2 }
+      ] } },
+    { "L": "Parents délégués", "N": "140#l2", "estPublique": true, "estAuteur": false, "libelleAuteur": "SUPERVISEUR",
+      "listePublicIndividu": { "_T": 24, "V": [
+        { "L": "M. PARENT F.", "N": "128#r1", "G": 5, "P": 3 }
+      ] } }
+  ] }
+}

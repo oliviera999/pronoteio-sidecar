@@ -1,0 +1,36 @@
+{
+  "comment": "SessionRencontres (capture 0009) and RencontresParentsProfs (capture 0047) answers, anonymised; the members of a 'rencontre' were not captured and are synthetic.",
+  "sessions": { "listeSessions": { "_T": 24, "V": [
+    { "L": "Rencontres parents-professeurs 3e", "N": "150#s1", "date": { "_T": 7, "V": "12/12/2026" }, "strHeureDebut": "17h00", "strHeureFin": "20h30",
+      "visibleDesiderataIndispo": true, "visiblePlanning": false }
+  ] } },
+  "details": {
+    "dateDebutSaisie": { "_T": 7, "V": "01/11/2026" },
+    "dateFinSaisie": { "_T": 7, "V": "30/11/2026" },
+    "indisponibilites": { "avecSaisie": true, "placeDebutSession": 204, "dureeSession": 10,
+      "placesIndisponibilitesSession": { "_T": 26, "V": "[204..224]" }, "placesIndisponibilitesPersonnelles": { "_T": 26, "V": "[204,205]" } },
+    "desiderata": { "avecSaisie": true,
+      "listeRencontres": { "_T": 24, "V": [
+        { "N": "151#r1", "responsable": { "_T": 24, "V": { "L": "M. PARENT F.", "N": "128#r1", "G": 5 } }, "eleve": { "_T": 24, "V": { "L": "ELEVE Un", "N": "46#x1", "G": 4 } },
+          "classe": { "_T": 24, "V": { "L": "3A", "N": "23#c1", "G": 1 } }, "duree": 10, "voeu": 1, "validationvoeu": false },
+        { "N": "151#r2", "responsable": { "_T": 24, "V": { "L": "Mme PARENT G.", "N": "128#r2", "G": 5 } }, "eleve": { "_T": 24, "V": { "L": "ELEVE Trois", "N": "46#x3", "G": 4 } },
+          "classe": { "_T": 24, "V": { "L": "1G3", "N": "23#c3", "G": 1 } }, "duree": 0, "voeu": 0 }
+      ] },
+      "autorisations": { "saisieDesiderata": true, "saisieDuree": true, "listeVoeux": { "_T": 24, "V": [
+        { "G": 0, "legende": "Sans avis" }, { "G": 1, "legende": "Souhaitée" }, { "G": 2, "legende": "Indispensable" }, { "G": 3, "legende": "Non souhaitée" }
+      ] } } },
+    "planning": { "listeRencontres": { "_T": 24, "V": [] } },
+    "autorisations": { "saisieDesiderata": true, "saisieDisponibilite": true }
+  },
+  "closed": {
+    "dateDebutSaisie": { "_T": 7, "V": "01/10/2026" },
+    "dateFinSaisie": { "_T": 7, "V": "15/10/2026" },
+    "indisponibilites": { "avecSaisie": false, "placeDebutSession": 204, "dureeSession": 10, "placesIndisponibilitesSession": { "_T": 26, "V": "[]" }, "placesIndisponibilitesPersonnelles": { "_T": 26, "V": "[]" } },
+    "desiderata": { "avecSaisie": false, "listeRencontres": { "_T": 24, "V": [] }, "autorisations": { "saisieDesiderata": false, "saisieDuree": false, "listeVoeux": { "_T": 24, "V": [] } } },
+    "autorisations": { "saisieDesiderata": false, "saisieDisponibilite": false }
+  },
+  "appointments": { "listeRDV": { "_T": 24, "V": [
+    { "N": "160#a1", "sujet": "Point scolarité", "description": "Suivi du trimestre", "date": { "_T": 7, "V": "20/11/2026 17:30:00" }, "fin": { "_T": 7, "V": "20/11/2026 17:50:00" },
+      "listeParticipantRDV": { "_T": 24, "V": [{ "L": "M. PARENT F.", "N": "128#r1", "G": 5 }] }, "lieu": { "_T": 24, "V": { "L": "Salle 12", "N": "129#l1", "G": 17 } }, "etat": "confirme", "modalite": "presentiel" }
+  ] }, "lieux": { "_T": 24, "V": [{ "L": "Salle 12", "N": "129#l1", "G": 17 }] } }
+}

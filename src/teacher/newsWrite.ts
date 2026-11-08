@@ -80,7 +80,8 @@ export const newsResponseRequest = (row: NewsRow, response: NewsResponseWrite): 
       const wanted = response.answers?.find((answer) => answer.question === normalised.id);
       const previous = unwrap(question?.reponse) ?? {};
       const textual = normalised.kind === "ack" || normalised.kind === "text";
-      const text = wanted?.text ?? (normalised.kind === "ack" && response.acknowledge === true ? "" : normalised.answer?.text ?? "");
+      // A new answer replaces the previous one entirely; an untouched question keeps what was answered before.
+      const text = wanted !== undefined ? wanted.text ?? "" : normalised.kind === "ack" && response.acknowledge === true ? "" : normalised.answer?.text ?? "";
       const ranks = wanted?.choices ?? normalised.answer?.choices ?? [];
       const answered = wanted !== undefined || (normalised.kind === "ack" && response.acknowledge === true) || normalised.answer !== null;
       return {
