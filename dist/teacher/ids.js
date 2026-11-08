@@ -23,6 +23,11 @@ const PREFIX = {
     news: "n",
     document: "doc",
     quiz: "q",
+    recipient: "r",
+    list: "dl",
+    meeting: "mt",
+    appointment: "rdv",
+    forumTopic: "ft",
 };
 const MAX_KEY = 80;
 const normaliseKey = (key) => key.normalize("NFC").replace(/\s+/g, " ").trim();
