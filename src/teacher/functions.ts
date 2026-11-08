@@ -44,6 +44,14 @@ export type FunctionKey =
   | "writtenTestsList"
   /** Notebook of a class for a period, every teacher (tab 89, not open to every profile). */
   | "classNotebook"
+  /** Writes a notebook entry: contents, homework, publication (SaisieCahierDeTextes, tab 28). */
+  | "notebookSave"
+  /** Services and rooms available to flag a written test from a lesson, before SaisieCahierDeTextes. */
+  | "assessmentPlanning"
+  /** Modifies one lesson of the timetable: rooms, memo, move, delete (SaisieCours, tab 16). */
+  | "lessonSave"
+  /** Resources of the school timetable: classes, teachers, rooms, equipment (RessourceEDT, tab 16). */
+  | "timetableResources"
   /** Skills assessments of a service and period (tab 65; not validated on the demo server). */
   | "competencyList"
   /** Levels given in one skills assessment (tab 56; not validated on the demo server). */
@@ -83,6 +91,10 @@ const defaults: Record<FunctionKey, TeacherFunction> = {
   lessonSettings: { name: "PageSaisieCahierDeTextes_General", onglet: 28 },
   writtenTestsList: { name: "ListeDevoirSurTable", onglet: 154 },
   classNotebook: { name: "PageCahierDeTexte", onglet: 89 },
+  notebookSave: { name: "SaisieCahierDeTextes", onglet: 28 },
+  assessmentPlanning: { name: "ProgrammerDevoirEvaluationCDT", onglet: 28 },
+  lessonSave: { name: "SaisieCours", onglet: 16 },
+  timetableResources: { name: "RessourceEDT", onglet: 16 },
   competencyList: { name: "ListeEvaluations", onglet: 65 },
   competencyPage: { name: "PageCompetencesParEvaluation", onglet: 56 },
   commentsPage: { name: "PageApprBulletin", onglet: 25 },

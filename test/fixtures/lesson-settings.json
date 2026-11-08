@@ -1,0 +1,145 @@
+{
+ "ListeCategories": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "Cours",
+    "N": "19#c1",
+    "G": 1,
+    "Editable": false,
+    "Supprimable": false,
+    "libelleIcone": ""
+   },
+   {
+    "L": "Correction",
+    "N": "19#c2",
+    "G": 2,
+    "Editable": false,
+    "Supprimable": false,
+    "libelleIcone": ""
+   },
+   {
+    "L": "Devoir sur table",
+    "N": "19#c3",
+    "G": 3,
+    "Editable": false,
+    "Supprimable": false,
+    "libelleIcone": "DS"
+   },
+   {
+    "L": "Interrogation orale",
+    "N": "19#c4",
+    "G": 4,
+    "Editable": false,
+    "Supprimable": false,
+    "libelleIcone": ""
+   },
+   {
+    "L": "Travaux dirigés",
+    "N": "19#c5",
+    "G": 5,
+    "Editable": false,
+    "Supprimable": false,
+    "libelleIcone": ""
+   },
+   {
+    "L": "Travaux pratiques",
+    "N": "19#c6",
+    "G": 6,
+    "Editable": false,
+    "Supprimable": false,
+    "libelleIcone": ""
+   },
+   {
+    "L": "Évaluation de compétences",
+    "N": "19#c7",
+    "G": 7,
+    "Editable": false,
+    "Supprimable": false,
+    "libelleIcone": "EVA"
+   },
+   {
+    "L": "Enseignements pratiques interdisciplinaires",
+    "N": "19#c8",
+    "G": 8,
+    "Editable": false,
+    "Supprimable": false,
+    "libelleIcone": "EPI"
+   },
+   {
+    "L": "Accompagnement Personnalisé",
+    "N": "19#c9",
+    "G": 9,
+    "Editable": false,
+    "Supprimable": false,
+    "libelleIcone": "AP"
+   },
+   {
+    "L": "Cours & correction",
+    "N": "19#c10",
+    "G": 0,
+    "Editable": true,
+    "Supprimable": false,
+    "libelleIcone": ""
+   },
+   {
+    "L": "Interrogation écrite & cours.",
+    "N": "19#c11",
+    "G": 0,
+    "Editable": true,
+    "Supprimable": false,
+    "libelleIcone": ""
+   },
+   {
+    "L": "Interrogation orale & cours",
+    "N": "19#c12",
+    "G": 0,
+    "Editable": true,
+    "Supprimable": false,
+    "libelleIcone": ""
+   },
+   {
+    "L": "Conclusion",
+    "N": "19#c13",
+    "G": 0,
+    "Editable": true,
+    "Supprimable": false,
+    "libelleIcone": ""
+   },
+   {
+    "L": "Introduction",
+    "N": "19#c14",
+    "G": 0,
+    "Editable": true,
+    "Supprimable": true,
+    "libelleIcone": ""
+   },
+   {
+    "L": "Visio",
+    "N": "19#c15",
+    "G": 12,
+    "Editable": false,
+    "Supprimable": false,
+    "libelleIcone": ""
+   },
+   {
+    "L": "Contrôle en cours de formation",
+    "N": "19#c16",
+    "G": 13,
+    "Editable": false,
+    "Supprimable": false,
+    "libelleIcone": "CCF"
+   },
+   {
+    "L": "Évaluation certificative",
+    "N": "19#c17",
+    "G": 14,
+    "Editable": false,
+    "Supprimable": false,
+    "libelleIcone": "EC"
+   }
+  ]
+ },
+ "PublierDocuments": true,
+ "PublierUrl": true
+}

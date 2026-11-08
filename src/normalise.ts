@@ -182,6 +182,10 @@ export type TeacherLesson = Lesson & {
   notebookPublished: boolean;
   /** The call sheet has been done. */
   attendanceDone: boolean;
+  /** The teacher may modify this lesson (Pronote "modifiable": rights of the profile and lock of the week). */
+  editable: boolean;
+  /** The rooms and equipment of this lesson may be changed (Pronote "ressourcesModifiables"). */
+  roomsEditable: boolean;
 };
 
 /** File or link attached to a notebook content or homework. The file URL is bound to the current session. */
