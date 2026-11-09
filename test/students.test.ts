@@ -104,3 +104,23 @@ test("teachers and rooms of RessourceEDT, timetable of a room week by week", asy
   assert.equal("hasNotebook" in result.items[0], false);
   await assert.rejects(resourceTimetable(session, "room", "Inconnue", new Date(2026, 10, 9), new Date(2026, 10, 16)), /room_not_found/);
 });
+
+test("photo of one student: picture type checked, absence and size relayed", async () => {
+  const { imageType, studentPhoto } = await import("../src/teacher/photos.js");
+  const session = filesSession();
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
+  const urls: string[] = [];
+  const photo = await studentPhoto(session, "c:T06", "e:MARTIN Léa", async (url) => {
+    urls.push(url);
+    return { contentType: "image/jpeg", bytes: jpeg };
+  });
+  assert.equal(photo.available, true);
+  assert.equal(photo.mime, "image/jpeg");
+  assert.equal(photo.base64, jpeg.toString("base64"));
+  assert.match(urls[0], /\/FichiersExternes\/.+\/photo\.jpg\?Session=/);
+  const none = await studentPhoto(session, "c:T06", "e:MARTIN Léa", async () => ({ contentType: "text/html", bytes: Buffer.from("<html>") }));
+  assert.deepEqual([none.available, none.reason, none.base64], [false, "no_photo", ""]);
+  await assert.rejects(studentPhoto(session, "c:T06", "e:INCONNU Max", async () => null), /student_not_found/);
+  assert.equal(imageType(Buffer.from("GIF89a....")), "image/gif");
+  assert.equal(imageType(Buffer.from("nope")), "");
+});

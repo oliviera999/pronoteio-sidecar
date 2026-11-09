@@ -3,8 +3,10 @@ import { HttpError } from "../errors.js";
 import { requireSession } from "../session.js";
 import { RESOURCE_KINDS, resourceTimetable, type ResourceKind } from "../teacher/resourceTimetable.js";
 import { INCLUDE_VALUES, studentFiles, type Include } from "../teacher/students.js";
+import { studentPhoto } from "../teacher/photos.js";
 
 type FilesQuery = { resource: string; student?: string; include?: string };
+type PhotoQuery = { resource: string; student: string };
 type ResourceTimetableQuery = { kind: ResourceKind; name: string; class?: string; from: number; to: number };
 
 const filesQuery = {
@@ -43,6 +45,24 @@ export default async function studentsRoutes(app: FastifyInstance): Promise<void
     const { resource, student = "", include } = request.query;
     return studentFiles(requireSession(request), resource, parseInclude(include), student);
   });
+
+  // One student at a time: Moodle checks the perimeter and the image rights before asking.
+  app.get<{ Querystring: PhotoQuery }>(
+    "/students/photo",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          required: ["resource", "student"],
+          properties: {
+            resource: { type: "string", minLength: 1, maxLength: 200 },
+            student: { type: "string", minLength: 3, maxLength: 200 },
+          },
+        },
+      },
+    },
+    async (request) => studentPhoto(requireSession(request), request.query.resource, request.query.student),
+  );
 
   app.get<{ Querystring: ResourceTimetableQuery }>(
     "/timetable/resource",
