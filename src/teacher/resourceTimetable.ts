@@ -62,7 +62,9 @@ export const resolveResource = async (
   }
   if (kind === "student") {
     if (className.trim() === "") throw new HttpError(400, "class_required");
-    const entries = await rosterEntries(session, stableId("class", className));
+    // Class label, or stable id of a class or group (c:..., g:...).
+    const resourceId = /^(c|g):/.test(className) ? className : stableId("class", className);
+    const entries = await rosterEntries(session, resourceId);
     const found = entries.filter((entry) => normalise(entry.label) === normalise(label) || entry.id === label);
     if (found.length === 0) throw new HttpError(404, "student_not_found");
     if (found.length > 1) throw new HttpError(409, "student_ambiguous");
