@@ -2,6 +2,7 @@ import { HttpError } from "../errors.js";
 import { requireSession } from "../session.js";
 import { RESOURCE_KINDS, resourceTimetable } from "../teacher/resourceTimetable.js";
 import { INCLUDE_VALUES, studentFiles } from "../teacher/students.js";
+import { studentPhoto } from "../teacher/photos.js";
 const filesQuery = {
     type: "object",
     required: ["resource"],
@@ -36,6 +37,19 @@ export default async function studentsRoutes(app) {
         const { resource, student = "", include } = request.query;
         return studentFiles(requireSession(request), resource, parseInclude(include), student);
     });
+    // One student at a time: Moodle checks the perimeter and the image rights before asking.
+    app.get("/students/photo", {
+        schema: {
+            querystring: {
+                type: "object",
+                required: ["resource", "student"],
+                properties: {
+                    resource: { type: "string", minLength: 1, maxLength: 200 },
+                    student: { type: "string", minLength: 3, maxLength: 200 },
+                },
+            },
+        },
+    }, async (request) => studentPhoto(requireSession(request), request.query.resource, request.query.student));
     app.get("/timetable/resource", { schema: { querystring: resourceTimetableQuery } }, async (request) => {
         const { kind, name, class: className = "", from, to } = request.query;
         if (to <= from || to - from > 62 * 24 * 3600)
