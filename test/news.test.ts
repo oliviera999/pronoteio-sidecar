@@ -119,3 +119,20 @@ test("GET /news/results sends the item as received to PageActualitesResultats", 
   const results = await newsResults(fake, id, false);
   assert.equal(results.news.title, "Autorisation de sortie au musée");
 });
+
+test("a received item without publication flags is published; a root text is used when the questions are empty", async () => {
+  const { newsRowsOf } = await import("../src/teacher/news.js");
+  const data = { listeModesAff: [{ G: 0, listeActualites: { _T: 24, V: [
+    { L: "Réunion", N: "65#r1", estSondage: false, dateDebut: { _T: 7, V: "09/11/2026 07:00:00" }, auteur: "X", contenu: { _T: 21, V: "<p>Salle 12</p>" } },
+  ] } }, { G: 1, listeActualites: { _T: 24, V: [
+    { L: "Brouillon", N: "65#r2", estSondage: false, estAuteur: true, dateDebut: { _T: 7, V: "09/11/2026 07:00:00" } },
+  ] } }] };
+  const session = { information: { url: "https://x", id: "s", aesKey: "0123456789abcdef", aesIV: "fedcba9876543210" } } as any;
+  const received = newsRowsOf(session, data, "received")[0].item;
+  assert.equal(received.published, true);
+  assert.equal(received.state, "published");
+  assert.equal(received.text, "<p>Salle 12</p>");
+  const own = newsRowsOf(session, data, "sent")[0].item;
+  assert.equal(own.published, false);
+  assert.equal(own.state, "draft");
+});

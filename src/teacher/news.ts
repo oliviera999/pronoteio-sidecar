@@ -124,7 +124,14 @@ const itemOf = (session: SessionHandle, raw: any, id: string, scope: NewsScope):
   const survey = raw?.estSondage === true;
   const template = raw?.estModele === true || scope === "templates" || scope === "library";
   const stateCode = Number(raw?.etatPublication);
-  const state: NewsItem["state"] = template ? "template" : STATES[stateCode] ?? (raw?.publie === true ? "published" : "draft");
+  // Received items (mode 0) carry neither "publie" nor "etatPublication" on the real server: they are published by
+  // definition (the account received them), unlike the author's own lists where a missing flag means a draft.
+  const received = scope === "received";
+  const published = typeof raw?.publie === "boolean" ? raw.publie : received;
+  const state: NewsItem["state"] = template ? "template" : STATES[stateCode] ?? (published ? "published" : "draft");
+  // Content: the questions' texts; on the real server a received item may carry its text at the root instead
+  // (member names not captured on the demonstration: read defensively).
+  const rootText = [raw?.contenu, raw?.texte, raw?.description].map(html).find((value) => value !== "") ?? "";
   return {
     id,
     title: String(raw?.L ?? "").trim(),
@@ -133,11 +140,11 @@ const itemOf = (session: SessionHandle, raw: any, id: string, scope: NewsScope):
     category: String(raw?.nature?.V?.L ?? raw?.nature?.L ?? "").trim(),
     read: raw?.lue === true,
     survey,
-    text: questions.map((question) => question.text).filter(Boolean).join("\n"),
+    text: questions.map((question) => question.text).filter(Boolean).join("\n") || rootText,
     attachments: listOf<any>(raw?.listeQuestions).flatMap((question) => attachmentsOf(session, question?.listePiecesJointes)),
     kind: survey ? "survey" : "information",
     scope,
-    published: raw?.publie === true,
+    published,
     state,
     start: dateOf(raw?.dateDebut),
     end: dateOf(raw?.dateFin),
