@@ -53,8 +53,11 @@ export const lessonEnd = (session, cours, start) => {
     }
     return new Date(start.getTime() + blocks * DEFAULT_BLOCK_MINUTES * 60_000);
 };
-/** Normalised lesson of a PageEmploiDuTemps answer, null when the entry is not a lesson or has no date. */
-export const lessonFromPage = (session, cours, week) => {
+/**
+ * Normalised lesson of a PageEmploiDuTemps answer, null when the entry is not a lesson or has no date. Without a
+ * teacher in the lesson, "teacher" is the account (its own timetable) or the given fallback (another resource).
+ */
+export const lessonFromPage = (session, cours, week, fallbackTeacher) => {
     const start = parsePronoteDate(cours?.DateDuCours?.V);
     if (!start || typeof cours?.N !== "string")
         return null;
@@ -66,7 +69,7 @@ export const lessonFromPage = (session, cours, week) => {
     const lesson = {
         id: lessonIdFor(start, groups, subject),
         subject,
-        teacher: teachers.length ? teachers.join(", ") : session.user.name,
+        teacher: teachers.length ? teachers.join(", ") : (fallbackTeacher ?? session.user.name),
         rooms: labels([GENRE_ROOM]),
         groups,
         start: seconds(start),

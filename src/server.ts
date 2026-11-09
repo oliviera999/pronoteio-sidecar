@@ -19,6 +19,7 @@ import reportsRoutes from "./routes/reports.js";
 import resourcesRoutes from "./routes/resources.js";
 import rosterRoutes from "./routes/roster.js";
 import sessionRoutes from "./routes/session.js";
+import studentsRoutes from "./routes/students.js";
 import timetableRoutes from "./routes/timetable.js";
 
 assertSecret();
@@ -76,6 +77,7 @@ await app.register(listsRoutes);
 await app.register(notificationsRoutes);
 await app.register(meetingsRoutes);
 await app.register(forumRoutes);
+await app.register(studentsRoutes);
 
 // Under Phusion Passenger (cPanel "Setup Node.js App") the server must listen on the socket given by
 // Passenger: its documented way is listen("passenger"), which Fastify's listen() cannot express.

@@ -1,0 +1,31 @@
+{
+ "Eleve": {
+  "N": "4#e1",
+  "L": "MARTIN Léa",
+  "Nom": "MARTIN",
+  "Prenoms": "Léa Anne",
+  "Sexe": "Féminin",
+  "DateNaissance": { "_T": 7, "V": "14/03/2010" },
+  "numeroEleve": "E000123",
+  "email": "lea.martin@pedagolyautey.org",
+  "classe": { "N": "1#c1", "L": "T06" },
+  "listeGroupes": { "_T": 24, "V": [{ "L": "T-SPE SVT 2" }, { "L": "T-EMC 3" }] },
+  "listeOptions": { "_T": 24, "V": [{ "L": "Latin" }] },
+  "regime": { "L": "Demi-pensionnaire" },
+  "autoriseDiffusionPhoto": false,
+  "existePhoto": true,
+  "listeProjetsAccompagnement": { "_T": 24, "V": [{ "L": "PAI" }] },
+  "infosMedicales": "Allergie fictive",
+  "listeMemos": { "_T": 24, "V": [{ "L": "Mémo à ne jamais renvoyer" }] },
+  "listeResponsables": {
+   "_T": 24,
+   "V": [
+    { "L": "MARTIN Paul", "lienParente": { "L": "Père" }, "estResponsableLegal": true, "telPortable": "0600000001",
+      "email": "parent.fictif@example.org", "adresse1": "1 rue Fictive", "codePostal": "20000", "ville": "Casablanca",
+      "accepteSMS": true },
+    { "L": "DURAND Marie", "lienParente": { "L": "Tante" }, "estResponsableLegal": false, "telFixe": "0500000002" }
+   ]
+  },
+  "champInconnu": "valeur à ne pas renvoyer"
+ }
+}

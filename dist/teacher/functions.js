@@ -70,6 +70,7 @@ const defaults = {
     meetingUnavailabilitySave: { name: "SaisieRencontreIndisponibilites", onglet: 91 },
     appointments: { name: "RDV", onglet: 284 },
     forum: { name: "ForumPedagogique", onglet: 275 },
+    studentFile: { name: "FicheEleve", onglet: 105 },
 };
 const load = () => {
     const file = process.env.PRONOTEIO_FUNCTIONS_FILE;
