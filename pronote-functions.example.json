@@ -130,5 +130,9 @@
   "attendanceSave": {
     "name": "SaisieAbsences",
     "onglet": 113
+  },
+  "studentFile": {
+    "name": "FicheEleve",
+    "onglet": 105
   }
 }

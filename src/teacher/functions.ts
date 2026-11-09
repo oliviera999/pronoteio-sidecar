@@ -125,7 +125,10 @@ export type FunctionKey =
   /** Appointments (RDV, tab 284; read with type rdvcr_RDV only). */
   | "appointments"
   /** Pedagogical forum (ForumPedagogique, tab 275; read with fpcr_Sujets and fpcr_Posts only). */
-  | "forum";
+  | "forum"
+  /* ---- Student files (0.3.0): only the students of the classes taught, checked by Moodle ---- */
+  /** File of one student: identity, image rights, guardians, health (FicheEleve, tab 105; not validated). */
+  | "studentFile";
 
 /**
  * Values read from the PRONOTE 2026.2 teacher client (tabs: 23 grade entry, 105 student list, 113 call sheet,
@@ -184,6 +187,7 @@ const defaults: Record<FunctionKey, TeacherFunction> = {
   meetingUnavailabilitySave: { name: "SaisieRencontreIndisponibilites", onglet: 91 },
   appointments: { name: "RDV", onglet: 284 },
   forum: { name: "ForumPedagogique", onglet: 275 },
+  studentFile: { name: "FicheEleve", onglet: 105 },
 };
 
 const load = (): Record<FunctionKey, TeacherFunction> => {
