@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { rememberUserData } from "../src/pronote/userdata.js";
 import { parseInclude } from "../src/routes/students.js";
 import { edtResources, resourceTimetable } from "../src/teacher/resourceTimetable.js";
-import { imageRightsOf, sexOf, studentFiles } from "../src/teacher/students.js";
+import { checkStudentFiles, imageRightsOf, sexOf, studentFiles } from "../src/teacher/students.js";
 import { fakeSession } from "./fake-session.js";
 
 const file = JSON.parse(readFileSync(new URL("./fixtures/student-file.json", import.meta.url), "utf8"));
@@ -63,6 +63,42 @@ test("image rights, guardians, health and photo only on request", async () => {
   assert.deepEqual(lea.photo, { exists: true });
   assert.equal(JSON.stringify(result).includes("Mémo"), false);
   assert.equal(session.calls.filter((call) => call.name === "FicheEleve")[0].data?.AvecResponsables, true);
+});
+
+test("a page of files reads only its students (one FicheEleve call each), with the roster total", async () => {
+  const session = filesSession();
+  const page = await studentFiles(session, "c:T06", [], "", { offset: 1, limit: 1 });
+  assert.equal(page.available, true);
+  assert.equal(page.total, 2);
+  assert.equal(page.offset, 1);
+  assert.deepEqual(page.items.map((item) => item.lastname), ["PETIT"]);
+  assert.equal(page.truncated, false);
+  assert.equal(session.calls.filter((call) => call.name === "FicheEleve").length, 1);
+  const beyond = await studentFiles(filesSession(), "c:T06", [], "", { offset: 5, limit: 3 });
+  assert.equal(beyond.items.length, 0);
+  assert.equal(beyond.total, 2);
+});
+
+test("student files check: roster and ONE FicheEleve call, counts only, never a value", async () => {
+  const session = filesSession();
+  const check = await checkStudentFiles(session, "c:T06");
+  assert.equal(check.available, true);
+  assert.equal(check.students, 2);
+  assert.equal(check.read, 1);
+  assert.ok(check.mappedKeys >= 5);
+  assert.equal(session.calls.filter((call) => call.name === "FicheEleve").length, 1);
+  const json = JSON.stringify(check);
+  for (const value of ["MARTIN", "Léa", "E000123", "pedagolyautey"]) assert.equal(json.includes(value), false, value);
+  const closed = filesSession();
+  rememberUserData(closed, { resources: [classT06], tabs: [16] });
+  assert.equal((await checkStudentFiles(closed, "c:T06")).reason, "tab_closed:105");
+  const refused = fakeSession({
+    ListeEleves: () => ({ listeEleves: { _T: 24, V: [{ N: "4#e1", L: "MARTIN Léa", G: 4 }] } }),
+  });
+  rememberUserData(refused, { resources: [classT06], tabs: [105] });
+  const failed = await checkStudentFiles(refused, "c:T06");
+  assert.equal(failed.available, false);
+  assert.match(failed.reason, /droits sont insuffisants/);
 });
 
 test("image rights unknown when Pronote gives nothing, and the labelled forms", () => {

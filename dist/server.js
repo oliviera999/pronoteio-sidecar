@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import { verifySignature } from "./auth.js";
+import { registerAuth } from "./auth.js";
 import { assertSecret, config } from "./config.js";
 import { toHttp } from "./errors.js";
 import absencesRoutes from "./routes/absences.js";
@@ -30,23 +30,9 @@ const app = Fastify({
         redact: ["req.headers['x-pronoteio-signature']", "req.headers['x-pronoteio-session']"],
     },
 });
-// Keep the raw body: the HMAC signature covers the exact bytes sent by Moodle.
-app.addContentTypeParser("application/json", { parseAs: "string" }, (request, body, done) => {
-    request.rawBody = body;
-    try {
-        done(null, body === "" ? {} : JSON.parse(body));
-    }
-    catch {
-        done(Object.assign(new Error("invalid_json"), { statusCode: 400 }), undefined);
-    }
-});
+// Raw body, signature check and replay protection (a read delivered twice while it runs is answered twice).
+registerAuth(app);
 app.get("/health", async () => ({ ok: true }));
-// Before schema validation, so that unsigned requests learn nothing about the API.
-app.addHook("preValidation", async (request) => {
-    if (request.routeOptions.url === "/health")
-        return;
-    verifySignature(request);
-});
 app.setErrorHandler((error, request, reply) => {
     const [status, code] = toHttp(error);
     if (status >= 500 && status !== 501) {
