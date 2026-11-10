@@ -143,8 +143,11 @@ export const fileOf = (entry, data, include) => {
  * Files of the students of a class or group (resource stable id), or of one of them (student stable id).
  * A closed tab or a refusal of Pronote is returned as available=false with the reason, never bypassed.
  */
-export const studentFiles = async (session, resource, include, student = "") => {
-    const empty = { available: false, reason: "", validated: false, items: [], unmappedKeys: [], truncated: false };
+export const studentFiles = async (session, resource, include, student = "", page = {}) => {
+    const offset = Math.max(0, Math.floor(page.offset ?? 0));
+    const limit = Math.min(MAX_FILES, Math.max(1, Math.floor(page.limit ?? MAX_FILES)));
+    const empty = { available: false, reason: "", validated: false, items: [], unmappedKeys: [], truncated: false,
+        total: 0, offset };
     if (isTabClosed(session, "studentFile"))
         return { ...empty, reason: "tab_closed:105" };
     let entries = await rosterEntries(session, resource);
@@ -153,10 +156,13 @@ export const studentFiles = async (session, resource, include, student = "") => 
         if (entries.length === 0)
             throw new HttpError(404, "student_not_found");
     }
-    const truncated = entries.length > MAX_FILES;
+    // One Pronote call per file read: only the requested page is read, so that a request stays short (a long request
+    // may be delivered twice by the web server, see auth.ts registerAuth).
+    const selected = entries.slice(offset, offset + limit);
+    const truncated = page.limit === undefined && entries.length > offset + MAX_FILES;
     const items = [];
     const unmapped = new Set();
-    for (const entry of entries.slice(0, MAX_FILES)) {
+    for (const entry of selected) {
         let data;
         try {
             data = await callFunction(session, "studentFile", {
@@ -168,14 +174,43 @@ export const studentFiles = async (session, resource, include, student = "") => 
         catch (error) {
             if (error instanceof HttpError)
                 throw error;
-            if (items.length === 0)
-                return { ...empty, reason: String(error?.message ?? error).slice(0, 300) };
+            if (items.length === 0) {
+                return { ...empty, total: entries.length, reason: String(error?.message ?? error).slice(0, 300) };
+            }
             throw error;
         }
         const { file, unmapped: keys } = fileOf(entry, data, include);
         keys.forEach((key) => unmapped.add(key));
         items.push(file);
     }
-    return { available: true, reason: "", validated: false, items, unmappedKeys: [...unmapped].sort(), truncated };
+    return { available: true, reason: "", validated: false, items, unmappedKeys: [...unmapped].sort(), truncated,
+        total: entries.length, offset };
+};
+/**
+ * Minimal read of the student files path for the health check: the roster of the class, then ONE FicheEleve call
+ * (first student). Only counts are returned: no identity, no value.
+ */
+export const checkStudentFiles = async (session, resource) => {
+    if (isTabClosed(session, "studentFile"))
+        return { available: false, reason: "tab_closed:105", students: 0, read: 0, mappedKeys: 0 };
+    const entries = await rosterEntries(session, resource);
+    if (entries.length === 0)
+        return { available: false, reason: "empty_roster", students: 0, read: 0, mappedKeys: 0 };
+    const entry = entries[0];
+    let data;
+    try {
+        data = await callFunction(session, "studentFile", { Eleve: { N: entry.pronoteId, G: 4, L: entry.label }, AvecEleve: true,
+            AvecResponsables: false });
+    }
+    catch (error) {
+        if (error instanceof HttpError)
+            throw error;
+        return { available: false, reason: String(error?.message ?? error).slice(0, 300), students: entries.length, read: 0,
+            mappedKeys: 0 };
+    }
+    const { file } = fileOf(entry, data, []);
+    const mappedKeys = ["lastname", "firstname", "sex", "birthdate", "number", "email", "class", "regime"]
+        .filter((key) => Boolean(file[key])).length;
+    return { available: true, reason: "", students: entries.length, read: 1, mappedKeys };
 };
 //# sourceMappingURL=students.js.map

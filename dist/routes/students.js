@@ -1,7 +1,7 @@
 import { HttpError } from "../errors.js";
 import { requireSession } from "../session.js";
 import { RESOURCE_KINDS, resourceTimetable } from "../teacher/resourceTimetable.js";
-import { INCLUDE_VALUES, studentFiles } from "../teacher/students.js";
+import { INCLUDE_VALUES, MAX_FILES, checkStudentFiles, studentFiles } from "../teacher/students.js";
 import { studentPhoto } from "../teacher/photos.js";
 const filesQuery = {
     type: "object",
@@ -10,6 +10,8 @@ const filesQuery = {
         resource: { type: "string", minLength: 1, maxLength: 200 },
         student: { type: "string", maxLength: 200 },
         include: { type: "string", maxLength: 100 },
+        offset: { type: "integer", minimum: 0, maximum: 10000 },
+        limit: { type: "integer", minimum: 1, maximum: MAX_FILES },
     },
 };
 const resourceTimetableQuery = {
@@ -34,9 +36,11 @@ export const parseInclude = (value) => {
 };
 export default async function studentsRoutes(app) {
     app.get("/students/files", { schema: { querystring: filesQuery } }, async (request) => {
-        const { resource, student = "", include } = request.query;
-        return studentFiles(requireSession(request), resource, parseInclude(include), student);
+        const { resource, student = "", include, offset, limit } = request.query;
+        return studentFiles(requireSession(request), resource, parseInclude(include), student, { offset, limit });
     });
+    // Health check of the student files path: one FicheEleve call, counts only.
+    app.get("/students/files/check", { schema: { querystring: { type: "object", required: ["resource"], properties: { resource: { type: "string", minLength: 1, maxLength: 200 } } } } }, async (request) => checkStudentFiles(requireSession(request), request.query.resource));
     // One student at a time: Moodle checks the perimeter and the image rights before asking.
     app.get("/students/photo", {
         schema: {

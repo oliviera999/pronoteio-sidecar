@@ -15,12 +15,12 @@ export const signedPayload = (timestamp, nonce, method, url, body) => {
     return [timestamp, ...(nonce ? [nonce] : []), method, url, bodyHash].join("\n");
 };
 /**
- * Checks the request signature produced by sidecar_connector::send():
- * HMAC-SHA256(secret, signedPayload(...)). The random nonce (plugin 0.2.3+) makes two identical
- * requests sent in the same second distinct, e.g. a request retried after a new login; requests
- * without nonce (older plugins) are still accepted.
+ * Checks the timestamp, the nonce and the signature of a request produced by sidecar_connector::send():
+ * HMAC-SHA256(secret, signedPayload(...)), and returns the signature. Does not record it (see recordSignature).
+ * Errors: invalid_timestamp (clocks of Moodle and of the sidecar more than PRONOTEIO_MAX_SKEW apart, or no
+ * timestamp), invalid_signature (secret different from Moodle's, or altered request).
  */
-export const verifySignature = (request) => {
+export const checkSignature = (request) => {
     const timestamp = String(request.headers["x-pronoteio-timestamp"] ?? "");
     const nonce = String(request.headers["x-pronoteio-nonce"] ?? "");
     const signature = String(request.headers["x-pronoteio-signature"] ?? "");
@@ -39,10 +39,97 @@ export const verifySignature = (request) => {
     if (given.length !== wanted.length || !timingSafeEqual(given, wanted)) {
         throw new HttpError(401, "invalid_signature");
     }
+    return signature;
+};
+/**
+ * Records a signature for the skew window; false when it was already seen (the same request delivered again).
+ * The cache lives in memory only: a restart (for example after a change of PRONOTEIO_SECRET) empties it, and a
+ * signature made with another secret can never match.
+ */
+export const recordSignature = (signature, now = Math.floor(Date.now() / 1000)) => {
     purgeSeen(now);
-    if (seen.has(signature)) {
+    if (seen.has(signature))
+        return false;
+    seen.set(signature, now + config.maxSkew);
+    return true;
+};
+/**
+ * Checks the request signature and refuses a request already seen (replayed_request). The random nonce (plugin
+ * 0.2.3+) makes two identical requests sent in the same second distinct, e.g. a request retried after a new login;
+ * requests without nonce (older plugins) are still accepted.
+ */
+export const verifySignature = (request) => {
+    if (!recordSignature(checkSignature(request))) {
         throw new HttpError(401, "replayed_request");
     }
-    seen.set(signature, now + config.maxSkew);
+};
+/** Reads still running, by signature: a second delivery of the same read waits for the answer of the first. */
+const inflight = new Map();
+/**
+ * Raw body parser and signature check of every route but /health, before schema validation (unsigned requests
+ * learn nothing about the API).
+ *
+ * The web server in front of the sidecar (Apache + Passenger on cPanel) may deliver the same request twice, the
+ * second time while a slow read is still running (10/11/2026: student files, one FicheEleve call per student, and
+ * other calls waiting in the Pronote session queue). Refusing that second delivery sent "replayed_request" back to
+ * Moodle although nothing was replayed by anyone. Now:
+ * - a GET (read only) delivered again while the first delivery runs waits for it and gets the same answer:
+ *   Pronote is read once and Moodle gets its data;
+ * - a GET delivered again after its answer, and any POST (write, login) delivered twice, are still refused with
+ *   replayed_request: a write is never executed twice.
+ */
+export const registerAuth = (app) => {
+    // Keep the raw body: the HMAC signature covers the exact bytes sent by Moodle.
+    app.addContentTypeParser("application/json", { parseAs: "string" }, (request, body, done) => {
+        request.rawBody = body;
+        try {
+            done(null, body === "" ? {} : JSON.parse(body));
+        }
+        catch {
+            done(Object.assign(new Error("invalid_json"), { statusCode: 400 }), undefined);
+        }
+    });
+    app.addHook("preValidation", async (request, reply) => {
+        if (request.routeOptions.url === "/health")
+            return;
+        const signature = checkSignature(request);
+        if (recordSignature(signature)) {
+            if (request.method === "GET") {
+                let resolve;
+                inflight.set(signature, new Promise((done) => (resolve = done)));
+                request.inflightResolve = (answer) => {
+                    inflight.delete(signature);
+                    resolve(answer);
+                };
+            }
+            return;
+        }
+        const running = request.method === "GET" ? inflight.get(signature) : undefined;
+        if (!running)
+            throw new HttpError(401, "replayed_request");
+        request.log.info("same read delivered again while it runs: answered with the result of the first delivery");
+        const answer = await running;
+        reply.code(answer.status).headers(answer.headers);
+        return reply.send(answer.payload);
+    });
+    // Answer of a read (success or error): shared with the deliveries waiting for it.
+    app.addHook("onSend", async (request, reply, payload) => {
+        if (request.inflightResolve) {
+            const contentType = reply.getHeader("content-type");
+            request.inflightResolve({
+                status: reply.statusCode,
+                headers: contentType ? { "content-type": String(contentType) } : {},
+                payload,
+            });
+            request.inflightResolve = undefined;
+        }
+        return payload;
+    });
+    // Never leave a waiting delivery behind (aborted request, error before any answer).
+    app.addHook("onResponse", async (request, reply) => {
+        request.inflightResolve?.({ status: reply.statusCode >= 400 ? reply.statusCode : 502, headers: {},
+            payload: JSON.stringify({ error: "pronote_error" }) });
+        request.inflightResolve = undefined;
+    });
 };
 //# sourceMappingURL=auth.js.map

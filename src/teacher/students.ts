@@ -65,7 +65,14 @@ export type StudentFilesResult = {
   items: StudentFile[];
   unmappedKeys: string[];
   truncated: boolean;
+  /** Students of the class or group (roster), whatever the page read. */
+  total: number;
+  /** First student read (position in the roster). */
+  offset: number;
 };
+
+/** Page of a student files request: offset in the roster and number of files read (MAX_FILES at most). */
+export type FilesPage = { offset?: number; limit?: number };
 
 const text = (value: unknown): string => {
   if (value === null || value === undefined) return "";
@@ -199,18 +206,25 @@ export const studentFiles = async (
   resource: string,
   include: Include[],
   student = "",
+  page: FilesPage = {},
 ): Promise<StudentFilesResult> => {
-  const empty: StudentFilesResult = { available: false, reason: "", validated: false, items: [], unmappedKeys: [], truncated: false };
+  const offset = Math.max(0, Math.floor(page.offset ?? 0));
+  const limit = Math.min(MAX_FILES, Math.max(1, Math.floor(page.limit ?? MAX_FILES)));
+  const empty: StudentFilesResult = { available: false, reason: "", validated: false, items: [], unmappedKeys: [], truncated: false,
+    total: 0, offset };
   if (isTabClosed(session, "studentFile")) return { ...empty, reason: "tab_closed:105" };
   let entries = await rosterEntries(session, resource);
   if (student !== "") {
     entries = entries.filter((entry) => entry.id === student);
     if (entries.length === 0) throw new HttpError(404, "student_not_found");
   }
-  const truncated = entries.length > MAX_FILES;
+  // One Pronote call per file read: only the requested page is read, so that a request stays short (a long request
+  // may be delivered twice by the web server, see auth.ts registerAuth).
+  const selected = entries.slice(offset, offset + limit);
+  const truncated = page.limit === undefined && entries.length > offset + MAX_FILES;
   const items: StudentFile[] = [];
   const unmapped = new Set<string>();
-  for (const entry of entries.slice(0, MAX_FILES)) {
+  for (const entry of selected) {
     let data: Record<string, any>;
     try {
       data = await callFunction(session, "studentFile", {
@@ -220,12 +234,42 @@ export const studentFiles = async (
       });
     } catch (error) {
       if (error instanceof HttpError) throw error;
-      if (items.length === 0) return { ...empty, reason: String((error as Error)?.message ?? error).slice(0, 300) };
+      if (items.length === 0) {
+        return { ...empty, total: entries.length, reason: String((error as Error)?.message ?? error).slice(0, 300) };
+      }
       throw error;
     }
     const { file, unmapped: keys } = fileOf(entry, data, include);
     keys.forEach((key) => unmapped.add(key));
     items.push(file);
   }
-  return { available: true, reason: "", validated: false, items, unmappedKeys: [...unmapped].sort(), truncated };
+  return { available: true, reason: "", validated: false, items, unmappedKeys: [...unmapped].sort(), truncated,
+    total: entries.length, offset };
+};
+
+/** Result of the student files check (get_pronote_health): never a value read from a file. */
+export type StudentFilesCheck = { available: boolean; reason: string; students: number; read: number; mappedKeys: number };
+
+/**
+ * Minimal read of the student files path for the health check: the roster of the class, then ONE FicheEleve call
+ * (first student). Only counts are returned: no identity, no value.
+ */
+export const checkStudentFiles = async (session: SessionHandle, resource: string): Promise<StudentFilesCheck> => {
+  if (isTabClosed(session, "studentFile")) return { available: false, reason: "tab_closed:105", students: 0, read: 0, mappedKeys: 0 };
+  const entries = await rosterEntries(session, resource);
+  if (entries.length === 0) return { available: false, reason: "empty_roster", students: 0, read: 0, mappedKeys: 0 };
+  const entry = entries[0];
+  let data: Record<string, any>;
+  try {
+    data = await callFunction(session, "studentFile", { Eleve: { N: entry.pronoteId, G: 4, L: entry.label }, AvecEleve: true,
+      AvecResponsables: false });
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    return { available: false, reason: String((error as Error)?.message ?? error).slice(0, 300), students: entries.length, read: 0,
+      mappedKeys: 0 };
+  }
+  const { file } = fileOf(entry, data, []);
+  const mappedKeys = ["lastname", "firstname", "sex", "birthdate", "number", "email", "class", "regime"]
+    .filter((key) => Boolean((file as Record<string, unknown>)[key])).length;
+  return { available: true, reason: "", students: entries.length, read: 1, mappedKeys };
 };
