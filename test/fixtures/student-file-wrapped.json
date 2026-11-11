@@ -1,0 +1,27 @@
+{
+ "Eleve": {
+  "_T": 8,
+  "V": {
+   "N": "4#e1",
+   "L": "MARTIN Léa",
+   "Nom": "MARTIN",
+   "Prenoms": "Léa Anne",
+   "estFeminin": true,
+   "DateNaissance": { "_T": 7, "V": "14/03/2010 00:00:00" },
+   "numeroEleve": "E000123",
+   "email": "lea.martin@pedagolyautey.org",
+   "infosMedicales": "Allergie fictive"
+  }
+ },
+ "Scolarite": {
+  "_T": 8,
+  "V": {
+   "classe": { "N": "1#c1", "L": "T06" },
+   "regime": { "L": "Externe" },
+   "listeOptions": { "_T": 24, "V": [{ "L": "Latin" }] },
+   "champScolariteInconnu": "valeur à ne pas renvoyer"
+  }
+ },
+ "listeMotifsProjets": { "_T": 24, "V": [{ "L": "Motif fictif à ne jamais renvoyer" }] },
+ "listeTypesProjets": { "_T": 24, "V": [{ "L": "PAP" }] }
+}
