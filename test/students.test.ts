@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { rememberUserData } from "../src/pronote/userdata.js";
 import { parseInclude } from "../src/routes/students.js";
 import { edtResources, resourceTimetable } from "../src/teacher/resourceTimetable.js";
-import { checkStudentFiles, imageRightsOf, MAX_SHAPE, sexOf, shapeOf, studentFiles } from "../src/teacher/students.js";
+import { checkStudentFiles, imageRightsOf, MAX_SHAPE, sexCode, sexOf, shapeOf, studentFiles } from "../src/teacher/students.js";
 import { fakeSession } from "./fake-session.js";
 
 const file = JSON.parse(readFileSync(new URL("./fixtures/student-file.json", import.meta.url), "utf8"));
@@ -221,4 +221,34 @@ test("sex labels: civil titles and estFeminin", () => {
   assert.equal(sexOf("Mlle"), "F");
   assert.equal(sexOf("M."), "M");
   assert.equal(sexOf("Monsieur"), "M");
+});
+
+/**
+ * 11/11/2026, real account: Pronote codes the sex 1 for the girls and 0 for the boys. Read as the INSEE code (1 = male)
+ * until then, every girl came out "Garçon" and no boy was recognised (plan_profile_fields dryrun).
+ */
+test("Pronote sex code: 1 = girl, 0 = boy, typed or not", async () => {
+  assert.equal(sexCode(1), "F");
+  assert.equal(sexCode(0), "M");
+  assert.equal(sexCode("1"), "F");
+  assert.equal(sexCode({ _T: 1, V: 0 }), "M");
+  assert.equal(sexCode(true), "F");
+  assert.equal(sexCode("Féminin"), "F");
+  assert.equal(sexCode(2), "");
+  const session = (sexe: unknown) => {
+    const answer = structuredClone(wrapped);
+    delete answer.Eleve.V.estFeminin;
+    answer.Eleve.V.Sexe = sexe;
+    const fake = fakeSession({
+      ListeEleves: () => ({ listeEleves: { _T: 24, V: [{ N: "4#e1", L: "MARTIN Léa", G: 4 }] } }),
+      FicheEleve: () => answer,
+    });
+    rememberUserData(fake, { resources: [classT06], tabs: [105] });
+    return fake;
+  };
+  assert.equal((await studentFiles(session(1), "c:T06", [])).items[0].sex, "F");
+  assert.equal((await studentFiles(session(0), "c:T06", [])).items[0].sex, "M");
+  assert.equal((await studentFiles(session({ _T: 1, V: "1" }), "c:T06", [])).items[0].sex, "F");
+  // An explicit masculine flag keeps its meaning.
+  assert.equal(sexOf(true), "M");
 });
