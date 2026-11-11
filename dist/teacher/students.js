@@ -101,22 +101,42 @@ const pick = (object, names, used) => {
     }
     return undefined;
 };
+/** Sex from a label ("Féminin", "Garçon", "Mme"...); a boolean is read as "estMasculin". */
 export const sexOf = (value) => {
     if (typeof value === "boolean")
         return value ? "M" : "F";
     const label = normalise(text(value)).replace(/\.$/, "");
-    if (["f", "feminin", "fille", "femme", "2", "mme", "mlle", "madame", "mademoiselle"].includes(label))
+    if (["f", "feminin", "fille", "femme", "mme", "mlle", "madame", "mademoiselle"].includes(label))
         return "F";
-    if (["m", "masculin", "garcon", "homme", "1", "monsieur"].includes(label))
+    if (["m", "masculin", "garcon", "homme", "monsieur"].includes(label))
         return "M";
     return "";
 };
-/** Sex from the members of an identity: "estFeminin"/"estFille" (true = F) first, then the other candidates. */
+/**
+ * Sex from a Pronote code. 11/11/2026, real account (plan_profile_fields dryrun on a class): the code is 1 for the
+ * girls and 0 for the boys, the opposite of the INSEE code (1 = male) read until then: every girl came out "Garçon"
+ * and no boy was recognised. 1 or true = F, 0 or false = M, otherwise a label.
+ */
+export const sexCode = (value) => {
+    if (typeof value === "boolean")
+        return value ? "F" : "M";
+    const raw = text(value);
+    if (raw === "1")
+        return "F";
+    if (raw === "0")
+        return "M";
+    return sexOf(value);
+};
+/** Sex from the members of an identity: explicit flags first, then the coded members, then the civil title. */
 const sexFrom = (identity, used) => {
     const feminine = pick(identity, ["estFeminin", "estFille"], used);
     if (typeof feminine === "boolean")
         return feminine ? "F" : "M";
-    return sexOf(pick(identity, ["Sexe", "estMasculin", "civilite", "genreSexe", "sexeEleve"], used));
+    const masculine = pick(identity, ["estMasculin"], used);
+    if (typeof masculine === "boolean")
+        return masculine ? "M" : "F";
+    const coded = pick(identity, ["Sexe", "genreSexe", "sexeEleve", "civilite"], used);
+    return coded === undefined ? "" : sexCode(coded);
 };
 /**
  * Image rights: a boolean member whose name speaks of photo or image and of authorisation, consent or broadcasting
