@@ -21,14 +21,73 @@ const text = (value) => {
     return "";
 };
 const labels = (value) => listOf(value).map((item) => text(item)).filter(Boolean);
-/** Identity members: the answer object, its "Eleve"/"eleve"/"Identite"/"identite" members merged. */
+const isPlain = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+/**
+ * Sub-objects whose members are identity members. 10/11/2026, real account: the answer wraps the student in a typed
+ * value ({ _T, V: {...} }) and puts schooling members in "Scolarite"; only "Scolarite", "V", "_T" and two lists were
+ * seen at the first level, so sex and birth date stayed empty.
+ */
+const CONTAINERS = new Set(["eleve", "identite", "ficheeleve", "scolarite", "etatcivil", "infosperso", "informationspersonnelles"]);
+/**
+ * Identity members: the members of the answer object, of its typed values (V) and of its known sub-objects, flattened
+ * (depth 4 at most). The containers themselves and the type codes (_T) are never members.
+ */
 const identityOf = (data) => {
     const merged = {};
-    for (const source of [data, data?.Eleve, data?.eleve, data?.Identite, data?.identite, data?.ficheEleve]) {
-        if (source && typeof source === "object" && !Array.isArray(source))
-            Object.assign(merged, source);
-    }
+    const visit = (source, depth) => {
+        if (!isPlain(source) || depth > 4)
+            return;
+        for (const [key, value] of Object.entries(source)) {
+            if (key === "_T")
+                continue;
+            if (key === "V") {
+                visit(value, depth + 1);
+                continue;
+            }
+            if (CONTAINERS.has(key.toLowerCase()) && isPlain(value)) {
+                visit(value, depth + 1);
+                continue;
+            }
+            merged[key] = value;
+        }
+    };
+    visit(data, 0);
     return merged;
+};
+/** Members never described, not even by name: health, support plans, memos and attestations. */
+const SENSITIVE = /(medic|allerg|sante|pai|pap|handicap|memo|attestation|projet|alimentaire|dispens)/i;
+/** Largest number of lines of a shape. */
+export const MAX_SHAPE = 150;
+/**
+ * Shape of a FicheEleve answer, to validate the mapping on a real account WITHOUT any value: one line per member path
+ * with its type ("Scolarite.V.classe: object"), the type code of typed values ("_T=7"), lists described by their first
+ * element ("listeGroupes.V[]: object"). Sensitive members are left out (their presence alone would say something about
+ * the student).
+ */
+export const shapeOf = (value, path = "", depth = 0, out = []) => {
+    if (out.length >= MAX_SHAPE || depth > 5)
+        return out;
+    const kind = Array.isArray(value) ? "list" : value === null ? "null" : typeof value;
+    if (path !== "")
+        out.push(`${path}: ${kind}`);
+    if (Array.isArray(value)) {
+        if (value.length > 0)
+            shapeOf(value[0], `${path}[]`, depth + 1, out);
+    }
+    else if (isPlain(value)) {
+        for (const [key, member] of Object.entries(value)) {
+            if (out.length >= MAX_SHAPE)
+                break;
+            if (SENSITIVE.test(key))
+                continue;
+            const child = path === "" ? key : `${path}.${key}`;
+            if (key === "_T" && typeof member === "number")
+                out.push(`${child}=${member}`);
+            else
+                shapeOf(member, child, depth + 1, out);
+        }
+    }
+    return out;
 };
 /** First member present among candidate names, compared without case. */
 const pick = (object, names, used) => {
@@ -45,12 +104,19 @@ const pick = (object, names, used) => {
 export const sexOf = (value) => {
     if (typeof value === "boolean")
         return value ? "M" : "F";
-    const label = normalise(text(value));
-    if (["f", "feminin", "fille", "femme", "2"].includes(label))
+    const label = normalise(text(value)).replace(/\.$/, "");
+    if (["f", "feminin", "fille", "femme", "2", "mme", "mlle", "madame", "mademoiselle"].includes(label))
         return "F";
-    if (["m", "masculin", "garcon", "homme", "1"].includes(label))
+    if (["m", "masculin", "garcon", "homme", "1", "monsieur"].includes(label))
         return "M";
     return "";
+};
+/** Sex from the members of an identity: "estFeminin"/"estFille" (true = F) first, then the other candidates. */
+const sexFrom = (identity, used) => {
+    const feminine = pick(identity, ["estFeminin", "estFille"], used);
+    if (typeof feminine === "boolean")
+        return feminine ? "F" : "M";
+    return sexOf(pick(identity, ["Sexe", "estMasculin", "civilite", "genreSexe", "sexeEleve"], used));
 };
 /**
  * Image rights: a boolean member whose name speaks of photo or image and of authorisation, consent or broadcasting
@@ -102,13 +168,13 @@ export const fileOf = (entry, data, include) => {
     const [lastnameLabel, ...firstnames] = entry.label.split(" ");
     const lastname = text(pick(identity, ["Nom", "nom"], used)) || lastnameLabel;
     const firstname = text(pick(identity, ["Prenoms", "prenoms", "Prenom", "prenom"], used)) || firstnames.join(" ");
-    const birth = parsePronoteDate(text(pick(identity, ["DateNaissance", "dateNaissance", "dateDeNaissance"], used)));
+    const birth = parsePronoteDate(text(pick(identity, ["DateNaissance", "dateDeNaissance", "dateNaiss", "naissance"], used)));
     const file = {
         id: entry.id,
         label: entry.label,
         lastname,
         firstname,
-        sex: sexOf(pick(identity, ["Sexe", "sexe", "estMasculin", "civilite", "genreSexe"], used)),
+        sex: sexFrom(identity, used),
         birthdate: birth ? seconds(birth) : null,
         number: text(pick(identity, ["numeroEleve", "Numero", "numero", "numeroNational", "ine", "INE"], used)),
         email: text(pick(identity, ["email", "eMail", "adresseEmail", "mail", "courriel"], used)),
@@ -128,7 +194,7 @@ export const fileOf = (entry, data, include) => {
     const plans = pick(identity, ["listeProjetsAccompagnement", "projetsAccompagnement", "ListeProjets"], used);
     const medical = pick(identity, ["infosMedicales", "informationsMedicales", "allergies", "listeAllergies", "regimeAlimentaire"], used);
     for (const key of Object.keys(identity)) {
-        if (/(medic|allerg|sante|pai|pap|handicap|memo|attestation)/i.test(key))
+        if (SENSITIVE.test(key))
             used.add(key);
     }
     if (include.includes("health"))
@@ -186,16 +252,19 @@ export const studentFiles = async (session, resource, include, student = "", pag
     return { available: true, reason: "", validated: false, items, unmappedKeys: [...unmapped].sort(), truncated,
         total: entries.length, offset };
 };
+/** Fields counted by the check. */
+const CHECKED_FIELDS = ["lastname", "firstname", "sex", "birthdate", "number", "email", "class", "regime"];
 /**
  * Minimal read of the student files path for the health check: the roster of the class, then ONE FicheEleve call
- * (first student). Only counts are returned: no identity, no value.
+ * (first student). Only counts, field names and the shape of the answer are returned: no identity, no value.
  */
 export const checkStudentFiles = async (session, resource) => {
+    const none = { students: 0, read: 0, mappedKeys: 0, mapped: [], shape: [] };
     if (isTabClosed(session, "studentFile"))
-        return { available: false, reason: "tab_closed:105", students: 0, read: 0, mappedKeys: 0 };
+        return { ...none, available: false, reason: "tab_closed:105" };
     const entries = await rosterEntries(session, resource);
     if (entries.length === 0)
-        return { available: false, reason: "empty_roster", students: 0, read: 0, mappedKeys: 0 };
+        return { ...none, available: false, reason: "empty_roster" };
     const entry = entries[0];
     let data;
     try {
@@ -205,12 +274,11 @@ export const checkStudentFiles = async (session, resource) => {
     catch (error) {
         if (error instanceof HttpError)
             throw error;
-        return { available: false, reason: String(error?.message ?? error).slice(0, 300), students: entries.length, read: 0,
-            mappedKeys: 0 };
+        return { ...none, available: false, reason: String(error?.message ?? error).slice(0, 300), students: entries.length };
     }
     const { file } = fileOf(entry, data, []);
-    const mappedKeys = ["lastname", "firstname", "sex", "birthdate", "number", "email", "class", "regime"]
-        .filter((key) => Boolean(file[key])).length;
-    return { available: true, reason: "", students: entries.length, read: 1, mappedKeys };
+    const mapped = CHECKED_FIELDS.filter((key) => Boolean(file[key]));
+    return { available: true, reason: "", students: entries.length, read: 1, mappedKeys: mapped.length, mapped,
+        shape: shapeOf(data) };
 };
 //# sourceMappingURL=students.js.map

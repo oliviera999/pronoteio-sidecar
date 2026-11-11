@@ -4,10 +4,11 @@ import { test } from "node:test";
 import { rememberUserData } from "../src/pronote/userdata.js";
 import { parseInclude } from "../src/routes/students.js";
 import { edtResources, resourceTimetable } from "../src/teacher/resourceTimetable.js";
-import { checkStudentFiles, imageRightsOf, sexOf, studentFiles } from "../src/teacher/students.js";
+import { checkStudentFiles, imageRightsOf, MAX_SHAPE, sexOf, shapeOf, studentFiles } from "../src/teacher/students.js";
 import { fakeSession } from "./fake-session.js";
 
 const file = JSON.parse(readFileSync(new URL("./fixtures/student-file.json", import.meta.url), "utf8"));
+const wrapped = JSON.parse(readFileSync(new URL("./fixtures/student-file-wrapped.json", import.meta.url), "utf8"));
 const edt = JSON.parse(readFileSync(new URL("./fixtures/resources-edt.json", import.meta.url), "utf8"));
 const page = JSON.parse(readFileSync(new URL("./fixtures/timetable-page.json", import.meta.url), "utf8"));
 
@@ -159,4 +160,65 @@ test("photo of one student: picture type checked, absence and size relayed", asy
   await assert.rejects(studentPhoto(session, "c:T06", "e:INCONNU Max", async () => null), /student_not_found/);
   assert.equal(imageType(Buffer.from("GIF89a....")), "image/gif");
   assert.equal(imageType(Buffer.from("nope")), "");
+});
+
+/**
+ * 10/11/2026, real account: the answer wraps the student in a typed value ({ _T, V }) and puts schooling members in
+ * "Scolarite"; only "Scolarite", "V", "_T" and the project lists were seen at the first level, so sex and birth date
+ * stayed empty (check: mappedKeys 2, the names coming from the roster label). Fictitious file of the same shape.
+ */
+const wrappedSession = () => {
+  const session = fakeSession({
+    ListeEleves: () => ({ listeEleves: { _T: 24, V: [{ N: "4#e1", L: "MARTIN Léa", G: 4 }] } }),
+    FicheEleve: () => wrapped,
+  });
+  rememberUserData(session, { resources: [classT06], tabs: [105] });
+  return session;
+};
+
+test("a file wrapped in typed values and Scolarite is read: sex, birth date, class, regime", async () => {
+  const result = await studentFiles(wrappedSession(), "c:T06", []);
+  const lea = result.items[0];
+  assert.equal(lea.lastname, "MARTIN");
+  assert.equal(lea.firstname, "Léa Anne");
+  assert.equal(lea.sex, "F");
+  assert.equal(lea.birthdate, Math.floor(new Date(2010, 2, 14).getTime() / 1000));
+  assert.equal(lea.number, "E000123");
+  assert.equal(lea.class, "T06");
+  assert.equal(lea.regime, "Externe");
+  assert.deepEqual(lea.options, ["Latin"]);
+  // Containers, type codes, health and project members are never "unmapped" keys.
+  assert.deepEqual(result.unmappedKeys, ["L", "champScolariteInconnu"]);
+  const json = JSON.stringify(result);
+  for (const value of ["Allergie", "Motif fictif", "PAP", "valeur à ne pas renvoyer"]) assert.equal(json.includes(value), false, value);
+});
+
+test("check of a wrapped file: field names and shape of the answer, never a value", async () => {
+  const check = await checkStudentFiles(wrappedSession(), "c:T06");
+  assert.equal(check.mappedKeys, 8);
+  assert.deepEqual(check.mapped, ["lastname", "firstname", "sex", "birthdate", "number", "email", "class", "regime"]);
+  assert.ok(check.shape.includes("Eleve._T=8"));
+  assert.ok(check.shape.includes("Eleve.V.estFeminin: boolean"));
+  assert.ok(check.shape.includes("Eleve.V.DateNaissance.V: string"));
+  assert.ok(check.shape.includes("Scolarite.V.classe.L: string"));
+  assert.ok(check.shape.includes("Scolarite.V.listeOptions.V[]: object"));
+  // Health and project members are left out of the shape, even by name.
+  assert.equal(check.shape.some((line) => /infosMedicales|Projets/.test(line)), false);
+  const json = JSON.stringify(check);
+  for (const value of ["MARTIN", "Léa", "E000123", "pedagolyautey", "14/03/2010", "T06", "Externe", "Latin", "Allergie", "PAP"]) {
+    assert.equal(json.includes(value), false, value);
+  }
+});
+
+test("shape: lists by their first element, bounded length", () => {
+  assert.deepEqual(shapeOf({ a: [{ b: 1 }, { c: 2 }], d: null }), ["a: list", "a[]: object", "a[].b: number", "d: null"]);
+  const big = Object.fromEntries(Array.from({ length: 400 }, (_, i) => [`k${i}`, i]));
+  assert.equal(shapeOf(big).length, MAX_SHAPE);
+});
+
+test("sex labels: civil titles and estFeminin", () => {
+  assert.equal(sexOf("Mme"), "F");
+  assert.equal(sexOf("Mlle"), "F");
+  assert.equal(sexOf("M."), "M");
+  assert.equal(sexOf("Monsieur"), "M");
 });
