@@ -21,7 +21,7 @@ import { HttpError } from "../errors.js";
 import { listOf, parsePronoteDate } from "../pronote/encoding.js";
 import { normalise, seconds } from "../normalise.js";
 import { callFunction, isTabClosed } from "./functions.js";
-import { rosterEntries, type RosterEntry } from "./roster.js";
+import { rosterEntries, studentKey, type RosterEntry } from "./roster.js";
 
 export const INCLUDE_VALUES = ["imagerights", "guardians", "health", "photo"] as const;
 export type Include = (typeof INCLUDE_VALUES)[number];
@@ -43,6 +43,8 @@ export type Guardian = {
 
 export type StudentFile = {
   id: string;
+  /** Opaque key of the Pronote student (see roster.ts studentKey): tells two homonyms apart. */
+  key: string;
   label: string;
   lastname: string;
   firstname: string;
@@ -249,6 +251,7 @@ export const fileOf = (entry: RosterEntry, data: Record<string, any>, include: I
   const birth = parsePronoteDate(text(pick(identity, ["DateNaissance", "dateDeNaissance", "dateNaiss", "naissance"], used)));
   const file: StudentFile = {
     id: entry.id,
+    key: studentKey(entry.pronoteId),
     label: entry.label,
     lastname,
     firstname,

@@ -27,6 +27,11 @@ export type Resource = { id: string; name: string; type: "class" | "group" };
 
 export type Student = {
   id: string;
+  /**
+   * Opaque key of the Pronote student, the same in every class and group of the session: tells two homonyms apart
+   * (the stable id only depends on the name).
+   */
+  key: string;
   firstname: string;
   lastname: string;
   email: string | null;

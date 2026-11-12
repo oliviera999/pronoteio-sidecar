@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 /** Classes, groups and students (ListeEleves works for any class or group of the school). */
 import { parseTimetable, timetableFromIntervals, type SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
@@ -31,6 +32,14 @@ export const resources = async (session: SessionHandle): Promise<Resource[]> => 
     .sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name, "fr", { numeric: true }));
 };
 
+/**
+ * Opaque key of a student from its Pronote id (SHA-256, 16 hex characters): identical in every list of the session,
+ * different for two homonyms. 12/11/2026: two students with the same name, in two classes of the same teacher, were
+ * both matched to one Moodle account (name only); Moodle now checks the names against these keys first.
+ */
+export const studentKey = (pronoteId: string): string =>
+  pronoteId === "" ? "" : createHash("sha256").update(`pronoteio-student\n${pronoteId}`).digest("hex").slice(0, 16);
+
 /** Student of a class or group in the current session: Pronote id, "NOM Prénom" and stable id. */
 export type RosterEntry = { pronoteId: string; label: string; id: string };
 
@@ -58,6 +67,7 @@ export const roster = async (session: SessionHandle, resourceId: string): Promis
   // Pronote only gives "NOM Prénom" to a teacher: no e-mail nor birth date.
   return (await rosterEntries(session, resourceId)).map((entry) => {
     const split = splitDisplayName(entry.label);
-    return { id: entry.id, lastname: split.lastname, firstname: split.firstname, email: null, birthdate: null };
+    return { id: entry.id, key: studentKey(entry.pronoteId), lastname: split.lastname, firstname: split.firstname, email: null,
+      birthdate: null };
   });
 };
