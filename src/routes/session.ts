@@ -16,6 +16,7 @@ import type { SessionInfo } from "../normalise.js";
 import { pronoteBaseUrl } from "../pronote/compat.js";
 import { createCapturingHandle, userData } from "../pronote/userdata.js";
 import { createSession, dropSession, requireSession } from "../session.js";
+import { accountKey, chainedTokenLogin, serializeLogin, TokenStore } from "../tokenStore.js";
 import { functions } from "../teacher/functions.js";
 import { stableId } from "../teacher/ids.js";
 
@@ -28,6 +29,9 @@ type LoginBody = {
   pin?: string;
   devicename?: string;
 };
+
+/** Chain of the single-use tokens (see tokenStore.ts); null when PRONOTEIO_TOKEN_STORE=off. */
+const tokenStore = config.tokenStoreFile === null ? null : new TokenStore(config.tokenStoreFile, config.secret);
 
 /** Name shown in the teacher's Pronote "known devices" list (limited to 30 characters by Pronote). */
 const DEFAULT_DEVICE_NAME = "Moodle pronoteio";
@@ -107,20 +111,37 @@ export default async function sessionRoutes(app: FastifyInstance): Promise<void>
       const { url, username, deviceuuid, password, token, pin, devicename } = request.body;
       const handle = createCapturingHandle();
       const base = { url: pronoteBaseUrl(url), username, kind: AccountKind.TEACHER, deviceUUID: deviceuuid };
+      const account = accountKey(base.url, username, deviceuuid);
+      const secured = async (login: Promise<RefreshInformation>): Promise<RefreshInformation> => {
+        try {
+          return await login;
+        } catch (error) {
+          if (!(error instanceof SecurityError)) throw error;
+          return completeSecurity(handle, error, pin, devicename ?? DEFAULT_DEVICE_NAME);
+        }
+      };
+      const onRecordError = (error: unknown) => request.log.warn({ err: error }, "token store not written");
 
-      let refresh: RefreshInformation;
-      try {
-        refresh = password !== undefined
-          ? await loginCredentials(handle, { ...base, password })
-          : await loginToken(handle, { ...base, token: token as string });
-      } catch (error) {
-        if (!(error instanceof SecurityError)) throw error;
-        refresh = await completeSecurity(handle, error, pin, devicename ?? DEFAULT_DEVICE_NAME);
-      }
+      // One login at a time per account: the token is single use.
+      const refresh = await serializeLogin(account, async () => {
+        if (password !== undefined) {
+          const result = await secured(loginCredentials(handle, { ...base, password }));
+          try {
+            tokenStore?.record(account, null, result.token);
+          } catch (error) {
+            onRecordError(error);
+          }
+          return result;
+        }
+        const result = await chainedTokenLogin(tokenStore, account, token as string,
+          (current) => secured(loginToken(handle, { ...base, token: current })), onRecordError);
+        if (result.substituted) request.log.info("token login: previous answer lost, latest token of the chain used");
+        return result;
+      });
 
       return {
         sessionid: createSession(handle),
-        // Single-use: Moodle must store it and send it at the next login.
+        // Single-use: Moodle must store it and send it at the next login (the sidecar keeps the chain too).
         token: refresh.token,
         displayname: handle.user.name,
         version: handle.instance.version.join("."),

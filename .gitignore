@@ -6,3 +6,5 @@ node_modules
 *.log
 # Passenger restart marker (tools/cpanel-update.sh).
 tmp/
+# Chain of the Pronote tokens (src/tokenStore.ts): kept across updates, never versioned.
+var/
