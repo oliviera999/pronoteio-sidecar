@@ -65,18 +65,40 @@ export const verifySignature = (request) => {
 };
 /** Reads still running, by signature: a second delivery of the same read waits for the answer of the first. */
 const inflight = new Map();
+/** How long the answer of a request is kept for a late second delivery of it (milliseconds). */
+export const ANSWER_TTL = 120_000;
+/** Answers kept for late deliveries, at most this many (the oldest go first). */
+export const MAX_KEPT_ANSWERS = 50;
+/** Larger answers (student photos, files) are not kept: a late delivery of them is refused as before. */
+export const MAX_KEPT_ANSWER_BYTES = 512 * 1024;
+/** Recent answers (in memory only), for a second delivery arriving just after the first was answered. */
+const answered = new Map();
+const answerSize = (payload) => typeof payload === "string" ? Buffer.byteLength(payload) : Buffer.isBuffer(payload) ? payload.length : Number.POSITIVE_INFINITY;
+const keepAnswer = (signature, answer) => {
+    const now = Date.now();
+    if (answerSize(answer.payload) > MAX_KEPT_ANSWER_BYTES)
+        return;
+    for (const [key, entry] of answered) {
+        if (entry.expires < now)
+            answered.delete(key);
+    }
+    answered.set(signature, { answer, expires: now + ANSWER_TTL });
+    while (answered.size > MAX_KEPT_ANSWERS)
+        answered.delete(answered.keys().next().value);
+};
 /**
  * Raw body parser and signature check of every route but /health, before schema validation (unsigned requests
  * learn nothing about the API).
  *
  * The web server in front of the sidecar (Apache + Passenger on cPanel) may deliver the same request twice, the
- * second time while a slow read is still running (10/11/2026: student files, one FicheEleve call per student, and
- * other calls waiting in the Pronote session queue). Refusing that second delivery sent "replayed_request" back to
- * Moodle although nothing was replayed by anyone. Now:
- * - a GET (read only) delivered again while the first delivery runs waits for it and gets the same answer:
- *   Pronote is read once and Moodle gets its data;
- * - a GET delivered again after its answer, and any POST (write, login) delivered twice, are still refused with
- *   replayed_request: a write is never executed twice.
+ * second time while a slow request is still running, and gives Moodle the answer of the second delivery.
+ * 10/11/2026: student files (a slow read); 12/11/2026: /session/login with a password, refused as a replay, so that
+ * linking the account failed although nothing was replayed by anyone. Now any request (read, write or login)
+ * delivered again:
+ * - while the first delivery runs: waits for it and gets the same answer;
+ * - within ANSWER_TTL after it was answered: gets the same answer again;
+ * - later: refused with replayed_request.
+ * The request is executed once in every case: a write never reaches Pronote twice.
  */
 export const registerAuth = (app) => {
     // Keep the raw body: the HMAC signature covers the exact bytes sent by Moodle.
@@ -94,25 +116,25 @@ export const registerAuth = (app) => {
             return;
         const signature = checkSignature(request);
         if (recordSignature(signature)) {
-            if (request.method === "GET") {
-                let resolve;
-                inflight.set(signature, new Promise((done) => (resolve = done)));
-                request.inflightResolve = (answer) => {
-                    inflight.delete(signature);
-                    resolve(answer);
-                };
-            }
+            let resolve;
+            inflight.set(signature, new Promise((done) => (resolve = done)));
+            request.inflightResolve = (answer) => {
+                inflight.delete(signature);
+                keepAnswer(signature, answer);
+                resolve(answer);
+            };
             return;
         }
-        const running = request.method === "GET" ? inflight.get(signature) : undefined;
+        const kept = answered.get(signature);
+        const running = inflight.get(signature) ?? (kept && kept.expires >= Date.now() ? Promise.resolve(kept.answer) : undefined);
         if (!running)
             throw new HttpError(401, "replayed_request");
-        request.log.info("same read delivered again while it runs: answered with the result of the first delivery");
+        request.log.info({ method: request.method }, "same request delivered again: answered with the result of the first delivery");
         const answer = await running;
         reply.code(answer.status).headers(answer.headers);
         return reply.send(answer.payload);
     });
-    // Answer of a read (success or error): shared with the deliveries waiting for it.
+    // Answer of a request (success or error): shared with the deliveries waiting for it, kept for late ones.
     app.addHook("onSend", async (request, reply, payload) => {
         if (request.inflightResolve) {
             const contentType = reply.getHeader("content-type");

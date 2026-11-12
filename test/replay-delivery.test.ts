@@ -4,7 +4,7 @@ import { test } from "node:test";
 import Fastify from "fastify";
 
 process.env.PRONOTEIO_SECRET = "test-secret-0123456789abcdef";
-const { signedPayload, registerAuth } = await import("../src/auth.js");
+const { ANSWER_TTL, MAX_KEPT_ANSWER_BYTES, signedPayload, registerAuth } = await import("../src/auth.js");
 const { toHttp } = await import("../src/errors.js");
 
 /**
@@ -67,18 +67,20 @@ test("a read delivered twice while it runs is answered twice, and Pronote is rea
   await app.close();
 });
 
-test("a read replayed after its answer is still refused, with an explicit code", async () => {
-  const { app } = await buildApp();
+test("a read delivered again just after its answer gets the same answer, read once", async () => {
+  const { app, counts } = await buildApp();
   const url = "/students/files?resource=c%3AT06";
   const headers = signedHeaders("GET", url);
-  assert.equal((await app.inject({ method: "GET", url, headers })).statusCode, 200);
-  const replay = await app.inject({ method: "GET", url, headers });
-  assert.equal(replay.statusCode, 401);
-  assert.equal(replay.json().error, "replayed_request");
+  const first = await app.inject({ method: "GET", url, headers });
+  const late = await app.inject({ method: "GET", url, headers });
+  assert.equal(late.statusCode, 200);
+  assert.deepEqual(late.json(), first.json());
+  assert.equal(counts().reads, 1);
   await app.close();
 });
 
-test("a write delivered twice is never executed twice", async () => {
+/** 12/11/2026: linking the account (POST /session/login with a password) failed with replayed_request. */
+test("a write or a login delivered twice is executed once and both deliveries get its answer", async () => {
   const { app, counts } = await buildApp();
   const body = JSON.stringify({ value: 12 });
   const headers = { ...signedHeaders("POST", "/grades", body), "content-type": "application/json" };
@@ -86,10 +88,27 @@ test("a write delivered twice is never executed twice", async () => {
     app.inject({ method: "POST", url: "/grades", headers, payload: body }),
     app.inject({ method: "POST", url: "/grades", headers, payload: body }),
   ]);
-  const statuses = [first.statusCode, second.statusCode].sort();
-  assert.deepEqual(statuses, [200, 401]);
-  assert.equal([first, second].find((r) => r.statusCode === 401)!.json().error, "replayed_request");
+  assert.equal(first.statusCode, 200);
+  assert.equal(second.statusCode, 200, `second delivery refused: ${second.body}`);
+  assert.deepEqual(second.json(), first.json());
   assert.equal(counts().writes, 1);
+  // Delivered once more after the answer: same answer, still not executed again.
+  const late = await app.inject({ method: "POST", url: "/grades", headers, payload: body });
+  assert.deepEqual(late.json(), first.json());
+  assert.equal(counts().writes, 1);
+  await app.close();
+});
+
+test("a request replayed once its answer is forgotten is refused, with an explicit code", async (t) => {
+  const { app } = await buildApp();
+  const url = "/students/files?resource=c%3AT06";
+  const headers = signedHeaders("GET", url);
+  assert.equal((await app.inject({ method: "GET", url, headers })).statusCode, 200);
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() + ANSWER_TTL + 1000 });
+  const replay = await app.inject({ method: "GET", url, headers });
+  t.mock.timers.reset();
+  assert.equal(replay.statusCode, 401);
+  assert.equal(replay.json().error, "replayed_request");
   await app.close();
 });
 
@@ -103,5 +122,23 @@ test("distinct requests (fresh nonce) are never confused", async () => {
   assert.equal(a.statusCode, 200);
   assert.equal(b.statusCode, 200);
   assert.equal(counts().reads, 2);
+  await app.close();
+});
+
+test("large answers are not kept for late deliveries", async () => {
+  const app = Fastify();
+  registerAuth(app);
+  app.setErrorHandler((error, _request, reply) => {
+    const [status, code] = toHttp(error);
+    reply.status(status).send({ error: code });
+  });
+  app.get("/students/photo", async () => ({ base64: "x".repeat(MAX_KEPT_ANSWER_BYTES + 10) }));
+  await app.ready();
+  const url = "/students/photo?resource=c%3AT06&student=e%3AFICTIF";
+  const headers = signedHeaders("GET", url);
+  assert.equal((await app.inject({ method: "GET", url, headers })).statusCode, 200);
+  const late = await app.inject({ method: "GET", url, headers });
+  assert.equal(late.statusCode, 401);
+  assert.equal(late.json().error, "replayed_request");
   await app.close();
 });
