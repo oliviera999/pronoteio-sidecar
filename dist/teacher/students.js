@@ -2,7 +2,7 @@ import { HttpError } from "../errors.js";
 import { listOf, parsePronoteDate } from "../pronote/encoding.js";
 import { normalise, seconds } from "../normalise.js";
 import { callFunction, isTabClosed } from "./functions.js";
-import { rosterEntries } from "./roster.js";
+import { rosterEntries, studentKey } from "./roster.js";
 export const INCLUDE_VALUES = ["imagerights", "guardians", "health", "photo"];
 /** Largest number of files read in one request (one Pronote call per student). */
 export const MAX_FILES = 40;
@@ -191,6 +191,7 @@ export const fileOf = (entry, data, include) => {
     const birth = parsePronoteDate(text(pick(identity, ["DateNaissance", "dateDeNaissance", "dateNaiss", "naissance"], used)));
     const file = {
         id: entry.id,
+        key: studentKey(entry.pronoteId),
         label: entry.label,
         lastname,
         firstname,

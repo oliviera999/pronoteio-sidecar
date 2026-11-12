@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { rememberUserData } from "../src/pronote/userdata.js";
 import { parseInclude } from "../src/routes/students.js";
 import { edtResources, resourceTimetable } from "../src/teacher/resourceTimetable.js";
+import { roster } from "../src/teacher/roster.js";
 import { checkStudentFiles, imageRightsOf, MAX_SHAPE, sexCode, sexOf, shapeOf, studentFiles } from "../src/teacher/students.js";
 import { fakeSession } from "./fake-session.js";
 
@@ -251,4 +252,31 @@ test("Pronote sex code: 1 = girl, 0 = boy, typed or not", async () => {
   assert.equal((await studentFiles(session({ _T: 1, V: "1" }), "c:T06", [])).items[0].sex, "F");
   // An explicit masculine flag keeps its meaning.
   assert.equal(sexOf(true), "M");
+});
+
+/**
+ * 12/11/2026: two students with the same name, in two classes of the same teacher, were both matched to one Moodle
+ * account (name only). Each student now carries an opaque key from its Pronote id: the same in every list of the
+ * session, different for two homonyms, never the Pronote id itself.
+ */
+test("student key: tells homonyms apart, same student same key, never the Pronote id", async () => {
+  const session = fakeSession({
+    ListeEleves: (data) => ({
+      listeEleves: { _T: 24, V: data?.ressource?.L === "T06"
+        ? [{ N: "4#e1", L: "MARTIN Léa", G: 4 }, { N: "4#e9", L: "MARTIN Léa", G: 4 }]
+        : [{ N: "4#e1", L: "MARTIN Léa", G: 4 }] },
+    }),
+    FicheEleve: () => file,
+  });
+  const group = { id: "2#g1", label: "T-SPE SVT 2", genre: 2 as const, taught: true, principal: false };
+  rememberUserData(session, { resources: [classT06, group], tabs: [105] });
+  const inClass = await roster(session, "c:T06");
+  assert.equal(inClass.length, 2);
+  assert.notEqual(inClass[0].key, inClass[1].key);
+  assert.match(inClass[0].key, /^[0-9a-f]{16}$/);
+  const inGroup = await roster(session, "g:T-SPE SVT 2");
+  assert.equal(inGroup[0].key, inClass[0].key);
+  assert.equal(JSON.stringify(inClass).includes("4#e"), false);
+  const files = await studentFiles(session, "c:T06", []);
+  assert.deepEqual(files.items.map((item) => item.key), inClass.map((item) => item.key));
 });
