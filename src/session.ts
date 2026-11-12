@@ -6,7 +6,7 @@ import { HttpError } from "./errors.js";
 
 type Entry = { handle: SessionHandle; expires: number };
 
-/** In-memory cache of open Pronote sessions. Tokens are never kept here: Moodle stores them. */
+/** In-memory cache of open Pronote sessions. Tokens are not kept here (Moodle stores them, tokenStore.ts keeps the chain). */
 const sessions = new Map<string, Entry>();
 
 export const createSession = (handle: SessionHandle): string => {

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 import { HttpError } from "./errors.js";
-/** In-memory cache of open Pronote sessions. Tokens are never kept here: Moodle stores them. */
+/** In-memory cache of open Pronote sessions. Tokens are not kept here (Moodle stores them, tokenStore.ts keeps the chain). */
 const sessions = new Map();
 export const createSession = (handle) => {
     const id = randomUUID();

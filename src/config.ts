@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 const int = (value: string | undefined, fallback: number): number => {
   const parsed = Number.parseInt(value ?? "", 10);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -15,6 +17,16 @@ export const resolveWriteMode = (env: Record<string, string | undefined>): "simu
 
 const writeMode = (): "simulate" | "live" => resolveWriteMode(process.env);
 
+/**
+ * File of the token chain (tokenStore.ts): PRONOTEIO_TOKEN_STORE, "off" to disable it, by default var/tokens.json in
+ * the application folder (kept across restarts and updates: var/ is not versioned).
+ */
+export const resolveTokenStoreFile = (env: Record<string, string | undefined>, cwd: string): string | null => {
+  const value = (env.PRONOTEIO_TOKEN_STORE ?? "").trim();
+  if (value.toLowerCase() === "off") return null;
+  return value !== "" ? value : join(cwd, "var", "tokens.json");
+};
+
 export const config = {
   secret: process.env.PRONOTEIO_SECRET ?? "",
   host: process.env.PRONOTEIO_HOST ?? "127.0.0.1",
@@ -27,6 +39,7 @@ export const config = {
   /** Pronote calls allowed per session and per minute (0: no limit); every call is also spaced by at least 150 ms. */
   maxCallsPerMinute: int(process.env.PRONOTEIO_MAX_CALLS_PER_MINUTE, 120),
   logLevel: process.env.PRONOTEIO_LOG_LEVEL ?? "info",
+  tokenStoreFile: resolveTokenStoreFile(process.env, process.cwd()),
 } as const;
 
 /** Refuses to start without a real shared secret (called by server.ts, so that importing config has no effect). */
