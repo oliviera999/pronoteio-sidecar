@@ -1,6 +1,6 @@
 import { HttpError } from "../errors.js";
 import { listOf, parsePronoteDate } from "../pronote/encoding.js";
-import { normalise, seconds } from "../normalise.js";
+import { normalise } from "../normalise.js";
 import { callFunction, isTabClosed } from "./functions.js";
 import { rosterEntries, studentKey } from "./roster.js";
 export const INCLUDE_VALUES = ["imagerights", "guardians", "health", "photo"];
@@ -196,7 +196,9 @@ export const fileOf = (entry, data, include) => {
         lastname,
         firstname,
         sex: sexFrom(identity, used),
-        birthdate: birth ? seconds(birth) : null,
+        // Date sans heure : minuit UTC du jour Pronote. 13/11/2026 : minuit heure du serveur (en avance sur UTC) tombait la
+        // veille en UTC, et Moodle reportait la date de naissance avec un jour de moins.
+        birthdate: birth ? Date.UTC(birth.getFullYear(), birth.getMonth(), birth.getDate()) / 1000 : null,
         number: text(pick(identity, ["numeroEleve", "Numero", "numero", "numeroNational", "ine", "INE"], used)),
         email: text(pick(identity, ["email", "eMail", "adresseEmail", "mail", "courriel"], used)),
         class: text(pick(identity, ["classe", "Classe"], used)),

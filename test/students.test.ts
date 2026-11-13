@@ -34,7 +34,7 @@ test("identity only: no image rights, guardians, health nor photo", async () => 
   assert.equal(lea.lastname, "MARTIN");
   assert.equal(lea.firstname, "Léa Anne");
   assert.equal(lea.sex, "F");
-  assert.equal(lea.birthdate, Math.floor(new Date(2010, 2, 14).getTime() / 1000));
+  assert.equal(lea.birthdate, Date.UTC(2010, 2, 14) / 1000);
   assert.equal(lea.number, "E000123");
   assert.equal(lea.email, "lea.martin@pedagolyautey.org");
   assert.equal(lea.class, "T06");
@@ -177,13 +177,27 @@ const wrappedSession = () => {
   return session;
 };
 
+test("the birth date is the Pronote day at UTC midnight, whatever the server time zone", async () => {
+  const saved = process.env.TZ;
+  try {
+    for (const zone of ["Europe/Paris", "Africa/Casablanca", "America/New_York", "UTC"]) {
+      process.env.TZ = zone;
+      const result = await studentFiles(wrappedSession(), "c:T06", []);
+      assert.equal(result.items[0].birthdate, Date.UTC(2010, 2, 14) / 1000, zone);
+    }
+  } finally {
+    if (saved === undefined) delete process.env.TZ;
+    else process.env.TZ = saved;
+  }
+});
+
 test("a file wrapped in typed values and Scolarite is read: sex, birth date, class, regime", async () => {
   const result = await studentFiles(wrappedSession(), "c:T06", []);
   const lea = result.items[0];
   assert.equal(lea.lastname, "MARTIN");
   assert.equal(lea.firstname, "Léa Anne");
   assert.equal(lea.sex, "F");
-  assert.equal(lea.birthdate, Math.floor(new Date(2010, 2, 14).getTime() / 1000));
+  assert.equal(lea.birthdate, Date.UTC(2010, 2, 14) / 1000);
   assert.equal(lea.number, "E000123");
   assert.equal(lea.class, "T06");
   assert.equal(lea.regime, "Externe");
