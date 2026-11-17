@@ -1,7 +1,10 @@
+// First import: switches the process to UTC before any date is built (wall-clock times of Pronote, see time.ts).
+import "./time.js";
 import Fastify from "fastify";
 import { registerAuth } from "./auth.js";
 import { assertSecret, config } from "./config.js";
 import { toHttp } from "./errors.js";
+import { applyLocalTimes } from "./localInput.js";
 import absencesRoutes from "./routes/absences.js";
 import assessmentsRoutes from "./routes/assessments.js";
 import filesRoutes from "./routes/files.js";
@@ -37,6 +40,11 @@ const app = Fastify({
 registerAuth(app);
 
 app.get("/health", async () => ({ ok: true }));
+
+// Wall-clock times of the write requests ("local" members) replace their timestamps before validation (0.9.0).
+app.addHook("preValidation", async (request) => {
+  if (request.body && typeof request.body === "object") applyLocalTimes(request.body);
+});
 
 app.setErrorHandler((error, request, reply) => {
   const [status, code] = toHttp(error);

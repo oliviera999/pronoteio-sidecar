@@ -17,6 +17,8 @@ import { listOf, parsePronoteDate } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
 import { HttpError } from "../errors.js";
 import { matchesLabels, normalise, seconds, } from "../normalise.js";
+import { localTimes } from "../normalise.js";
+import { legacySeconds } from "../time.js";
 import { call, describeService, loadAllServices, pickPeriod, ref, resolveService, resourceOf, resourceType, serviceIdsOf, } from "./grades.js";
 import { stableId, stableIds } from "./ids.js";
 /** Largest number of assessments whose levels are read in one call. */
@@ -114,7 +116,8 @@ export const itemFromList = (evaluation, subject, resourcename, type, serviceid 
     return {
         skillIds,
         item: {
-            id: stableId("competency", `${date ? seconds(date) : 0}|${resourcename}|${title}`),
+            // Legacy timestamp (host zone, as until 0.8.0): the id of an assessment must not change with the time zone fix.
+            id: stableId("competency", `${date ? legacySeconds(date) : 0}|${resourcename}|${title}`),
             title,
             date: date ? seconds(date) : null,
             publication: publication ? seconds(publication) : null,
@@ -125,6 +128,7 @@ export const itemFromList = (evaluation, subject, resourcename, type, serviceid 
                     : null,
             coefficient: Number.isFinite(coefficient) ? coefficient : null,
             cycleReport: evaluation.priseEnCompteDansBilan !== false,
+            local: localTimes({ date, publication, publicationParents: parents }),
             subject,
             resourcename,
             type,

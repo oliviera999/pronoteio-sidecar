@@ -22,7 +22,9 @@
     "fastify": "^5.12.5",
     "node-forge": "^1.4.0",
     "pako": "^3.0.2",
-    "pawnote": "^1.6.2"
+    "pawnote": "^1.6.2",
+    "timezonecomplete": "5.15.1",
+    "tzdata": "1.0.54"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",

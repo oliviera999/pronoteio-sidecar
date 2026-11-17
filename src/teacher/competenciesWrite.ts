@@ -17,6 +17,7 @@ import { HttpError } from "../errors.js";
 import { listOf, pronoteDate, pronoteNumber } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
 import { normalise, type CompetencyItem } from "../normalise.js";
+import { epochToWall, legacySeconds } from "../time.js";
 import {
   competencyElement,
   DEFAULT_LEVELS,
@@ -218,7 +219,7 @@ export const buildCompetencyRequest = (
       })),
     };
   });
-  const date = write.date !== undefined ? new Date(write.date * 1000) : null;
+  const date = write.date !== undefined ? epochToWall(write.date) : null;
   const evaluation: Record<string, unknown> = {
     N: existing ? existing.N : 0,
     E: write.delete ? STATE_DELETED : existing ? STATE_MODIFIED : STATE_CREATED,
@@ -233,7 +234,7 @@ export const buildCompetencyRequest = (
         ? existing?.datePublication ?? null
         : write.publication === null
           ? null
-          : pronoteDate(new Date(write.publication * 1000)),
+          : pronoteDate(epochToWall(write.publication)),
     Descriptif: { _T: TYPE_HTML, V: write.description ?? String(existing?.descriptif?.V ?? "") },
     coefficient: write.coefficient !== undefined ? number(write.coefficient) : existing?.coefficient ?? number(1),
     priseEnCompteDansBilan: write.cycleReport ?? existing?.priseEnCompteDansBilan ?? true,
@@ -328,7 +329,7 @@ export const writeCompetency = async (session: SessionHandle, write: CompetencyW
   const planned: CompetencyItem | null = write.delete
     ? null
     : {
-        id: before?.id ?? stableId("competency", `${plannedDate ?? 0}|${resourcename}|${plannedTitle}`),
+        id: before?.id ?? stableId("competency", `${plannedDate !== null && plannedDate !== undefined ? legacySeconds(epochToWall(plannedDate)) : 0}|${resourcename}|${plannedTitle}`),
         title: plannedTitle,
         date: plannedDate,
         publication: plannedPublication,

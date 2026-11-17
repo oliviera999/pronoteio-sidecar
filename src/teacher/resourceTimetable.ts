@@ -20,6 +20,7 @@ import { callFunction, isTabClosed } from "./functions.js";
 import { rosterEntries } from "./roster.js";
 import { stableId } from "./ids.js";
 import { lessonFromPage, weeksOf } from "./timetable.js";
+import { wallToEpoch } from "../time.js";
 
 export const RESOURCE_KINDS = ["class", "group", "student", "teacher", "room"] as const;
 export type ResourceKind = (typeof RESOURCE_KINDS)[number];
@@ -134,8 +135,8 @@ export const resourceTimetable = async (
     for (const cours of listOf<any>(data.ListeCours)) {
       const ref = lessonFromPage(session, cours, week, "");
       if (!ref) continue;
-      const start = ref.lesson.start * 1000;
-      if (start < from.getTime() || start >= to.getTime()) continue;
+      const start = ref.lesson.start;
+      if (start < wallToEpoch(from) || start >= wallToEpoch(to)) continue;
       const { id, subject, teacher, rooms, groups, start: begin, end, cancelled, status } = ref.lesson;
       items.push({ id, subject, teacher, rooms, groups, start: begin, end, cancelled, status });
     }

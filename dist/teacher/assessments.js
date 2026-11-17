@@ -9,15 +9,16 @@ import { ServerSideError } from "pawnote";
 import { answerData, callPronote } from "../pronote/request.js";
 import { listOf, parsePronoteDate } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
-import { matchesLabels, normalise, plainText, seconds } from "../normalise.js";
+import { localTimes, matchesLabels, normalise, plainText, seconds } from "../normalise.js";
 import { requireFunction } from "./functions.js";
 import { call, loadPeriods, loadServices, resourceOf } from "./grades.js";
 import { stableId } from "./ids.js";
 import { notebook } from "./notebook.js";
 import { dateRange } from "./timetable.js";
+import { epochToWall } from "../time.js";
 const pad = (value) => String(value).padStart(2, "0");
 const dayOf = (time) => {
-    const date = new Date(time * 1000);
+    const date = epochToWall(time);
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 };
 export const plannedIdFor = (date, groups, title) => stableId("planned", `${dayOf(date)}|${groups.join("+")}|${title.trim()}`);
@@ -27,7 +28,8 @@ const number = (value) => {
     return Number.isFinite(parsed) ? parsed : null;
 };
 const isAccessDenied = (error) => error instanceof ServerSideError && /droits|insuffisant/i.test(error.message);
-const inRange = (time, from, to) => time * 1000 >= from.getTime() && time * 1000 < to.getTime();
+/** Timestamp in [from, to) (wall Dates, read in the school's zone). */
+const inRange = (time, from, to) => time >= seconds(from) && time < seconds(to);
 const matchesClasses = (groups, classes) => matchesLabels(groups, classes);
 /** Assessments flagged in the notebook of the lessons in range. */
 export const fromNotebook = async (session, from, to, classes) => {
@@ -52,6 +54,8 @@ export const fromNotebook = async (session, from, to, classes) => {
                 coefficient: null,
                 max: null,
                 details: plainText(content.description),
+                local: { ...(entry.lesson.local?.start ? { date: entry.lesson.local.start } : {}), ...(entry.lesson.local?.end ? { end: entry.lesson.local.end } : {}),
+                    ...(entry.local?.publication ? { publication: entry.local.publication } : {}) },
             });
         }
     }
@@ -82,13 +86,14 @@ export const gradedFromPage = (service, page, from, to, classes, now = new Date(
             groups: finalGroups,
             title,
             kind: "graded",
-            published: publication ? publication.getTime() <= now.getTime() : null,
+            published: publication ? seconds(publication) * 1000 <= now.getTime() : null,
             publication: publication ? seconds(publication) : null,
             coefficient: number(devoir.coefficient),
             max: number(devoir.bareme),
             details: [devoir.verrouille === true ? "verrouillé" : "", devoir.existesDesNotes === true ? "notes saisies" : ""]
                 .filter(Boolean)
                 .join(", "),
+            local: localTimes({ date, publication }),
         });
     }
     return result;
@@ -137,6 +142,7 @@ export const writtenTestsFromAnswer = (data, from, to) => listOf(data?.liste).fl
             coefficient: null,
             max: null,
             details,
+            local: localTimes({ date }),
         }];
 });
 /** Written tests of the taught classes (school-wide list), or null when the profile may not read it. */

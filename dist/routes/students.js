@@ -3,6 +3,7 @@ import { requireSession } from "../session.js";
 import { RESOURCE_KINDS, resourceTimetable } from "../teacher/resourceTimetable.js";
 import { INCLUDE_VALUES, MAX_FILES, checkStudentFiles, studentFiles } from "../teacher/students.js";
 import { studentPhoto } from "../teacher/photos.js";
+import { epochToWall } from "../time.js";
 const filesQuery = {
     type: "object",
     required: ["resource"],
@@ -58,7 +59,7 @@ export default async function studentsRoutes(app) {
         const { kind, name, class: className = "", from, to } = request.query;
         if (to <= from || to - from > 62 * 24 * 3600)
             throw new HttpError(400, "range_too_large");
-        return resourceTimetable(requireSession(request), kind, name, new Date(from * 1000), new Date(to * 1000), className);
+        return resourceTimetable(requireSession(request), kind, name, epochToWall(from), epochToWall(to), className);
     });
 }
 //# sourceMappingURL=students.js.map

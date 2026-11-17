@@ -5,6 +5,7 @@ import { requireSession } from "../session.js";
 import * as teacher from "../teacher/index.js";
 import type { AttendanceWrite } from "../teacher/absencesWrite.js";
 import { resourceIntervalQuery, type ResourceIntervalQuery } from "./schemas.js";
+import { epochToWall } from "../time.js";
 
 type AttendanceBody = AttendanceWrite & { lesson: string };
 
@@ -14,7 +15,7 @@ export default async function absencesRoutes(app: FastifyInstance): Promise<void
     { schema: { querystring: resourceIntervalQuery } },
     async (request) => {
       const { resource, from, to } = request.query;
-      const items = await teacher.absences(requireSession(request), resource, new Date(from * 1000), new Date(to * 1000));
+      const items = await teacher.absences(requireSession(request), resource, epochToWall(from), epochToWall(to));
       return { items };
     },
   );

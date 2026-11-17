@@ -1,5 +1,22 @@
 import type { Assignment, TimetableClassActivity, TimetableClassDetention, TimetableClassLesson } from "pawnote";
 import type { GradeStatus } from "./pronote/encoding.js";
+import { localString, wallToEpoch } from "./time.js";
+
+/**
+ * Wall-clock times of an item, as Pronote shows them ("2026-11-12 17:10"), keyed by the name of the timestamp field
+ * they belong to: { start: "2026-11-12 17:10", end: "2026-11-12 18:05" }. Sidecar 0.9.0, no time zone conversion:
+ * local_pronoteio converts them with Moodle's time zone database. Absent fields are null timestamps.
+ */
+export type LocalTimes = Record<string, string>;
+
+/** LocalTimes of the given wall Dates (null and undefined left out). */
+export const localTimes = (dates: Record<string, Date | null | undefined>): LocalTimes => {
+  const result: LocalTimes = {};
+  for (const [key, date] of Object.entries(dates)) {
+    if (date instanceof Date && !Number.isNaN(date.getTime())) result[key] = localString(date);
+  }
+  return result;
+};
 
 /** Shapes documented in plugin/classes/connector/connector_interface.php (timestamps in seconds). */
 export type Lesson = {
@@ -12,6 +29,8 @@ export type Lesson = {
   end: number;
   cancelled: boolean;
   status: string;
+  /** 0.9.0: wall-clock start and end ("2026-11-12 17:10"), see LocalTimes. */
+  local?: LocalTimes;
 };
 
 export type Homework = {
@@ -21,6 +40,8 @@ export type Homework = {
   due: number;
   groups: string[];
   attachments: { name: string; url: string }[];
+  /** 0.9.0: wall-clock due date, see LocalTimes. */
+  local?: LocalTimes;
 };
 
 export type Resource = { id: string; name: string; type: "class" | "group" };
@@ -47,6 +68,8 @@ export type Absence = {
   justified: boolean;
   reason: string;
   kind: "absence" | "late";
+  /** 0.9.0: wall-clock times of the timestamp fields, see LocalTimes. */
+  local?: LocalTimes;
 };
 
 export type Grade = { studentid: string; value: number | null; status: GradeStatus };
@@ -144,7 +167,11 @@ export type ReportContext = {
   periods: Period[];
 };
 
-export const seconds = (date: Date): number => Math.floor(date.getTime() / 1000);
+/**
+ * Timestamp (seconds) of a wall Date read from Pronote, in the school's time zone (time.ts). Until 0.8.0 the host's
+ * time zone was used: one hour too early on a host in UTC+1 while Casablanca is in UTC+0.
+ */
+export const seconds = (date: Date): number => wallToEpoch(date);
 
 export const lessonFromPawnote = (
   item: TimetableClassLesson | TimetableClassActivity | TimetableClassDetention,
@@ -160,6 +187,7 @@ export const lessonFromPawnote = (
     end: seconds(item.endDate),
     cancelled: item.canceled,
     status: item.status ?? "",
+    local: localTimes({ start: item.startDate, end: item.endDate }),
   };
 };
 
@@ -171,6 +199,7 @@ export const homeworkFromPawnote = (item: Assignment): Homework => ({
   // TODO: Pawnote does not expose the target groups of an assignment; resolve them via item.resourceID.
   groups: [],
   attachments: item.attachments.map((file) => ({ name: file.name, url: file.url })),
+  local: localTimes({ due: item.deadline }),
 });
 
 /** Splits a Pronote display name "NOM Prénom" (upper-case words form the last name). */
@@ -266,6 +295,8 @@ export type NotebookHomework = {
   /** "NOM Prénom" of the targeted students, only when not for all. */
   students: string[];
   attachments: Attachment[];
+  /** 0.9.0: wall-clock due and given dates, see LocalTimes. */
+  local?: LocalTimes;
 };
 
 /** Notebook entry ("cahier de textes") of one lesson. */
@@ -281,6 +312,8 @@ export type Notebook = {
   privateComment: string;
   contents: NotebookContent[];
   homework: NotebookHomework[];
+  /** 0.9.0: wall-clock publication date, see LocalTimes. */
+  local?: LocalTimes;
 };
 
 export type NotebookResult = { items: Notebook[]; lessons: number; truncated: boolean };
@@ -301,6 +334,8 @@ export type PlannedAssessment = {
   coefficient: number | null;
   max: number | null;
   details: string;
+  /** 0.9.0: wall-clock times of the timestamp fields, see LocalTimes. */
+  local?: LocalTimes;
 };
 
 export type SourceState = { available: boolean; reason: string; count: number };
@@ -400,6 +435,8 @@ export type OverviewAssessment = {
   /** Sub-service ("Écrit", "Oral") the assessment belongs to, "" when the service has none. */
   subservice: string;
   grades: OverviewGrade[];
+  /** 0.9.0: wall-clock times of the timestamp fields, see LocalTimes. */
+  local?: LocalTimes;
 };
 
 export type OverviewService = Service & { assessments: OverviewAssessment[] };
@@ -445,6 +482,8 @@ export type CompetencyItem = {
   serviceid: string;
   skills: CompetencySkill[];
   ratings: CompetencyRating[];
+  /** 0.9.0: wall-clock times of the timestamp fields, see LocalTimes. */
+  local?: LocalTimes;
 };
 
 export type CompetencyOverview = {
@@ -685,6 +724,8 @@ export type MeetingSession = {
   unavailability: { slotStart: number | null; slotMinutes: number | null; session: number[]; mine: number[] };
   planningVisible: boolean;
   planning: { start: number; end: number | null; with: string; student: string; room: string; happened: boolean | null; visio: boolean }[];
+  /** 0.9.0: wall-clock times of the timestamp fields, see LocalTimes. */
+  local?: LocalTimes;
 };
 
 export type Appointment = {
@@ -699,6 +740,8 @@ export type Appointment = {
   place: string;
   status: string;
   mode: string;
+  /** 0.9.0: wall-clock times of the timestamp fields, see LocalTimes. */
+  local?: LocalTimes;
 };
 
 export type ForumTopic = {

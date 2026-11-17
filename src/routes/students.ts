@@ -4,6 +4,7 @@ import { requireSession } from "../session.js";
 import { RESOURCE_KINDS, resourceTimetable, type ResourceKind } from "../teacher/resourceTimetable.js";
 import { INCLUDE_VALUES, MAX_FILES, checkStudentFiles, studentFiles, type Include } from "../teacher/students.js";
 import { studentPhoto } from "../teacher/photos.js";
+import { epochToWall } from "../time.js";
 
 type FilesQuery = { resource: string; student?: string; include?: string; offset?: number; limit?: number };
 type CheckQuery = { resource: string };
@@ -80,7 +81,7 @@ export default async function studentsRoutes(app: FastifyInstance): Promise<void
     async (request) => {
       const { kind, name, class: className = "", from, to } = request.query;
       if (to <= from || to - from > 62 * 24 * 3600) throw new HttpError(400, "range_too_large");
-      return resourceTimetable(requireSession(request), kind, name, new Date(from * 1000), new Date(to * 1000), className);
+      return resourceTimetable(requireSession(request), kind, name, epochToWall(from), epochToWall(to), className);
     },
   );
 }

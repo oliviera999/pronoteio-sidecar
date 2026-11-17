@@ -2,6 +2,7 @@ import { HttpError } from "../errors.js";
 import { listOf, pronoteDate, pronoteNumber } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
 import { normalise } from "../normalise.js";
+import { epochToWall, legacySeconds } from "../time.js";
 import { competencyElement, DEFAULT_LEVELS, findReferentialItem, isAccessDenied, itemFromList, levelsOf, loadReferential, parentsDelayOf, ratingsFromPage, resourceRefOf, } from "./competencies.js";
 import { call, loadAllServices, pickPeriod, ref, resolveService, resourceOf, resourceType, serviceIdsOf } from "./grades.js";
 import { stableId } from "./ids.js";
@@ -129,7 +130,7 @@ export const buildCompetencyRequest = (session, service, resource, period, exist
             })),
         };
     });
-    const date = write.date !== undefined ? new Date(write.date * 1000) : null;
+    const date = write.date !== undefined ? epochToWall(write.date) : null;
     const evaluation = {
         N: existing ? existing.N : 0,
         E: write.delete ? STATE_DELETED : existing ? STATE_MODIFIED : STATE_CREATED,
@@ -143,7 +144,7 @@ export const buildCompetencyRequest = (session, service, resource, period, exist
             ? existing?.datePublication ?? null
             : write.publication === null
                 ? null
-                : pronoteDate(new Date(write.publication * 1000)),
+                : pronoteDate(epochToWall(write.publication)),
         Descriptif: { _T: TYPE_HTML, V: write.description ?? String(existing?.descriptif?.V ?? "") },
         coefficient: write.coefficient !== undefined ? number(write.coefficient) : existing?.coefficient ?? number(1),
         priseEnCompteDansBilan: write.cycleReport ?? existing?.priseEnCompteDansBilan ?? true,
@@ -243,7 +244,7 @@ export const writeCompetency = async (session, write) => {
     const planned = write.delete
         ? null
         : {
-            id: before?.id ?? stableId("competency", `${plannedDate ?? 0}|${resourcename}|${plannedTitle}`),
+            id: before?.id ?? stableId("competency", `${plannedDate !== null && plannedDate !== undefined ? legacySeconds(epochToWall(plannedDate)) : 0}|${resourcename}|${plannedTitle}`),
             title: plannedTitle,
             date: plannedDate,
             publication: plannedPublication,

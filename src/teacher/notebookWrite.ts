@@ -21,6 +21,7 @@ import { loadPeriods, periodKey, type Element } from "./grades.js";
 import { resolve } from "./ids.js";
 import { lessonPage, notebookFromPage } from "./notebook.js";
 import { lessons, pickLesson, rebaseElementId, type LessonRef } from "./timetable.js";
+import { epochToWall } from "../time.js";
 
 const STATE_CREATED = 1;
 const STATE_MODIFIED = 2;
@@ -252,7 +253,7 @@ export const homeworkMember = (homework: WriteHomework, existing: any | null, re
     return {
       N: existing.N,
       E: STATE_DELETED,
-      Date: existing.PourLe ?? pronoteDate(new Date(homework.due * 1000)),
+      Date: existing.PourLe ?? pronoteDate(epochToWall(homework.due)),
       niveauDifficulte: existing.niveauDifficulte ?? 0,
       genreRendu: existing.genreRendu ?? 0,
       duree: existing.duree ?? 0,
@@ -263,7 +264,7 @@ export const homeworkMember = (homework: WriteHomework, existing: any | null, re
       estPourTous: existing.estPourTous !== false,
     };
   }
-  const due = new Date(homework.due * 1000);
+  const due = epochToWall(homework.due);
   const forAll = homework.forAll !== false;
   const students = forAll ? [] : resolveStudents(resolved.students, homework.students ?? []);
   if (!forAll && students.length === 0) throw new HttpError(400, "homework_without_students");
@@ -310,7 +311,7 @@ export const buildNotebookRequest = (
     ? raw.entry?.DatePublication ?? null
     : entry.publication === null
       ? null
-      : pronoteDate(new Date(entry.publication * 1000));
+      : pronoteDate(epochToWall(entry.publication));
   return {
     cours: { N: lessonRef.pronoteId },
     numeroSemaine: lessonRef.week,
@@ -407,10 +408,10 @@ export const verifyWritten = (after: Notebook, entry: WriteEntry): void => {
     }
   }
   for (const item of entry.homework ?? []) {
-    const due = new Date(item.due * 1000);
+    const due = epochToWall(item.due);
     const day = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime() / 1000;
     const found = after.homework.some((existing) => {
-      const date = new Date(existing.due * 1000);
+      const date = epochToWall(existing.due);
       return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() / 1000 === day
         && (item.delete || normalise(existing.description.replace(/<[^>]+>/g, "")) === normalise(item.description.replace(/<[^>]+>/g, "")));
     });

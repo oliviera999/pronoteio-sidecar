@@ -26,6 +26,8 @@ import {
   type Service,
   type ServiceKind,
 } from "../normalise.js";
+import { localTimes } from "../normalise.js";
+import { epochToWall } from "../time.js";
 import { isTabClosed, requireFunction, type FunctionKey } from "./functions.js";
 import { resolve, stableId, stableIds } from "./ids.js";
 
@@ -295,8 +297,8 @@ const assessmentMember = (
   existing: Element | null,
   notes: { N: string; note: string }[],
 ) => {
-  const date = new Date(assessment.date * 1000);
-  const publication = new Date((assessment.publication ?? assessment.date) * 1000);
+  const date = epochToWall(assessment.date);
+  const publication = epochToWall(assessment.publication ?? assessment.date);
   return {
     N: existing ? existing.N : -1,
     E: existing ? STATE_MODIFIED : STATE_CREATED,
@@ -368,7 +370,7 @@ export const push = async (
   // lost Moodle record does not create a duplicate.
   const assessments = listOf<Element>(page.listeDevoirs);
   const assessmentIds = stableIds("assessment", assessments, assessmentKey);
-  const newId = assessmentIdFor(new Date(assessment.date * 1000), assessment.title);
+  const newId = assessmentIdFor(epochToWall(assessment.date), assessment.title);
   const find = (id: string | null) => (id === null ? -1 : assessmentIds.indexOf(id));
   const index = find(assessment.id) >= 0 ? find(assessment.id) : find(newId);
   const existing = index >= 0 ? assessments[index] : null;
@@ -453,6 +455,7 @@ export const assessmentsFromPage = (page: Record<string, any>): OverviewAssessme
       title,
       date: seconds(date),
       publication: publication ? seconds(publication) : null,
+      local: localTimes({ date, publication }),
       max: numberOf(devoir.bareme),
       coefficient: numberOf(devoir.coefficient),
       optional: devoir.commeUneNote === true,

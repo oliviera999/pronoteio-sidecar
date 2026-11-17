@@ -9,7 +9,7 @@ import { translateToWeekNumber, type SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
 import { answerData, callPronote } from "../pronote/request.js";
 import { listOf, parsePronoteDate, pronoteDate } from "../pronote/encoding.js";
-import { matchesLabels, seconds, type TeacherLesson } from "../normalise.js";
+import { localTimes, matchesLabels, seconds, type TeacherLesson } from "../normalise.js";
 import { requireFunction } from "./functions.js";
 import { stableId } from "./ids.js";
 
@@ -89,6 +89,7 @@ export const lessonFromPage = (session: SessionHandle, cours: any, week: number,
   const groups = labels([GENRE_CLASS, GENRE_GROUP, GENRE_CLASS_PART]);
   const teachers = labels([GENRE_TEACHER]);
   const id = lessonIdFor(start, groups, subject);
+  const end = lessonEnd(session, cours, start);
   const lesson: TeacherLesson = {
     id,
     subject,
@@ -96,7 +97,7 @@ export const lessonFromPage = (session: SessionHandle, cours: any, week: number,
     rooms: labels([GENRE_ROOM]),
     groups,
     start: seconds(start),
-    end: seconds(lessonEnd(session, cours, start)),
+    end: seconds(end),
     cancelled: cours.estAnnule === true,
     status: statusLabel(cours.Statut),
     hasNotebook: cours.AvecCdT === true,
@@ -106,6 +107,7 @@ export const lessonFromPage = (session: SessionHandle, cours: any, week: number,
     roomsEditable: cours.modifiable === true && cours.ressourcesModifiables === true,
     baseId: id,
     duplicates: 1,
+    local: localTimes({ start, end }),
   };
   const notebook = cours.cahierDeTextes?.V?.N;
   const rooms = contents
@@ -175,8 +177,9 @@ export const lessons = async (session: SessionHandle, from: Date, to: Date): Pro
     for (const cours of listOf<any>(answerData(session, answer).ListeCours)) {
       const ref = lessonFromPage(session, cours, week);
       if (!ref) continue;
-      const start = ref.lesson.start * 1000;
-      if (start >= from.getTime() && start < to.getTime()) found.push(ref);
+      // Wall Dates from/to compared in the school's zone with the lesson timestamp.
+      const start = ref.lesson.start;
+      if (start >= seconds(from) && start < seconds(to)) found.push(ref);
     }
   }
   return discriminate(found).sort((a, b) => a.lesson.start - b.lesson.start || a.lesson.id.localeCompare(b.lesson.id));

@@ -5,6 +5,7 @@ import { assertTabOpen, callFunction } from "./functions.js";
 import { findNews, newsPage, newsRowsOf, QUESTION_GENRES } from "./news.js";
 import { loadAllPublics, resolveRecipients } from "./recipients.js";
 import { sendWrite } from "./write.js";
+import { epochToWall, wallNow, wallToEpoch } from "../time.js";
 const STATE_CREATED = 1;
 const STATE_MODIFIED = 2;
 const STATE_DELETED = 3;
@@ -34,9 +35,9 @@ export const isSurveyClosed = (item, now = new Date()) => {
         return true;
     if (item.end === null)
         return false;
-    const endOfDay = new Date(item.end * 1000);
+    const endOfDay = epochToWall(item.end);
     endOfDay.setHours(23, 59, 59, 999);
-    return now.getTime() > endOfDay.getTime();
+    return now.getTime() > wallToEpoch(endOfDay) * 1000 + 999;
 };
 /** SaisieActualites JSON of an answer (saisieActualite false), exactly Pawnote's newsRead / newsSurveySend. */
 export const newsResponseRequest = (row, response) => {
@@ -201,8 +202,8 @@ export const newsSaveRequest = (write, existing, nature, audience) => {
     const listeQuestions = existing && members.length
         ? [...existingQuestions.map((question) => ({ ...question, E: STATE_DELETED })), ...members]
         : existing ? existingQuestions : members;
-    const start = write.start !== undefined ? pronoteDate(new Date(write.start * 1000)) : existing?.dateDebut ?? pronoteDate(new Date());
-    const end = write.end === undefined ? existing?.dateFin ?? null : write.end === null ? null : pronoteDate(new Date(write.end * 1000));
+    const start = write.start !== undefined ? pronoteDate(epochToWall(write.start)) : existing?.dateDebut ?? pronoteDate(wallNow());
+    const end = write.end === undefined ? existing?.dateFin ?? null : write.end === null ? null : pronoteDate(epochToWall(write.end));
     return {
         listeActualites: [
             {

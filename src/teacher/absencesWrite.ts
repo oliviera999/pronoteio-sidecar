@@ -22,6 +22,7 @@ import { findLesson } from "./notebookWrite.js";
 import { sendWrite } from "./write.js";
 import type { LessonRef } from "./timetable.js";
 import type { TeacherLesson } from "../normalise.js";
+import { epochToWall } from "../time.js";
 
 const GENRE_ABSENCE = 13;
 const GENRE_LATE = 14;
@@ -149,7 +150,7 @@ export const buildAttendanceRequest = (
     placeCours: ref.place ?? sheet.placeStart,
     dureeCours: ref.duration,
     professeur: { N: me.id, G: GENRE_TEACHER, L: me.name },
-    date: pronoteDate(new Date(ref.lesson.start * 1000)),
+    date: pronoteDate(epochToWall(ref.lesson.start)),
     listeColonnes: sheet.columns,
     listeEleves: [...byStudent.values()].map(({ student, changes }) => ({
       N: student.N,
@@ -172,7 +173,7 @@ const readSheet = async (session: SessionHandle, ref: LessonRef): Promise<Sheet>
   return sheetOf(await callFunction(session, "absencesList", {
     Professeur: { N: me.id, G: GENRE_TEACHER, L: me.name },
     Ressource: { N: ref.pronoteId },
-    Date: pronoteDate(new Date(ref.lesson.start * 1000)),
+    Date: pronoteDate(epochToWall(ref.lesson.start)),
   }));
 };
 

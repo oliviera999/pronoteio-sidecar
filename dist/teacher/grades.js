@@ -13,6 +13,8 @@ import { answerData, callPronote } from "../pronote/request.js";
 import { GRADE_STATUS, gradeValue, listOf, parsePronoteDate, pronoteDate, pronoteNumber } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
 import { labelKey, matchesLabels, seconds, } from "../normalise.js";
+import { localTimes } from "../normalise.js";
+import { epochToWall } from "../time.js";
 import { isTabClosed, requireFunction } from "./functions.js";
 import { resolve, stableId, stableIds } from "./ids.js";
 const STATE_CREATED = 1;
@@ -262,8 +264,8 @@ export const classesMember = (period, page, existing) => {
     }));
 };
 const assessmentMember = (period, page, assessment, existing, notes) => {
-    const date = new Date(assessment.date * 1000);
-    const publication = new Date((assessment.publication ?? assessment.date) * 1000);
+    const date = epochToWall(assessment.date);
+    const publication = epochToWall(assessment.publication ?? assessment.date);
     return {
         N: existing ? existing.N : -1,
         E: existing ? STATE_MODIFIED : STATE_CREATED,
@@ -325,7 +327,7 @@ export const push = async (session, serviceId, periodId, assessment, grades, dry
     // lost Moodle record does not create a duplicate.
     const assessments = listOf(page.listeDevoirs);
     const assessmentIds = stableIds("assessment", assessments, assessmentKey);
-    const newId = assessmentIdFor(new Date(assessment.date * 1000), assessment.title);
+    const newId = assessmentIdFor(epochToWall(assessment.date), assessment.title);
     const find = (id) => (id === null ? -1 : assessmentIds.indexOf(id));
     const index = find(assessment.id) >= 0 ? find(assessment.id) : find(newId);
     const existing = index >= 0 ? assessments[index] : null;
@@ -407,6 +409,7 @@ export const assessmentsFromPage = (page) => {
             title,
             date: seconds(date),
             publication: publication ? seconds(publication) : null,
+            local: localTimes({ date, publication }),
             max: numberOf(devoir.bareme),
             coefficient: numberOf(devoir.coefficient),
             optional: devoir.commeUneNote === true,

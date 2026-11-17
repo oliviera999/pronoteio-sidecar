@@ -14,6 +14,7 @@ import { normalise, type TeacherLesson } from "../normalise.js";
 import { requireFunction } from "./functions.js";
 import { findLesson } from "./notebookWrite.js";
 import { lessons, type LessonRef } from "./timetable.js";
+import { epochToWall } from "../time.js";
 
 /** TypeHttpRessource of a room and of the "Salles" group of RessourceEDT. */
 const GENRE_ROOM = 17;
@@ -114,7 +115,7 @@ export const changeLesson = async (session: SessionHandle, lessonId: string, cha
   if (report?._erreurSaisie_ === true) {
     throw new HttpError(409, `pronote_refused:${String(report.titre_Messages_Erreur ?? "")}`);
   }
-  const day = new Date(ref.lesson.start * 1000);
+  const day = epochToWall(ref.lesson.start);
   const start = new Date(day.getFullYear(), day.getMonth(), day.getDate());
   const reread = (await lessons(session, start, new Date(start.getTime() + 24 * 3600 * 1000))).find((item) => item.lesson.id === ref.lesson.id);
   if (!reread) throw new HttpError(502, "lesson_not_found_after_write");

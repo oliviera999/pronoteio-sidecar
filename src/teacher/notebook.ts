@@ -17,6 +17,7 @@ import {
   type NotebookHomework,
   type NotebookResult,
 } from "../normalise.js";
+import { localTimes } from "../normalise.js";
 import { requireFunction } from "./functions.js";
 import { filterByGroups, lessons, type LessonRef } from "./timetable.js";
 
@@ -83,6 +84,7 @@ const homeworkOf = (session: SessionHandle, lessonId: string, item: any, index: 
     forAll,
     students: forAll ? [] : listOf<any>(item?.listeEleves).map((student) => String(student?.L ?? "").trim()).filter(Boolean),
     attachments: attachmentsOf(session, item?.ListePieceJointe),
+    local: localTimes({ due, given }),
   };
 };
 
@@ -107,6 +109,7 @@ export const notebookFromPage = (session: SessionHandle, ref: LessonRef, data: a
     homework: listOf<any>(entry?.ListeTravailAFaire)
       .map((item, index) => homeworkOf(session, lessonId, item, index))
       .filter((item): item is NotebookHomework => item !== null),
+    local: localTimes({ publication }),
   };
 };
 

@@ -3,10 +3,11 @@ import { HttpError } from "../errors.js";
 import { requireSession } from "../session.js";
 import * as teacher from "../teacher/index.js";
 import { resourceIntervalQuery } from "./schemas.js";
+import { epochToWall } from "../time.js";
 export default async function absencesRoutes(app) {
     app.get("/absences", { schema: { querystring: resourceIntervalQuery } }, async (request) => {
         const { resource, from, to } = request.query;
-        const items = await teacher.absences(requireSession(request), resource, new Date(from * 1000), new Date(to * 1000));
+        const items = await teacher.absences(requireSession(request), resource, epochToWall(from), epochToWall(to));
         return { items };
     });
     // Call sheet of one lesson: absences and late arrivals, visible to families at once. Not validated on a real server.
