@@ -228,6 +228,8 @@ export const throttle = async (session: SessionHandle, name = ""): Promise<void>
   // Only the primary process talks to Pronote (P5, lock.ts).
   if (!isPrimary()) throw new HttpError(503, "pronote_unavailable", { reason: "second_process" });
   const context = currentContext();
+  // Safety net of the simulations (P12): a write call during a dryRun is a bug, never sent.
+  if (context?.dryRun && isWriteFunction(name)) throw new HttpError(500, "internal", { reason: "dryrun_write_blocked" });
   await limiterOf(session).acquire(callCost(name), context?.priority ?? PRIORITY.read, context?.deadline);
   if (context) {
     context.calls++;

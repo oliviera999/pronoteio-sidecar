@@ -20,6 +20,8 @@ export type RequestContext = {
   writeSent?: boolean;
   /** The request was already replayed once after a reconnection. */
   replayed?: boolean;
+  /** Simulation (dryRun): no write call may be sent (P12). */
+  dryRun?: boolean;
 };
 
 /** Pronote functions that write (SaisiePublicMessage only reads the recipients of a message). */

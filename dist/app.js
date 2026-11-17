@@ -36,6 +36,38 @@ import rosterRoutes from "./routes/roster.js";
 import sessionRoutes from "./routes/session.js";
 import studentsRoutes from "./routes/students.js";
 import timetableRoutes from "./routes/timetable.js";
+/** Builds the sidecar application (every hook and route), without listening: server.ts listens, the tests inject. */
+/** Contract declared by the client: X-Pronoteio-Contract: 2, or "contract=2" in X-Pronoteio-Client (P12). */
+export const clientContract = (request) => {
+    const direct = Number.parseInt(String(request.headers["x-pronoteio-contract"] ?? ""), 10);
+    if (Number.isFinite(direct))
+        return direct;
+    const match = /contract=(\d+)/.exec(String(request.headers["x-pronoteio-client"] ?? ""));
+    return match ? Number(match[1]) : 1;
+};
+/** A write that went through and was re-read without difference: verified true (P12). */
+const verifiedResult = (request, result) => {
+    if (request.method === "POST" && result && typeof result === "object" && !Array.isArray(result)) {
+        const body = result;
+        if (body.written === true && body.verified === undefined && "after" in body)
+            return { ...body, verified: true };
+    }
+    return result;
+};
+/** Codes of a write re-read with a difference (thrown by the write modules). */
+const NOT_SAVED = /^[a-z_]+_(not_saved|not_deleted|not_applied)(:|$)/;
+/**
+ * Write re-read with a difference: until 0.8.0 (and for a client of contract 1) a 502 "<x>_not_saved"; for a client of
+ * contract 2, a 200 answer with written (a write call was sent), verified: false, the difference and the state read.
+ */
+const unverifiedResult = (request, error) => {
+    if (request.method !== "POST" || !(error instanceof HttpError) || error.status !== 502 || !NOT_SAVED.test(error.code))
+        return null;
+    if (clientContract(request) < 2)
+        return null;
+    const context = currentContext();
+    return { written: context?.writeSent === true, dryRun: false, verified: false, differences: [error.code], after: error.extra.after ?? null };
+};
 const routeTables = new WeakMap();
 export const routesOf = (app) => routeTables.get(app) ?? [];
 export const buildApp = async (options = {}) => {
@@ -131,6 +163,20 @@ export const buildApp = async (options = {}) => {
     app.addHook("preValidation", async (request) => {
         if (request.body && typeof request.body === "object")
             applyLocalTimes(request.body);
+        // P12: "dryrun" (body or query) is an alias of "dryRun"; a simulation never sends a write call (limiter.ts).
+        if (request.method === "POST") {
+            const body = (request.body && typeof request.body === "object" ? request.body : null);
+            const query = (request.query ?? {});
+            const asked = body?.dryrun ?? query.dryrun;
+            if (body && asked !== undefined) {
+                if (body.dryRun === undefined)
+                    body.dryRun = asked === true || asked === "true" || asked === "1";
+                delete body.dryrun;
+            }
+            const context = currentContext();
+            if (context && body?.dryRun === true)
+                context.dryRun = true;
+        }
     });
     // Error answers (P7): historical "error", stable "code", French "message"; recorded without personal data (P8).
     app.setErrorHandler((error, request, reply) => {
@@ -160,9 +206,13 @@ export const buildApp = async (options = {}) => {
             const entry = sessionEntry(request);
             const generation = entry?.generation ?? 0;
             try {
-                return await handler.call(this, request, reply);
+                return verifiedResult(request, await handler.call(this, request, reply));
             }
             catch (error) {
+                // P12: a write re-read with a difference ("*_not_saved"): a client of contract 2 gets verified: false.
+                const unverified = unverifiedResult(request, error);
+                if (unverified)
+                    return unverified;
                 const reason = lostSessionReason(error);
                 if (!reason)
                     throw error;
@@ -174,7 +224,7 @@ export const buildApp = async (options = {}) => {
                 if (context)
                     context.replayed = true;
                 request.log.info({ reason }, "Pronote session reconnected, request replayed");
-                return await handler.call(this, request, reply);
+                return verifiedResult(request, await handler.call(this, request, reply));
             }
         };
     });

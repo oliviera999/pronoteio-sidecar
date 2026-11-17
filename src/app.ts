@@ -55,6 +55,37 @@ export type AppOptions = {
 };
 
 /** Builds the sidecar application (every hook and route), without listening: server.ts listens, the tests inject. */
+/** Contract declared by the client: X-Pronoteio-Contract: 2, or "contract=2" in X-Pronoteio-Client (P12). */
+export const clientContract = (request: { headers: Record<string, unknown> }): number => {
+  const direct = Number.parseInt(String(request.headers["x-pronoteio-contract"] ?? ""), 10);
+  if (Number.isFinite(direct)) return direct;
+  const match = /contract=(\d+)/.exec(String(request.headers["x-pronoteio-client"] ?? ""));
+  return match ? Number(match[1]) : 1;
+};
+
+/** A write that went through and was re-read without difference: verified true (P12). */
+const verifiedResult = (request: { method: string }, result: unknown): unknown => {
+  if (request.method === "POST" && result && typeof result === "object" && !Array.isArray(result)) {
+    const body = result as Record<string, unknown>;
+    if (body.written === true && body.verified === undefined && "after" in body) return { ...body, verified: true };
+  }
+  return result;
+};
+
+/** Codes of a write re-read with a difference (thrown by the write modules). */
+const NOT_SAVED = /^[a-z_]+_(not_saved|not_deleted|not_applied)(:|$)/;
+
+/**
+ * Write re-read with a difference: until 0.8.0 (and for a client of contract 1) a 502 "<x>_not_saved"; for a client of
+ * contract 2, a 200 answer with written (a write call was sent), verified: false, the difference and the state read.
+ */
+const unverifiedResult = (request: { method: string; headers: Record<string, unknown> }, error: unknown): Record<string, unknown> | null => {
+  if (request.method !== "POST" || !(error instanceof HttpError) || error.status !== 502 || !NOT_SAVED.test(error.code)) return null;
+  if (clientContract(request) < 2) return null;
+  const context = currentContext();
+  return { written: context?.writeSent === true, dryRun: false, verified: false, differences: [error.code], after: error.extra.after ?? null };
+};
+
 /** Routes of an application with their request schemas (contracts/requests.json, P10). */
 export type RouteContract = { method: string; url: string; querystring?: unknown; body?: unknown; params?: unknown };
 const routeTables = new WeakMap<FastifyInstance, RouteContract[]>();
@@ -155,6 +186,18 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
   // Wall-clock times of the write requests ("local" members) replace their timestamps before validation (0.9.0).
   app.addHook("preValidation", async (request) => {
     if (request.body && typeof request.body === "object") applyLocalTimes(request.body);
+    // P12: "dryrun" (body or query) is an alias of "dryRun"; a simulation never sends a write call (limiter.ts).
+    if (request.method === "POST") {
+      const body = (request.body && typeof request.body === "object" ? request.body : null) as Record<string, unknown> | null;
+      const query = (request.query ?? {}) as Record<string, unknown>;
+      const asked = body?.dryrun ?? query.dryrun;
+      if (body && asked !== undefined) {
+        if (body.dryRun === undefined) body.dryRun = asked === true || asked === "true" || asked === "1";
+        delete body.dryrun;
+      }
+      const context = currentContext();
+      if (context && body?.dryRun === true) context.dryRun = true;
+    }
   });
 
   // Error answers (P7): historical "error", stable "code", French "message"; recorded without personal data (P8).
@@ -187,8 +230,11 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
       const entry = sessionEntry(request);
       const generation = entry?.generation ?? 0;
       try {
-        return await handler.call(this, request, reply);
+        return verifiedResult(request, await handler.call(this, request, reply));
       } catch (error) {
+        // P12: a write re-read with a difference ("*_not_saved"): a client of contract 2 gets verified: false.
+        const unverified = unverifiedResult(request, error);
+        if (unverified) return unverified;
         const reason = lostSessionReason(error);
         if (!reason) throw error;
         const context = currentContext();
@@ -196,7 +242,7 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
         if (!(await reconnect(entry, reason, generation))) throw sessionLostError(reason);
         if (context) context.replayed = true;
         request.log.info({ reason }, "Pronote session reconnected, request replayed");
-        return await handler.call(this, request, reply);
+        return verifiedResult(request, await handler.call(this, request, reply));
       }
     } as typeof route.handler;
   });
