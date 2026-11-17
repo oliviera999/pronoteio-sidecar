@@ -10,6 +10,7 @@ import {
   type RefreshInformation,
   type SessionHandle,
 } from "pawnote";
+import { readCache } from "../cache.js";
 import { config } from "../config.js";
 import { HttpError } from "../errors.js";
 import type { SessionInfo } from "../normalise.js";
@@ -153,6 +154,7 @@ export default async function sessionRoutes(app: FastifyInstance): Promise<void>
   app.get("/session/info", async (request) => sessionInfo(requireSession(request)));
 
   app.post("/session/logout", async (request) => {
+    readCache.dropSession(String(request.headers["x-pronoteio-session"] ?? ""));
     dropSession(request);
     return { ok: true };
   });

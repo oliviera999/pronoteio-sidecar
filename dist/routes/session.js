@@ -1,4 +1,5 @@
 import { AccountKind, finishLoginManually, loginCredentials, loginToken, SecurityError, securityCheckPIN, securitySave, } from "pawnote";
+import { readCache } from "../cache.js";
 import { config } from "../config.js";
 import { HttpError } from "../errors.js";
 import { pronoteBaseUrl } from "../pronote/compat.js";
@@ -118,6 +119,7 @@ export default async function sessionRoutes(app) {
     /** Information on the open session (version, tabs, rights, functions, write mode), for the health check. */
     app.get("/session/info", async (request) => sessionInfo(requireSession(request)));
     app.post("/session/logout", async (request) => {
+        readCache.dropSession(String(request.headers["x-pronoteio-session"] ?? ""));
         dropSession(request);
         return { ok: true };
     });
