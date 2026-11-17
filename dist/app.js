@@ -35,7 +35,8 @@ import rosterRoutes from "./routes/roster.js";
 import sessionRoutes from "./routes/session.js";
 import studentsRoutes from "./routes/students.js";
 import timetableRoutes from "./routes/timetable.js";
-/** Builds the sidecar application (every hook and route), without listening: server.ts listens, the tests inject. */
+const routeTables = new WeakMap();
+export const routesOf = (app) => routeTables.get(app) ?? [];
 export const buildApp = async (options = {}) => {
     const accessLog = options.accessLog ?? defaultAccessLog;
     const app = Fastify({
@@ -51,8 +52,6 @@ export const buildApp = async (options = {}) => {
             },
             ...(options.logStream ? { stream: options.logStream } : {}),
         },
-        // The access log (logs.ts) replaces Fastify's request lines, which carry the URL.
-        disableRequestLogging: true,
     });
     // Structured access log without personal data (P8): route pattern, status, code, duration, size.
     app.addHook("onSend", async (request, reply, payload) => {
@@ -82,6 +81,17 @@ export const buildApp = async (options = {}) => {
             ...(context ? { calls: context.calls, priority: context.priority } : {}),
             ...(reply.getHeader("x-pronoteio-duplicate") ? { duplicate: true } : {}),
         });
+    });
+    const table = [];
+    routeTables.set(app, table);
+    app.addHook("onRoute", (route) => {
+        for (const method of Array.isArray(route.method) ? route.method : [route.method]) {
+            if (method === "HEAD")
+                continue;
+            const schema = (route.schema ?? {});
+            table.push({ method, url: route.url, ...(schema.querystring ? { querystring: schema.querystring } : {}),
+                ...(schema.body ? { body: schema.body } : {}), ...(schema.params ? { params: schema.params } : {}) });
+        }
     });
     // Context of each request (priority and deadline in the Pronote queue, P2), reachable from every Pronote call.
     const queueWait = limiterOptions().maxWaitMs;

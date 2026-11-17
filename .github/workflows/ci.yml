@@ -1,0 +1,43 @@
+# Integration continue du sidecar (0.9.0, P10/P11) : types, tests (dont la validation des réponses contre
+# contracts/), dist/ à jour, audit des dépendances, archive des contrats.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ["20", "22"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      # dist/ est déployé tel quel par le cron cPanel : il doit correspondre à src/.
+      - run: npm run build && git diff --exit-code -- dist
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      # Dépendances de production : échec sur une vulnérabilité haute ou critique.
+      - run: npm audit --omit=dev --audit-level=high
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash contracts/export.sh build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pronoteio-contracts
+          path: build/pronoteio-contracts-*

@@ -1,0 +1,107 @@
+{
+  "ok": true,
+  "version": "0.8.0",
+  "commit": "ba729e7226ad69584bccd57d56ab8f78c64c41c1",
+  "node": "22.23.4",
+  "startedAt": "2026-11-17T19:20:45.902Z",
+  "uptimeSeconds": 2,
+  "starts": 0,
+  "process": {
+    "pid": 10652,
+    "primary": true,
+    "holder": null,
+    "lockFile": "off",
+    "conflicts": 0
+  },
+  "time": {
+    "timezone": "Africa/Casablanca",
+    "offsetMinutes": 0,
+    "source": "tzdata",
+    "tzVersion": "2026f",
+    "nodeTzVersion": "2026e",
+    "embeddedTzVersion": "2026f",
+    "nodeTzOutdated": true,
+    "icu": "78.3",
+    "hostTimezone": "UTC",
+    "hostTzEnv": null,
+    "localNow": "2026-11-17 19:20"
+  },
+  "writeMode": "simulate",
+  "session": {
+    "open": 1,
+    "states": [
+      {
+        "state": "open",
+        "ageSeconds": 2,
+        "idleSeconds": 1,
+        "reconnects": 0,
+        "lastReconnect": null
+      }
+    ],
+    "reconnects": {
+      "total": 0,
+      "expired": 0,
+      "replaced": 0,
+      "failed": 0,
+      "lastAt": null
+    }
+  },
+  "queue": {
+    "size": 0,
+    "averageWaitMs": 126,
+    "tokens": 22.8,
+    "lastMinute": 7,
+    "served": 7,
+    "refused": 0,
+    "limits": {
+      "perMinute": 120,
+      "burst": 30,
+      "minSpacingMs": 150,
+      "maxWaitSeconds": 20
+    }
+  },
+  "cache": {
+    "entries": 3,
+    "bytes": 2078,
+    "hits": 1,
+    "misses": 4,
+    "hitRate": 0.2,
+    "invalidations": 0,
+    "maxBytes": 20971520
+  },
+  "jobs": {
+    "jobs": 1,
+    "running": 0
+  },
+  "proxy": {
+    "duplicates": 0,
+    "whileRunning": 0,
+    "medianDelayMs": null,
+    "minDelayMs": null,
+    "lastAt": null
+  },
+  "pronote": {
+    "pronoteversion": null,
+    "validated": null,
+    "validatedVersions": [
+      "2026.2.8"
+    ],
+    "seenAt": null
+  },
+  "errors": [
+    {
+      "code": "session_expired",
+      "error": "session_expired",
+      "route": "/roster",
+      "status": 401,
+      "at": "2026-11-17T19:20:47.058Z"
+    },
+    {
+      "code": "validation_failed",
+      "error": "invalid_request",
+      "route": "/roster",
+      "status": 400,
+      "at": "2026-11-17T19:20:47.056Z"
+    }
+  ]
+}

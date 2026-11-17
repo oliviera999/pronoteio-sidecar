@@ -1,0 +1,11 @@
+{
+  "jobid": "ed43a5d2-22b4-49ae-a613-443110fb40ff",
+  "status": "running",
+  "progress": {
+    "done": 0,
+    "total": 1
+  },
+  "created": 1794943247,
+  "finished": null,
+  "expires": 1794945047
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "roster.schema.json",
+  "title": "GET /roster",
+  "method": "GET",
+  "url": "/roster",
+  "fixture": "fixtures/roster.json",
+  "properties": {
+    "response": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/definitions/student"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "available": true,
+  "reason": "",
+  "validated": false,
+  "items": [
+    {
+      "id": "e:MARTIN Léa",
+      "key": "f6ca7fa170be7749",
+      "label": "MARTIN Léa",
+      "lastname": "MARTIN",
+      "firstname": "Léa Anne",
+      "sex": "F",
+      "birthdate": 1268524800,
+      "number": "E000123",
+      "email": "lea.martin@pedagolyautey.org",
+      "class": "T06",
+      "groups": [
+        "T-SPE SVT 2",
+        "T-EMC 3"
+      ],
+      "options": [
+        "Latin"
+      ],
+      "regime": "Demi-pensionnaire",
+      "imageRights": "refused",
+      "guardians": [
+        {
+          "name": "MARTIN Paul",
+          "relation": "Père",
+          "legal": true,
+          "phones": [
+            "0600000001"
+          ],
+          "email": "parent.fictif@example.org",
+          "address": "1 rue Fictive 20000 Casablanca",
+          "preferences": [
+            "accepteSMS"
+          ]
+        },
+        {
+          "name": "DURAND Marie",
+          "relation": "Tante",
+          "legal": false,
+          "phones": [
+            "0500000002"
+          ],
+          "email": "",
+          "address": "",
+          "preferences": []
+        }
+      ],
+      "photo": {
+        "exists": true
+      }
+    },
+    {
+      "id": "e:PETIT Hugo",
+      "key": "c654449f0245f1d8",
+      "label": "PETIT Hugo",
+      "lastname": "PETIT",
+      "firstname": "Hugo",
+      "sex": "M",
+      "birthdate": null,
+      "number": "",
+      "email": "",
+      "class": "",
+      "groups": [],
+      "options": [],
+      "regime": "",
+      "imageRights": "unknown",
+      "guardians": [],
+      "photo": {
+        "exists": false
+      }
+    }
+  ],
+  "unmappedKeys": [
+    "L",
+    "champInconnu"
+  ],
+  "truncated": false,
+  "total": 2,
+  "offset": 0
+}

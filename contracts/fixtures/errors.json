@@ -1,0 +1,102 @@
+{
+  "version": "0.8.0",
+  "codes": [
+    {
+      "code": "rate_limited",
+      "status": 429,
+      "message": "Trop d'appels à Pronote : la file d'attente est pleine pour le moment.",
+      "action": "Réessayer après retry_after secondes (en-tête Retry-After).",
+      "members": [
+        "retry_after"
+      ]
+    },
+    {
+      "code": "session_expired",
+      "status": 401,
+      "message": "La session Pronote a expiré.",
+      "action": "Se reconnecter avec le jeton, puis renvoyer la requête.",
+      "members": []
+    },
+    {
+      "code": "session_replaced",
+      "status": 401,
+      "message": "La session Pronote a été fermée par Pronote (connexion depuis un autre poste).",
+      "action": "Se reconnecter avec le jeton, puis renvoyer la requête.",
+      "members": []
+    },
+    {
+      "code": "login_failed",
+      "status": 401,
+      "message": "La connexion à Pronote a échoué (identifiants, jeton, code PIN ou double authentification).",
+      "action": "Vérifier la liaison du compte ; le champ error précise la cause.",
+      "members": []
+    },
+    {
+      "code": "pronote_unavailable",
+      "status": 502,
+      "message": "Pronote ne répond pas ou a renvoyé une erreur.",
+      "action": "Réessayer plus tard.",
+      "members": [
+        "reason"
+      ]
+    },
+    {
+      "code": "pronote_format_changed",
+      "status": 502,
+      "message": "Le format de Pronote a changé : la réponse n'est pas celle attendue.",
+      "action": "Ne pas réessayer : mettre à jour le sidecar (route et champ en cause dans function et field).",
+      "members": [
+        "function",
+        "field",
+        "reason",
+        "pronoteversion"
+      ]
+    },
+    {
+      "code": "not_found",
+      "status": 404,
+      "message": "Élément introuvable dans Pronote.",
+      "action": "Relire la liste avant de réessayer.",
+      "members": []
+    },
+    {
+      "code": "ambiguous",
+      "status": 409,
+      "message": "Plusieurs éléments correspondent : préciser lequel.",
+      "action": "Choisir parmi candidates et renvoyer avec l'identifiant complet.",
+      "members": [
+        "candidates"
+      ]
+    },
+    {
+      "code": "forbidden",
+      "status": 403,
+      "message": "Opération refusée (droits, onglet fermé, mode simulation ou saisie verrouillée).",
+      "action": "Ne pas réessayer sans changer de réglage ; le champ error précise la cause.",
+      "members": []
+    },
+    {
+      "code": "validation_failed",
+      "status": 400,
+      "message": "Requête invalide : un champ manque ou est mal formé.",
+      "action": "Corriger les champs listés dans fields.",
+      "members": [
+        "fields"
+      ]
+    },
+    {
+      "code": "duplicate_write",
+      "status": 401,
+      "message": "Requête signée déjà reçue et traitée.",
+      "action": "Ne pas renvoyer une écriture ; une lecture peut être renvoyée avec une nouvelle signature.",
+      "members": []
+    },
+    {
+      "code": "internal",
+      "status": 500,
+      "message": "Erreur interne du sidecar.",
+      "action": "Réessayer ; consulter /health si elle persiste.",
+      "members": []
+    }
+  ]
+}

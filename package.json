@@ -15,7 +15,10 @@
     "typecheck": "tsc -p tsconfig.check.json",
     "test": "PRONOTEIO_LOG_FILE=off PRONOTEIO_STATE_FILE=off PRONOTEIO_LOCK_FILE=off tsx --test test/*.test.ts",
     "probe": "tsx --env-file=.env tools/probe.ts",
-    "postinstall": "node -e \"const p=require('path');import(require('url').pathToFileURL(p.join(p.dirname(require('fs').realpathSync('package.json')),'tools','patch-pawnote.mjs')).href)\""
+    "postinstall": "node -e \"const p=require('path');import(require('url').pathToFileURL(p.join(p.dirname(require('fs').realpathSync('package.json')),'tools','patch-pawnote.mjs')).href)\"",
+    "contracts:fixtures": "tsx tools/contracts-fixtures.ts",
+    "contracts:export": "bash contracts/export.sh",
+    "contracts:requests": "tsx tools/contracts-requests.ts"
   },
   "dependencies": {
     "@literate.ink/utilities": "1.0.0-10641118381.1",
@@ -30,6 +33,7 @@
     "@types/node": "^26.6.3",
     "@types/node-forge": "^1.3.14",
     "@types/pako": "^2.0.4",
+    "ajv": "8.20.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }

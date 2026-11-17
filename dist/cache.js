@@ -32,6 +32,10 @@ const INVALIDATES = [
     ["/meetings", []],
     ["/files", []],
     ["/forum", []],
+    // Not Pronote writes: nothing to invalidate.
+    ["/jobs", []],
+    ["/session/login", []],
+    ["/admin", []],
 ];
 /** Parameters naming the target of a write, compared with the parameters of the cached reads. */
 const SCOPE_KEYS = ["resource", "class", "classes", "service", "assessment", "lesson"];

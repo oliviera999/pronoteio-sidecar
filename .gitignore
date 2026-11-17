@@ -8,3 +8,4 @@ node_modules
 tmp/
 # Chain of the Pronote tokens (src/tokenStore.ts): kept across updates, never versioned.
 var/
+build/

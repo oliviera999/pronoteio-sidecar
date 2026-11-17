@@ -54,6 +54,11 @@ export type AppOptions = {
 };
 
 /** Builds the sidecar application (every hook and route), without listening: server.ts listens, the tests inject. */
+/** Routes of an application with their request schemas (contracts/requests.json, P10). */
+export type RouteContract = { method: string; url: string; querystring?: unknown; body?: unknown; params?: unknown };
+const routeTables = new WeakMap<FastifyInstance, RouteContract[]>();
+export const routesOf = (app: FastifyInstance): RouteContract[] => routeTables.get(app) ?? [];
+
 export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstance> => {
   const accessLog = options.accessLog ?? defaultAccessLog;
   const app = Fastify({
@@ -69,8 +74,6 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
       },
       ...(options.logStream ? { stream: options.logStream } : {}),
     },
-    // The access log (logs.ts) replaces Fastify's request lines, which carry the URL.
-    disableRequestLogging: true,
   });
 
   // Structured access log without personal data (P8): route pattern, status, code, duration, size.
@@ -99,6 +102,17 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
       ...(context ? { calls: context.calls, priority: context.priority } : {}),
       ...(reply.getHeader("x-pronoteio-duplicate") ? { duplicate: true } : {}),
     });
+  });
+
+  const table: RouteContract[] = [];
+  routeTables.set(app, table);
+  app.addHook("onRoute", (route) => {
+    for (const method of Array.isArray(route.method) ? route.method : [route.method]) {
+      if (method === "HEAD") continue;
+      const schema = (route.schema ?? {}) as { querystring?: unknown; body?: unknown; params?: unknown };
+      table.push({ method, url: route.url, ...(schema.querystring ? { querystring: schema.querystring } : {}),
+        ...(schema.body ? { body: schema.body } : {}), ...(schema.params ? { params: schema.params } : {}) });
+    }
   });
 
   // Context of each request (priority and deadline in the Pronote queue, P2), reachable from every Pronote call.

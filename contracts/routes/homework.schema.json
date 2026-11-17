@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "homework.schema.json",
+  "title": "GET /homework",
+  "method": "GET",
+  "url": "/homework",
+  "fixture": "fixtures/homework.json",
+  "properties": {
+    "response": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/definitions/homework"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

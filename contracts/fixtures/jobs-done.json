@@ -1,0 +1,37 @@
+{
+  "jobid": "ed43a5d2-22b4-49ae-a613-443110fb40ff",
+  "status": "done",
+  "progress": {
+    "done": 1,
+    "total": 1
+  },
+  "created": 1794943247,
+  "finished": 1794943247,
+  "expires": 1794943847,
+  "results": [
+    {
+      "url": "/roster?resource=c%3AT06",
+      "status": 200,
+      "body": {
+        "items": [
+          {
+            "id": "e:MARTIN Léa",
+            "key": "f6ca7fa170be7749",
+            "lastname": "MARTIN",
+            "firstname": "Léa",
+            "email": null,
+            "birthdate": null
+          },
+          {
+            "id": "e:PETIT Hugo",
+            "key": "c654449f0245f1d8",
+            "lastname": "PETIT",
+            "firstname": "Hugo",
+            "email": null,
+            "birthdate": null
+          }
+        ]
+      }
+    }
+  ]
+}

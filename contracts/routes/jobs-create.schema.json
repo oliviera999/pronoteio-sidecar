@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "jobs-create.schema.json",
+  "title": "POST /jobs",
+  "method": "POST",
+  "url": "/jobs",
+  "fixture": "fixtures/jobs-created.json",
+  "properties": {
+    "response": {
+      "type": "object",
+      "properties": {
+        "jobid": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "done",
+            "failed"
+          ]
+        },
+        "progress": {
+          "type": "object",
+          "properties": {
+            "done": {
+              "type": "integer"
+            },
+            "total": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "done",
+            "total"
+          ],
+          "additionalProperties": false
+        },
+        "created": {
+          "type": "integer"
+        },
+        "finished": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "expires": {
+          "type": "integer"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string"
+              },
+              "status": {
+                "type": "integer"
+              },
+              "body": {}
+            },
+            "required": [
+              "url",
+              "status",
+              "body"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "jobid",
+        "status",
+        "progress",
+        "created",
+        "finished",
+        "expires"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

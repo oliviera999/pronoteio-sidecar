@@ -1,0 +1,404 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "common.schema.json",
+  "title": "Définitions communes des contrats pronoteio-sidecar",
+  "definitions": {
+    "localTimes": {
+      "type": "object",
+      "description": "0.9.0 : heures murales de Pronote (« 2026-11-12 17:10 »), sans conversion de fuseau, par nom du champ horodatage. Un champ horodatage null n'y figure pas.",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}$"
+      }
+    },
+    "timestamp": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Horodatage Unix en secondes (corrigé en 0.9.0 : fuseau de l'établissement)."
+    },
+    "stableCode": {
+      "type": "string",
+      "enum": [
+        "rate_limited",
+        "session_expired",
+        "session_replaced",
+        "login_failed",
+        "pronote_unavailable",
+        "pronote_format_changed",
+        "not_found",
+        "ambiguous",
+        "forbidden",
+        "validation_failed",
+        "duplicate_write",
+        "internal"
+      ]
+    },
+    "error": {
+      "type": "object",
+      "description": "Corps de toute réponse d'erreur (0.9.0). « error » garde la valeur historique (lue par local_pronoteio 2026112100).",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "code": {
+          "$ref": "#/definitions/stableCode"
+        },
+        "message": {
+          "type": "string"
+        },
+        "retry_after": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason": {
+          "type": "string"
+        },
+        "function": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "pronoteversion": {
+          "type": "string"
+        },
+        "validated": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "error",
+        "code",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "student": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "lastname": {
+          "type": "string"
+        },
+        "firstname": {
+          "type": "string"
+        },
+        "email": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "birthdate": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "key",
+        "lastname",
+        "firstname",
+        "email",
+        "birthdate"
+      ],
+      "additionalProperties": false
+    },
+    "lesson": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "teacher": {
+          "type": "string"
+        },
+        "rooms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "start": {
+          "$ref": "#/definitions/timestamp"
+        },
+        "end": {
+          "$ref": "#/definitions/timestamp"
+        },
+        "cancelled": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        },
+        "local": {
+          "$ref": "#/definitions/localTimes"
+        }
+      },
+      "required": [
+        "id",
+        "subject",
+        "teacher",
+        "rooms",
+        "groups",
+        "start",
+        "end",
+        "cancelled",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "homework": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "due": {
+          "$ref": "#/definitions/timestamp"
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "url"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "local": {
+          "$ref": "#/definitions/localTimes"
+        }
+      },
+      "required": [
+        "id",
+        "subject",
+        "description",
+        "due",
+        "groups",
+        "attachments"
+      ],
+      "additionalProperties": false
+    },
+    "guardian": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "relation": {
+          "type": "string"
+        },
+        "legal": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "phones": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "email": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "preferences": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "relation",
+        "legal",
+        "phones",
+        "email",
+        "address",
+        "preferences"
+      ],
+      "additionalProperties": false
+    },
+    "studentFile": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "lastname": {
+          "type": "string"
+        },
+        "firstname": {
+          "type": "string"
+        },
+        "sex": {
+          "type": "string",
+          "enum": [
+            "F",
+            "M",
+            ""
+          ]
+        },
+        "birthdate": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "number": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "class": {
+          "type": "string"
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "regime": {
+          "type": "string"
+        },
+        "imageRights": {
+          "type": "string",
+          "enum": [
+            "authorized",
+            "refused",
+            "unknown"
+          ]
+        },
+        "guardians": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/guardian"
+          }
+        },
+        "health": {
+          "type": "object",
+          "properties": {
+            "plans": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "medical": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "plans",
+            "medical"
+          ],
+          "additionalProperties": false
+        },
+        "photo": {
+          "type": "object",
+          "properties": {
+            "exists": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "exists"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "key",
+        "label",
+        "lastname",
+        "firstname",
+        "sex",
+        "birthdate",
+        "number",
+        "email",
+        "class",
+        "groups",
+        "options",
+        "regime"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

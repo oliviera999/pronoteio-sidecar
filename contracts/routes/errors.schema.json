@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "errors.schema.json",
+  "title": "GET /errors",
+  "method": "GET",
+  "url": "/errors",
+  "fixture": "fixtures/errors.json",
+  "properties": {
+    "response": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "codes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "$ref": "common.schema.json#/definitions/stableCode"
+              },
+              "status": {
+                "type": "integer"
+              },
+              "message": {
+                "type": "string"
+              },
+              "action": {
+                "type": "string"
+              },
+              "members": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "code",
+              "status",
+              "message",
+              "action",
+              "members"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "version",
+        "codes"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
