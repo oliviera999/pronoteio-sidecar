@@ -9,6 +9,16 @@ export const periodClassesQuery = {
 };
 export default async function competenciesRoutes(app) {
     app.get("/competencies", { schema: { querystring: periodClassesQuery } }, async (request) => teacher.competencyOverview(requireSession(request), request.query.period ?? "", classesOf(request.query.classes)));
+    // 0.8.0, not validated: domains and items of the skills referential of one service.
+    app.get("/competencies/referential", {
+        schema: {
+            querystring: {
+                type: "object",
+                required: ["service"],
+                properties: { service: { type: "string", minLength: 1, maxLength: 300 }, period: { type: "string", maxLength: 200, default: "" } },
+            },
+        },
+    }, async (request) => teacher.competencyReferential(requireSession(request), request.query.service, request.query.period ?? ""));
     // Not validated on a real server (skills tabs closed on the demo profile).
     app.post("/competencies", {
         schema: {
@@ -41,6 +51,8 @@ export default async function competenciesRoutes(app) {
                         },
                     },
                     delete: { type: "boolean", default: false },
+                    cycleReport: { type: "boolean" },
+                    defaultLevel: { type: "integer", minimum: 0, maximum: 100 },
                     dryRun: { type: "boolean", default: false },
                     force: { type: "boolean", default: false },
                 },

@@ -12,7 +12,7 @@ import { HttpError } from "../errors.js";
 export type IdKind =
   | "class" | "group" | "period" | "service" | "student" | "assessment" | "absence" | "lesson" | "planned"
   | "discussion" | "competency" | "news" | "document" | "quiz"
-  | "recipient" | "list" | "meeting" | "appointment" | "forumTopic";
+  | "recipient" | "list" | "meeting" | "appointment" | "forumTopic" | "referential";
 
 const PREFIX: Record<IdKind, string> = {
   class: "c",
@@ -34,6 +34,7 @@ const PREFIX: Record<IdKind, string> = {
   meeting: "mt",
   appointment: "rdv",
   forumTopic: "ft",
+  referential: "rf",
 };
 
 const MAX_KEY = 80;

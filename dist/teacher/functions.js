@@ -71,6 +71,8 @@ const defaults = {
     appointments: { name: "RDV", onglet: 284 },
     forum: { name: "ForumPedagogique", onglet: 275 },
     studentFile: { name: "FicheEleve", onglet: 105 },
+    competencyServicesList: { name: "ListeServices", onglet: 65 },
+    competencyReferential: { name: "ListePiliers", onglet: 65 },
 };
 const load = () => {
     const file = process.env.PRONOTEIO_FUNCTIONS_FILE;

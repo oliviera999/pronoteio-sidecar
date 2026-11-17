@@ -4,7 +4,7 @@
  */
 export { absences } from "./absences.js";
 export { assessments } from "./assessments.js";
-export { overview as competencyOverview } from "./competencies.js";
+export { overview as competencyOverview, referential as competencyReferential } from "./competencies.js";
 export { reportComments } from "./comments.js";
 export { context as gradeContext, overview as gradeOverview, push as pushGrades } from "./grades.js";
 export { discussion, discussions, messagingPreferences } from "./messaging.js";

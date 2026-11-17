@@ -2,7 +2,29 @@ import { createSessionHandle } from "pawnote";
 import { listOf } from "./encoding.js";
 import { compatFetcher } from "./compat.js";
 import { decodePayload } from "./request.js";
-const EMPTY = { resources: [], maxScale: null, tabs: null, rights: {}, acquisitionLevels: [], maxCommentLength: null };
+const EMPTY = {
+    resources: [],
+    maxScale: null,
+    tabs: null,
+    rights: {},
+    acquisitionLevels: [],
+    maxCommentLength: null,
+    parentsDelayDays: null,
+};
+/** Delay of the publication to parents (days) in a General member of FonctionParametres, null when absent. */
+export const parentsDelayOf = (general) => {
+    if (!general || typeof general !== "object")
+        return null;
+    for (const [key, raw] of Object.entries(general)) {
+        if (!/parent/i.test(key) || !/decal|d[ée]lai/i.test(key))
+            continue;
+        const value = raw !== null && typeof raw === "object" && "V" in raw ? raw.V : raw;
+        const number = Number.parseFloat(String(value ?? "").replace(",", "."));
+        if (Number.isFinite(number) && number >= 0 && number <= 60)
+            return number;
+    }
+    return null;
+};
 /** Tab numbers of a listeOnglets tree ([{ G, Onglet: [{ G }...] }...]). */
 export const tabsOf = (value) => {
     const result = [];
@@ -45,6 +67,9 @@ const absorb = (data, answer) => {
         data.maxScale = maxScale;
     if (content.General?.TailleMaxAppreciation !== undefined)
         data.maxCommentLength = content.General.TailleMaxAppreciation;
+    const delay = parentsDelayOf(content.General);
+    if (delay !== null)
+        data.parentsDelayDays = delay;
 };
 /** Session handle whose fetcher records the login-only data (read back with userData()). */
 export const createCapturingHandle = (base = compatFetcher) => {

@@ -5,7 +5,7 @@ import { HttpError } from "../errors.js";
 import { answerData, callPronote } from "../pronote/request.js";
 import { listOf } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
-import { splitDisplayName } from "../normalise.js";
+import { labelKey, splitDisplayName } from "../normalise.js";
 import { requireFunction } from "./functions.js";
 import { kindOf, resolve, stableId, stableIds } from "./ids.js";
 /** Fallback when the login data are missing: group names found in the school-year timetable. */
@@ -43,7 +43,18 @@ export const rosterEntries = async (session, resourceId) => {
     }
     const genre = kind === "class" ? 1 : 2;
     const candidates = userData(session).resources.filter((item) => item.genre === genre);
-    const resource = resolve(kind, resourceId, candidates, (item) => item.label);
+    let resource;
+    try {
+        resource = resolve(kind, resourceId, candidates, (item) => item.label);
+    }
+    catch (error) {
+        // 0.8.0: a group read in the skills tab may be written with brackets ("[6-SC-603]") or without.
+        const wanted = labelKey(resourceId.slice(resourceId.indexOf(":") + 1));
+        const found = candidates.filter((item) => labelKey(item.label) === wanted);
+        if (wanted === "" || found.length !== 1)
+            throw error;
+        resource = found[0];
+    }
     const fn = requireFunction("studentsList");
     const answer = await callPronote(session, {
         name: fn.name,

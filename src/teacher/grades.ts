@@ -7,12 +7,13 @@
  * negative N and E = 1, modified ones their N and E = 2; grades are sent as "note" on the students.
  * After a write the page is read again to report what Pronote really stored.
  */
-import type { SessionHandle } from "pawnote";
+import { ServerSideError, type SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
 import { answerData, callPronote } from "../pronote/request.js";
 import { GRADE_STATUS, gradeValue, listOf, parsePronoteDate, pronoteDate, pronoteNumber, type GradeStatus } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
 import {
+  labelKey,
   matchesLabels,
   seconds,
   type Assessment,
@@ -23,8 +24,9 @@ import {
   type OverviewService,
   type PushResult,
   type Service,
+  type ServiceKind,
 } from "../normalise.js";
-import { requireFunction, type FunctionKey } from "./functions.js";
+import { isTabClosed, requireFunction, type FunctionKey } from "./functions.js";
 import { resolve, stableId, stableIds } from "./ids.js";
 
 const STATE_CREATED = 1;
@@ -80,8 +82,90 @@ export const loadServices = async (session: SessionHandle, period: Element | nul
   return listOf<Element>(data.services);
 };
 
-const resourceType = (session: SessionHandle, label: string): "class" | "group" => {
-  const found = userData(session).resources.find((item) => item.label === label);
+/* ---- 0.8.0: services of the skills tab (Saisie des évaluations, tab 65) ---- */
+
+/**
+ * Services of the skills tab for a period: ListeServices sent with the signature of tab 65, as the "Saisie des
+ * évaluations" page fills its service list (same data as tab 23). Pronote filters the services by the tab: a group
+ * of a "collège" class assessed by skills only has no grade service (tab 23) but has a skills service (tab 65).
+ * NOT VALIDATED on a real server (skills tabs closed on the demo profile). A closed tab or a refusal gives [].
+ */
+export const loadCompetencyServices = async (session: SessionHandle, period: Element | null): Promise<Element[]> => {
+  if (isTabClosed(session, "competencyServicesList")) return [];
+  const me = session.user.resources[0];
+  try {
+    const data = await call(session, "competencyServicesList", {
+      Professeur: { N: me.id, G: GENRE_TEACHER, L: me.name },
+      ...(period ? { Periode: ref(period) } : {}),
+    });
+    return listOf<Element>(data?.services ?? data?.listeServices);
+  } catch (error) {
+    if (error instanceof ServerSideError || (error instanceof HttpError && error.status === 501)) return [];
+    throw error;
+  }
+};
+
+/**
+ * Service key that ignores case, accents, brackets and punctuation, on the subject and on the resource: the same
+ * Pronote service read in tab 23 ("6-SC-603") and in a lesson ("[6-SC-603]") gives the same key.
+ */
+export const serviceAliasKey = (subject: string, resource: string): string => `${labelKey(subject)}|${labelKey(resource)}`;
+
+const aliasOf = (service: Element) => serviceAliasKey(String(service.matiere?.V?.L ?? service.L ?? ""), String(resourceOf(service)?.L ?? ""));
+
+/** Service of both tabs: the grade element (tab 23) and/or the skills element (tab 65), and its kinds. */
+export type MergedService = { service: Element; grade: Element | null; competency: Element | null; kinds: ServiceKind[] };
+
+/**
+ * Services of tab 23 then the services of tab 65 that tab 23 lacks, deduplicated by Pronote service (serviceAliasKey).
+ * A grade service keeps exactly its element, key and order: the stable ids of the grade services do not change.
+ */
+export const mergeServices = (grades: Element[], competencies: Element[]): MergedService[] => {
+  const result: MergedService[] = grades.map((service) => ({ service, grade: service, competency: null, kinds: ["grades"] }));
+  for (const service of competencies) {
+    const alias = aliasOf(service);
+    const found = result.find((entry) => aliasOf(entry.service) === alias);
+    if (found) {
+      found.competency = found.competency ?? service;
+      if (!found.kinds.includes("competencies")) found.kinds.push("competencies");
+    } else {
+      result.push({ service, grade: null, competency: service, kinds: ["competencies"] });
+    }
+  }
+  return result;
+};
+
+/** Services of both tabs for a period. */
+export const loadAllServices = async (session: SessionHandle, period: Element | null): Promise<MergedService[]> =>
+  mergeServices(await loadServices(session, period), await loadCompetencyServices(session, period));
+
+/**
+ * Service of a stable id: exact id first (s:<SUBJECT>|<resource> as ListeServices writes the resource, groups without
+ * brackets), else the same subject and resource compared without case, accents, brackets nor punctuation
+ * ("s:SCIENCES ET TECHNOLOGIE|[6-SC-603]" finds "s:SCIENCES ET TECHNOLOGIE|6-SC-603"), when it designates a single
+ * service. HTTP 404 service_not_found otherwise.
+ */
+export const resolveService = <T extends { service: Element }>(id: string, items: T[]): T => {
+  const ids = stableIds("service", items, (item) => serviceKey(item.service));
+  const index = ids.indexOf(id);
+  if (index >= 0) return items[index];
+  const match = id.match(/^s:(.*)\|([^|]*)$/);
+  if (match) {
+    const alias = serviceAliasKey(match[1], match[2]);
+    const found = items.filter((item) => aliasOf(item.service) === alias);
+    if (found.length === 1) return found[0];
+  }
+  throw new HttpError(404, "service_not_found");
+};
+
+/** Stable id of a service (same as stableIds over the services of the list). */
+export const serviceIdsOf = (items: { service: Element }[]): string[] => stableIds("service", items, (item) => serviceKey(item.service));
+
+export const resourceType = (session: SessionHandle, label: string, loose = false): "class" | "group" => {
+  const resources = userData(session).resources;
+  // loose (services of tab 65 only): the label may differ from the session one by its brackets.
+  const found = resources.find((item) => item.label === label)
+    ?? (loose ? resources.find((item) => labelKey(item.label) === labelKey(label)) : undefined);
   return found?.genre === 2 ? "group" : "class";
 };
 
@@ -391,28 +475,40 @@ export const assessmentsFromPage = (page: Record<string, any>): OverviewAssessme
   return result.sort((a, b) => a.date - b.date || a.title.localeCompare(b.title));
 };
 
-/** Services, assessments and grades of a period for the teacher's classes (one PageNotes per service). */
+/** Public description of a merged service (no assessment). */
+export const describeService = (session: SessionHandle, entry: MergedService, id: string, periods: string[]): Service => {
+  const { service } = entry;
+  const resourcename = String(resourceOf(service)?.L ?? "");
+  const subject = String(service.matiere?.V?.L ?? service.L ?? "");
+  const type = resourceType(session, resourcename, entry.grade === null);
+  return {
+    id,
+    name: [subject, resourcename].filter(Boolean).join(" - "),
+    subject,
+    resourceid: stableId(type, resourcename),
+    resourcename,
+    type,
+    periods,
+    kinds: [...entry.kinds],
+  };
+};
+
+/**
+ * Services, assessments and grades of a period for the teacher's classes (one PageNotes per grade service). The
+ * services of the skills tab that have no grade service (0.8.0) follow, with kinds ["competencies"] and no assessment.
+ */
 export const overview = async (session: SessionHandle, periodId = "", classes: string[] = []): Promise<GradeOverview> => {
   const picked = await pickPeriod(session, periodId);
-  const all = await loadServices(session, picked.period);
-  const serviceIds = stableIds("service", all, serviceKey);
+  const all = await loadAllServices(session, picked.period);
+  const serviceIds = serviceIdsOf(all);
   const services: OverviewService[] = [];
-  for (const [index, service] of all.entries()) {
-    const resourcename = String(resourceOf(service)?.L ?? "");
+  for (const [index, entry] of all.entries()) {
+    const resourcename = String(resourceOf(entry.service)?.L ?? "");
     if (!matchesLabels([resourcename], classes)) continue;
-    const page = await call(session, "gradesPage", { service: ref(service), periode: ref(picked.period) });
-    const subject = String(service.matiere?.V?.L ?? service.L ?? "");
-    const type = resourceType(session, resourcename);
-    services.push({
-      id: serviceIds[index],
-      name: [subject, resourcename].filter(Boolean).join(" - "),
-      subject,
-      resourceid: stableId(type, resourcename),
-      resourcename,
-      type,
-      periods: [picked.periodId],
-      assessments: assessmentsFromPage(page),
-    });
+    const assessments = entry.grade
+      ? assessmentsFromPage(await call(session, "gradesPage", { service: ref(entry.grade), periode: ref(picked.period) }))
+      : [];
+    services.push({ ...describeService(session, entry, serviceIds[index], [picked.periodId]), assessments });
   }
   return { periods: picked.periods, period: { id: picked.periodId, name: String(picked.period.L ?? "") }, services };
 };
