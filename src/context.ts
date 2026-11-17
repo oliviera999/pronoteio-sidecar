@@ -16,7 +16,14 @@ export type RequestContext = {
   calls: number;
   /** Route (pattern) of the request, for the logs and the cache. */
   route: string;
+  /** A write call was sent to Pronote (the request is then never replayed after a reconnection, P5). */
+  writeSent?: boolean;
+  /** The request was already replayed once after a reconnection. */
+  replayed?: boolean;
 };
+
+/** Pronote functions that write (SaisiePublicMessage only reads the recipients of a message). */
+export const isWriteFunction = (name: string): boolean => /^(Saisie|Programmer)/.test(name) && name !== "SaisiePublicMessage";
 
 export const requestContext = new AsyncLocalStorage<RequestContext>();
 

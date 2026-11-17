@@ -3,7 +3,8 @@ import Fastify from "fastify";
 import { INTERNAL_HEADER, INTERNAL_TOKEN, registerAuth } from "./auth.js";
 import { registerJobs } from "./jobs.js";
 import { config } from "./config.js";
-import { PRIORITY, priorityOf, requestContext } from "./context.js";
+import { currentContext, PRIORITY, priorityOf, requestContext } from "./context.js";
+import { lostSessionReason, reconnect, sessionEntry, sessionLostError } from "./session.js";
 import { HttpError, toHttp } from "./errors.js";
 import { limiterOptions } from "./pronote/limiter.js";
 import { applyLocalTimes } from "./localInput.js";
@@ -69,6 +70,32 @@ export const buildApp = async (options = {}) => {
         if (error instanceof HttpError)
             reply.headers(error.headers);
         reply.status(status).send({ error: code, ...(error instanceof HttpError ? error.extra : {}) });
+    });
+    // Lost Pronote session (expired, or closed because the account connected elsewhere): reconnect once with the token
+    // chain and replay the request once (P5). A write whose write call was already sent is not replayed.
+    app.addHook("onRoute", (route) => {
+        const handler = route.handler;
+        route.handler = async function (request, reply) {
+            const entry = sessionEntry(request);
+            const generation = entry?.generation ?? 0;
+            try {
+                return await handler.call(this, request, reply);
+            }
+            catch (error) {
+                const reason = lostSessionReason(error);
+                if (!reason)
+                    throw error;
+                const context = currentContext();
+                if (!entry || context?.writeSent || context?.replayed)
+                    throw sessionLostError(reason);
+                if (!(await reconnect(entry, reason, generation)))
+                    throw sessionLostError(reason);
+                if (context)
+                    context.replayed = true;
+                request.log.info({ reason }, "Pronote session reconnected, request replayed");
+                return await handler.call(this, request, reply);
+            }
+        };
     });
     // Asynchronous jobs of the heavy reads (P4).
     registerJobs(app);

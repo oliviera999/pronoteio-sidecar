@@ -1,5 +1,6 @@
-import { currentContext, PRIORITY } from "../context.js";
-import { RateLimitedError } from "../errors.js";
+import { currentContext, isWriteFunction, PRIORITY } from "../context.js";
+import { HttpError, RateLimitedError } from "../errors.js";
+import { isPrimary } from "../lock.js";
 export class Limiter {
     options;
     now;
@@ -162,10 +163,16 @@ export const limiterOf = (session, options = limiterOptions()) => {
 };
 /** Waits for the turn of a call of the current request (priority and deadline of its context). */
 export const throttle = async (session, name = "") => {
+    // Only the primary process talks to Pronote (P5, lock.ts).
+    if (!isPrimary())
+        throw new HttpError(503, "pronote_unavailable", { reason: "second_process" });
     const context = currentContext();
     await limiterOf(session).acquire(callCost(name), context?.priority ?? PRIORITY.read, context?.deadline);
-    if (context)
+    if (context) {
         context.calls++;
+        if (isWriteFunction(name))
+            context.writeSent = true;
+    }
 };
 /** Calls made during the last minute (tests and health check). */
 export const recentCalls = (session) => limiters.get(session)?.stats().lastMinute ?? 0;

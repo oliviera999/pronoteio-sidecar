@@ -125,6 +125,12 @@ export class TokenStore {
     this.write(store);
   }
 
+  /** Latest token of an account (reconnection of a lost session, P5), null when unknown or unreadable. */
+  latest(account: string): string | null {
+    const entry = this.read()[account];
+    return entry ? this.decrypt(entry.latest) : null;
+  }
+
   /** Forgets an account (its link was removed or refused for good). */
   forget(account: string): void {
     const store = this.read();

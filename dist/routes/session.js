@@ -1,10 +1,13 @@
-import { AccountKind, finishLoginManually, loginCredentials, loginToken, SecurityError, securityCheckPIN, securitySave, } from "pawnote";
+import { AccountKind, finishLoginManually, loginCredentials, loginToken, presence, SecurityError, securityCheckPIN, securitySave, } from "pawnote";
 import { readCache } from "../cache.js";
 import { config } from "../config.js";
 import { HttpError } from "../errors.js";
 import { pronoteBaseUrl } from "../pronote/compat.js";
 import { createCapturingHandle, userData } from "../pronote/userdata.js";
-import { createSession, dropSession, requireSession } from "../session.js";
+import { isPrimary } from "../lock.js";
+import { createSession, dropSession, requireSession, sessionOfAccount, setPresenceSender, setReconnector } from "../session.js";
+import { limiterOf } from "../pronote/limiter.js";
+import { PRIORITY } from "../context.js";
 import { accountKey, chainedTokenLogin, serializeLogin, TokenStore } from "../tokenStore.js";
 import { functions } from "../teacher/functions.js";
 import { stableId } from "../teacher/ids.js";
@@ -57,6 +60,36 @@ export const sessionInfo = (session) => {
         })),
     };
 };
+/** Pronote calls refused in a second process (P5): only the primary process talks to Pronote. */
+export const assertPrimary = () => {
+    if (!isPrimary())
+        throw new HttpError(503, "pronote_unavailable", { reason: "second_process" });
+};
+/**
+ * Reconnection of a lost session with the token chain (P5): the latest token of the account, recorded at the previous
+ * login, is presented to Pronote and the new one recorded. Without the token store (PRONOTEIO_TOKEN_STORE=off), no
+ * reconnection: Moodle logs in again.
+ */
+setReconnector(async (entry) => {
+    if (!tokenStore || !entry.account || !entry.login)
+        throw new Error("no token chain");
+    assertPrimary();
+    const latest = tokenStore.latest(entry.account);
+    if (latest === null)
+        throw new Error("no token");
+    const handle = createCapturingHandle();
+    const base = { url: entry.login.url, username: entry.login.username, kind: AccountKind.TEACHER, deviceUUID: entry.login.deviceuuid };
+    const refresh = await loginToken(handle, { ...base, token: latest });
+    tokenStore.record(entry.account, latest, refresh.token);
+    return handle;
+});
+/** Keep-alive of the idle sessions: Pawnote's presence request (Presence / Navigation as the official client). */
+setPresenceSender(async (handle) => {
+    if (!isPrimary())
+        return;
+    await limiterOf(handle).acquire(1, PRIORITY.bulk);
+    await presence(handle);
+});
 export default async function sessionRoutes(app) {
     app.post("/session/login", {
         schema: {
@@ -77,9 +110,11 @@ export default async function sessionRoutes(app) {
         },
     }, async (request) => {
         const { url, username, deviceuuid, password, token, pin, devicename } = request.body;
+        assertPrimary();
         const handle = createCapturingHandle();
         const base = { url: pronoteBaseUrl(url), username, kind: AccountKind.TEACHER, deviceUUID: deviceuuid };
         const account = accountKey(base.url, username, deviceuuid);
+        const login = { url: base.url, username, deviceuuid };
         const secured = async (login) => {
             try {
                 return await login;
@@ -91,8 +126,29 @@ export default async function sessionRoutes(app) {
             }
         };
         const onRecordError = (error) => request.log.warn({ err: error }, "token store not written");
-        // One login at a time per account: the token is single use.
-        const refresh = await serializeLogin(account, async () => {
+        const outcome = await serializeLogin(account, async () => {
+            // One session per account (P5): a token login of an account whose session is open gets it back, without a new
+            // Pronote login (the token sent is not consumed: the valid token of the chain is returned unchanged).
+            if (token !== undefined) {
+                const reused = sessionOfAccount(account);
+                if (reused)
+                    return { reused, refresh: null, sessionid: null };
+            }
+            const refresh = await doLogin();
+            // Registered inside the lock: a concurrent login of the same account then reuses it.
+            return { reused: null, refresh, sessionid: createSession(handle, { key: account, login }) };
+        });
+        if (outcome.reused) {
+            return {
+                sessionid: outcome.reused.id,
+                token: tokenStore ? tokenStore.resolve(account, token).token : token,
+                displayname: outcome.reused.handle.user.name,
+                version: outcome.reused.handle.instance.version.join("."),
+                reused: true,
+            };
+        }
+        const refresh = outcome.refresh;
+        async function doLogin() {
             if (password !== undefined) {
                 const result = await secured(loginCredentials(handle, { ...base, password }));
                 try {
@@ -107,9 +163,9 @@ export default async function sessionRoutes(app) {
             if (result.substituted)
                 request.log.info("token login: previous answer lost, latest token of the chain used");
             return result;
-        });
+        }
         return {
-            sessionid: createSession(handle),
+            sessionid: outcome.sessionid,
             // Single-use: Moodle must store it and send it at the next login (the sidecar keeps the chain too).
             token: refresh.token,
             displayname: handle.user.name,

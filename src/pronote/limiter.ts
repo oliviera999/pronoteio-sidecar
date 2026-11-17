@@ -15,8 +15,9 @@
  * Everything lives in memory (single process, see P5); the counters are not personal data.
  */
 import type { SessionHandle } from "pawnote";
-import { currentContext, PRIORITY, type Priority } from "../context.js";
-import { RateLimitedError } from "../errors.js";
+import { currentContext, isWriteFunction, PRIORITY, type Priority } from "../context.js";
+import { HttpError, RateLimitedError } from "../errors.js";
+import { isPrimary } from "../lock.js";
 
 export type LimiterOptions = {
   /** Tokens added per minute (0: no limit). */
@@ -224,9 +225,14 @@ export const limiterOf = (session: SessionHandle, options: LimiterOptions = limi
 
 /** Waits for the turn of a call of the current request (priority and deadline of its context). */
 export const throttle = async (session: SessionHandle, name = ""): Promise<void> => {
+  // Only the primary process talks to Pronote (P5, lock.ts).
+  if (!isPrimary()) throw new HttpError(503, "pronote_unavailable", { reason: "second_process" });
   const context = currentContext();
   await limiterOf(session).acquire(callCost(name), context?.priority ?? PRIORITY.read, context?.deadline);
-  if (context) context.calls++;
+  if (context) {
+    context.calls++;
+    if (isWriteFunction(name)) context.writeSent = true;
+  }
 };
 
 /** Calls made during the last minute (tests and health check). */

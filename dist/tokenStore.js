@@ -106,6 +106,11 @@ export class TokenStore {
         store[account] = { latest: this.encrypt(issued), superseded: superseded.slice(0, MAX_SUPERSEDED), at: now };
         this.write(store);
     }
+    /** Latest token of an account (reconnection of a lost session, P5), null when unknown or unreadable. */
+    latest(account) {
+        const entry = this.read()[account];
+        return entry ? this.decrypt(entry.latest) : null;
+    }
     /** Forgets an account (its link was removed or refused for good). */
     forget(account) {
         const store = this.read();

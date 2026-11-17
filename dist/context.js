@@ -5,6 +5,8 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 /** Priorities of the queue: writes first, then unit reads, then bulk reads (lower is served first). */
 export const PRIORITY = { write: 0, read: 1, bulk: 2 };
+/** Pronote functions that write (SaisiePublicMessage only reads the recipients of a message). */
+export const isWriteFunction = (name) => /^(Saisie|Programmer)/.test(name) && name !== "SaisiePublicMessage";
 export const requestContext = new AsyncLocalStorage();
 export const currentContext = () => requestContext.getStore();
 /** Bulk routes: several Pronote calls per request, served after the unit reads. */

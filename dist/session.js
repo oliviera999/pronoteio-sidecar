@@ -1,32 +1,166 @@
+/**
+ * Open Pronote sessions, in memory (tokens are not kept here: Moodle stores them, tokenStore.ts keeps the chain).
+ *
+ * P5 (0.9.0): one session per linked account, reused and kept alive.
+ * - A token login of an account that already has an open session gets that session back (no new Pronote login: two
+ *   concurrent sessions of one account may push each other out). A password login replaces it.
+ * - Keep-alive: a presence request (as the official client, every PRONOTEIO_PRESENCE_INTERVAL seconds, 120) on the
+ *   sessions idle for that long, while Moodle still uses them (sliding lifetime PRONOTEIO_SESSION_TTL).
+ * - Session expired or closed by Pronote (the teacher connected elsewhere, when Pronote imposes it): reconnect with the
+ *   token chain, once, under the login lock of the account (two requests during a reconnection make one login), then
+ *   the request is replayed once (app.ts). A write is not replayed once its write call was sent.
+ */
 import { randomUUID } from "node:crypto";
+import { ServerSideError, SessionExpiredError } from "pawnote";
 import { config } from "./config.js";
 import { HttpError } from "./errors.js";
-/** In-memory cache of open Pronote sessions. Tokens are not kept here (Moodle stores them, tokenStore.ts keeps the chain). */
+import { rememberUserData, userData } from "./pronote/userdata.js";
+import { stateStore } from "./state.js";
+import { serializeLogin } from "./tokenStore.js";
 const sessions = new Map();
-export const createSession = (handle) => {
+const byAccount = new Map();
+const sessionIdOf = (request) => String(request.headers["x-pronoteio-session"] ?? "");
+/** Opens a session; with an account, it replaces the account's previous session (one session per account). */
+export const createSession = (handle, account) => {
     const id = randomUUID();
-    sessions.set(id, { handle, expires: Date.now() + config.sessionTtl });
+    const now = Date.now();
+    if (account) {
+        const previous = byAccount.get(account.key);
+        if (previous)
+            sessions.delete(previous);
+        byAccount.set(account.key, id);
+    }
+    sessions.set(id, { id, handle, expires: now + config.sessionTtl, created: now, lastUsed: now, account: account?.key ?? null,
+        login: account?.login ?? null, generation: 0, reconnects: 0, lastReconnect: null, state: "open" });
     return id;
+};
+/** Open session of an account, to be reused by its next token login; null when none is alive. */
+export const sessionOfAccount = (account) => {
+    const id = byAccount.get(account);
+    const entry = id ? sessions.get(id) : undefined;
+    if (!entry || entry.expires < Date.now() || entry.state === "lost")
+        return null;
+    entry.expires = Date.now() + config.sessionTtl;
+    return entry;
+};
+/** Entry of the request's session (without touching it), undefined when unknown or expired. */
+export const sessionEntry = (request) => {
+    const entry = sessions.get(sessionIdOf(request));
+    return entry && entry.expires >= Date.now() ? entry : undefined;
 };
 /** Session of a request (X-Pronoteio-Session header), with sliding expiry. */
 export const requireSession = (request) => {
-    const id = String(request.headers["x-pronoteio-session"] ?? "");
+    const id = sessionIdOf(request);
     const entry = sessions.get(id);
     if (!entry || entry.expires < Date.now()) {
-        sessions.delete(id);
+        if (entry)
+            forget(entry);
         throw new HttpError(401, "session_expired");
     }
     entry.expires = Date.now() + config.sessionTtl;
+    entry.lastUsed = Date.now();
     return entry.handle;
 };
+const forget = (entry) => {
+    sessions.delete(entry.id);
+    if (entry.account && byAccount.get(entry.account) === entry.id)
+        byAccount.delete(entry.account);
+};
 export const dropSession = (request) => {
-    sessions.delete(String(request.headers["x-pronoteio-session"] ?? ""));
+    const entry = sessions.get(sessionIdOf(request));
+    if (entry)
+        forget(entry);
+};
+/* ---- Lost sessions and reconnection ---- */
+/** Pronote messages of a session closed because the account connected elsewhere (candidates, not validated). */
+const REPLACED = /autre (poste|appareil|navigateur)|connect[ée]+ ailleurs|nouvelle connexion|session (a été )?(fermée|interrompue|terminée)|vous avez été déconnecté/i;
+/** Why a Pronote error means the session is gone: "expired", "replaced", or null for any other error. */
+export const lostSessionReason = (error) => {
+    if (error instanceof SessionExpiredError)
+        return "expired";
+    if (error instanceof ServerSideError && REPLACED.test(error.message))
+        return "replaced";
+    return null;
+};
+/** Error answered when a lost session could not be reconnected: Moodle logs in again (session_expired). */
+export const sessionLostError = (reason) => new HttpError(401, "session_expired", { code: reason === "replaced" ? "session_replaced" : "session_expired" });
+let reconnector = null;
+export const setReconnector = (fn) => {
+    reconnector = fn;
+};
+/**
+ * Reconnects the session of an entry, once for all the requests that saw the same generation: the login runs under
+ * the login lock of the account, and a request arriving after another one reconnected does nothing. The handle object
+ * is kept (rate limiter, user data): the new session is copied into it.
+ */
+export const reconnect = async (entry, reason, seen = entry.generation) => {
+    if (!reconnector || !entry.account || !entry.login)
+        return false;
+    const run = reconnector;
+    return serializeLogin(entry.account, async () => {
+        if (entry.generation !== seen)
+            return entry.state === "open";
+        entry.state = "reconnecting";
+        try {
+            const fresh = await run(entry);
+            const data = userData(fresh);
+            Object.assign(entry.handle, fresh);
+            rememberUserData(entry.handle, data);
+            entry.generation++;
+            entry.reconnects++;
+            entry.lastReconnect = Date.now();
+            entry.state = "open";
+            stateStore.recordReconnect(reason, true);
+            return true;
+        }
+        catch {
+            entry.state = "lost";
+            stateStore.recordReconnect(reason, false);
+            return false;
+        }
+    }).catch(() => false);
+};
+/* ---- Keep-alive ---- */
+const PRESENCE_MS = Math.max(30, Number.parseInt(process.env.PRONOTEIO_PRESENCE_INTERVAL ?? "120", 10) || 120) * 1000;
+let presenceSender = null;
+export const setPresenceSender = (fn) => {
+    presenceSender = fn;
+};
+/** One round of keep-alive: presence on the idle sessions, reconnection of the lost ones. */
+export const keepAlive = async (now = Date.now()) => {
+    for (const entry of sessions.values()) {
+        if (entry.expires < now) {
+            forget(entry);
+            continue;
+        }
+        if (!presenceSender || entry.state !== "open" || now - entry.lastUsed < PRESENCE_MS)
+            continue;
+        try {
+            await presenceSender(entry.handle);
+            entry.lastUsed = now;
+        }
+        catch (error) {
+            const reason = lostSessionReason(error);
+            if (reason)
+                await reconnect(entry, reason);
+        }
+    }
 };
 setInterval(() => {
-    const now = Date.now();
-    for (const [id, entry] of sessions) {
-        if (entry.expires < now)
-            sessions.delete(id);
-    }
-}, 60_000).unref();
+    void keepAlive().catch(() => undefined);
+}, Math.min(PRESENCE_MS, 60_000)).unref();
+/* ---- Health ---- */
+export const sessionStats = (now = Date.now()) => {
+    const list = [...sessions.values()].filter((entry) => entry.expires >= now);
+    return {
+        open: list.length,
+        states: list.map((entry) => ({
+            state: entry.state,
+            ageSeconds: Math.round((now - entry.created) / 1000),
+            idleSeconds: Math.round((now - entry.lastUsed) / 1000),
+            reconnects: entry.reconnects,
+            lastReconnect: entry.lastReconnect ? new Date(entry.lastReconnect).toISOString() : null,
+        })),
+    };
+};
 //# sourceMappingURL=session.js.map
