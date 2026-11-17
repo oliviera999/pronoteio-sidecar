@@ -13,7 +13,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.check.json",
-    "test": "tsx --test test/*.test.ts",
+    "test": "PRONOTEIO_LOG_FILE=off PRONOTEIO_STATE_FILE=off PRONOTEIO_LOCK_FILE=off tsx --test test/*.test.ts",
     "probe": "tsx --env-file=.env tools/probe.ts",
     "postinstall": "node -e \"const p=require('path');import(require('url').pathToFileURL(p.join(p.dirname(require('fs').realpathSync('package.json')),'tools','patch-pawnote.mjs')).href)\""
   },

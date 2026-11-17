@@ -5,6 +5,8 @@
 import { createHmac, randomBytes } from "node:crypto";
 
 process.env.PRONOTEIO_SECRET ??= "test-secret-0123456789abcdef";
+process.env.PRONOTEIO_LOG_FILE ??= "off";
+process.env.PRONOTEIO_STATE_FILE ??= "off";
 
 const { buildApp } = await import("../../src/app.js");
 const { signedPayload } = await import("../../src/auth.js");

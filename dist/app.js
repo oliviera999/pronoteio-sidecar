@@ -12,6 +12,8 @@ import { SIDECAR_VERSION } from "./version.js";
 import { limiterOptions } from "./pronote/limiter.js";
 import { applyLocalTimes } from "./localInput.js";
 import { registerCache } from "./cache.js";
+import { registerHealth } from "./health.js";
+import { accessLog as defaultAccessLog } from "./logs.js";
 import { assertWritable, isValidated, pronoteVersion } from "./pronote/formats.js";
 import absencesRoutes from "./routes/absences.js";
 import assessmentsRoutes from "./routes/assessments.js";
@@ -34,13 +36,51 @@ import studentsRoutes from "./routes/students.js";
 import timetableRoutes from "./routes/timetable.js";
 /** Builds the sidecar application (every hook and route), without listening: server.ts listens, the tests inject. */
 export const buildApp = async (options = {}) => {
+    const accessLog = options.accessLog ?? defaultAccessLog;
     const app = Fastify({
         bodyLimit: 512 * 1024,
         // Request bodies carry passwords and tokens: they are never logged.
         logger: options.logger ?? {
             level: config.logLevel,
             redact: ["req.headers['x-pronoteio-signature']", "req.headers['x-pronoteio-session']"],
+            // P8: no URL (its query may name a student), no header, no body in the logs.
+            serializers: {
+                req: (request) => ({ method: request.method, route: request.routeOptions?.url }),
+                res: (reply) => ({ status: reply.statusCode }),
+            },
+            ...(options.logStream ? { stream: options.logStream } : {}),
         },
+        // The access log (logs.ts) replaces Fastify's request lines, which carry the URL.
+        disableRequestLogging: true,
+    });
+    // Structured access log without personal data (P8): route pattern, status, code, duration, size.
+    app.addHook("onSend", async (request, reply, payload) => {
+        if (reply.statusCode >= 400 && typeof payload === "string") {
+            try {
+                request.errorCode = String(JSON.parse(payload)?.code ?? "");
+            }
+            catch {
+                // Not JSON.
+            }
+        }
+        request.answerBytes = typeof payload === "string" ? Buffer.byteLength(payload) : Buffer.isBuffer(payload) ? payload.length : 0;
+        return payload;
+    });
+    app.addHook("onResponse", async (request, reply) => {
+        if (request.internal)
+            return;
+        const context = currentContext();
+        accessLog.write({
+            method: request.method,
+            route: request.routeOptions.url ?? "(unknown)",
+            status: reply.statusCode,
+            ...(request.errorCode ? { code: request.errorCode } : {}),
+            ms: Math.round(reply.elapsedTime),
+            bytes: request.answerBytes ?? 0,
+            ...(reply.getHeader("x-cache") ? { cache: String(reply.getHeader("x-cache")) } : {}),
+            ...(context ? { calls: context.calls, priority: context.priority } : {}),
+            ...(reply.getHeader("x-pronoteio-duplicate") ? { duplicate: true } : {}),
+        });
     });
     // Context of each request (priority and deadline in the Pronote queue, P2), reachable from every Pronote call.
     const queueWait = limiterOptions().maxWaitMs;
@@ -60,7 +100,8 @@ export const buildApp = async (options = {}) => {
     registerAuth(app);
     // Short in-memory cache of the reads (P3), after the signature check.
     registerCache(app);
-    app.get("/health", async () => ({ ok: true }));
+    // Health (P8): /health/public unsigned, /health signed (full report).
+    registerHealth(app);
     // Wall-clock times of the write requests ("local" members) replace their timestamps before validation (0.9.0).
     app.addHook("preValidation", async (request) => {
         if (request.body && typeof request.body === "object")
