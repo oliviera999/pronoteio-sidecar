@@ -3,7 +3,9 @@ import "./time.js";
 import Fastify from "fastify";
 import { registerAuth } from "./auth.js";
 import { assertSecret, config } from "./config.js";
-import { toHttp } from "./errors.js";
+import { priorityOf, requestContext } from "./context.js";
+import { HttpError, toHttp } from "./errors.js";
+import { limiterOptions } from "./pronote/limiter.js";
 import { applyLocalTimes } from "./localInput.js";
 import absencesRoutes from "./routes/absences.js";
 import assessmentsRoutes from "./routes/assessments.js";
@@ -36,6 +38,14 @@ const app = Fastify({
   },
 });
 
+// Context of each request (priority and deadline in the Pronote queue, P2), reachable from every Pronote call.
+const queueWait = limiterOptions().maxWaitMs;
+app.addHook("onRequest", (request, _reply, done) => {
+  const route = request.routeOptions.url ?? request.url.split("?")[0];
+  const query = (request.query ?? {}) as Record<string, unknown>;
+  requestContext.run({ priority: priorityOf(request.method, route, query), deadline: Date.now() + queueWait, calls: 0, route }, done);
+});
+
 // Raw body, signature check and replay protection (a read delivered twice while it runs is answered twice).
 registerAuth(app);
 
@@ -51,7 +61,8 @@ app.setErrorHandler((error, request, reply) => {
   if (status >= 500 && status !== 501) {
     request.log.error({ err: error }, "request failed");
   }
-  reply.status(status).send({ error: code });
+  if (error instanceof HttpError) reply.headers(error.headers);
+  reply.status(status).send({ error: code, ...(error instanceof HttpError ? error.extra : {}) });
 });
 
 await app.register(sessionRoutes);

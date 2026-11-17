@@ -17,7 +17,7 @@
  * of one answer (member paths and types, no value) to finish the mapping without reading any student data.
  */
 import type { SessionHandle } from "pawnote";
-import { HttpError } from "../errors.js";
+import { HttpError, RateLimitedError } from "../errors.js";
 import { listOf, parsePronoteDate } from "../pronote/encoding.js";
 import { normalise } from "../normalise.js";
 import { callFunction, isTabClosed } from "./functions.js";
@@ -332,6 +332,77 @@ export const studentFiles = async (
   }
   return { available: true, reason: "", validated: false, items, unmappedKeys: [...unmapped].sort(), truncated,
     total: entries.length, offset };
+};
+
+/** Largest number of ids of a bulk request (students/files?ids=…). */
+export const MAX_IDS = 200;
+
+export type StudentFilesBulkResult = StudentFilesResult & {
+  /** Ids read in this answer, in the order asked. */
+  read: string[];
+  /** Ids not read yet (deadline of the queue reached): ask them again after retry_after seconds. */
+  remaining: string[];
+  /** Ids not found in the class or group. */
+  notFound: string[];
+  /** Some ids remain to be read. */
+  partial: boolean;
+  /** Seconds to wait before asking the remaining ids (0 when complete). */
+  retry_after: number;
+};
+
+/**
+ * Files of a list of students of a class or group (P2, 0.9.0): the sidecar paces the FicheEleve calls itself (rate
+ * limiter queue, bulk priority). When the queue cannot serve the next file before the deadline of the request, the
+ * files read so far are returned with the remaining ids and retry_after, instead of a 429 for the whole request.
+ */
+export const studentFilesByIds = async (
+  session: SessionHandle,
+  resource: string,
+  include: Include[],
+  ids: string[],
+): Promise<StudentFilesBulkResult> => {
+  const wanted = [...new Set(ids)].slice(0, MAX_IDS);
+  const base = { available: false, reason: "", validated: false as const, items: [] as StudentFile[], unmappedKeys: [] as string[],
+    truncated: false, total: 0, offset: 0, read: [] as string[], remaining: [] as string[], notFound: [] as string[], partial: false,
+    retry_after: 0 };
+  if (isTabClosed(session, "studentFile")) return { ...base, reason: "tab_closed:105", remaining: wanted };
+  const entries = await rosterEntries(session, resource);
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const notFound = wanted.filter((id) => !byId.has(id));
+  const todo = wanted.filter((id) => byId.has(id));
+  const items: StudentFile[] = [];
+  const read: string[] = [];
+  const unmapped = new Set<string>();
+  let retryAfter = 0;
+  for (const id of todo) {
+    const entry = byId.get(id) as RosterEntry;
+    let data: Record<string, any>;
+    try {
+      data = await callFunction(session, "studentFile", {
+        Eleve: { N: entry.pronoteId, G: 4, L: entry.label },
+        AvecEleve: true,
+        AvecResponsables: include.includes("guardians"),
+      });
+    } catch (error) {
+      if (error instanceof RateLimitedError) {
+        retryAfter = error.retryAfter;
+        break;
+      }
+      if (error instanceof HttpError) throw error;
+      if (items.length === 0) {
+        return { ...base, total: entries.length, notFound, remaining: todo, reason: String((error as Error)?.message ?? error).slice(0, 300) };
+      }
+      throw error;
+    }
+    const { file, unmapped: keys } = fileOf(entry, data, include);
+    keys.forEach((key) => unmapped.add(key));
+    items.push(file);
+    read.push(id);
+  }
+  const remaining = todo.filter((id) => !read.includes(id));
+  if (remaining.length > 0 && read.length === 0) throw new RateLimitedError(retryAfter || 1);
+  return { ...base, available: true, items, unmappedKeys: [...unmapped].sort(), total: entries.length, read, remaining, notFound,
+    partial: remaining.length > 0, retry_after: remaining.length > 0 ? Math.max(1, Math.ceil(retryAfter)) : 0 };
 };
 
 /**

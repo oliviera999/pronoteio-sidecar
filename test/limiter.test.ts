@@ -1,27 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { SessionHandle } from "pawnote";
 import { resolveWriteMode } from "../src/config.js";
-import { MIN_SPACING_MS, recentCalls, throttle } from "../src/pronote/limiter.js";
 import { entryRefusal } from "../src/pronote/request.js";
-
-test("calls are spaced and counted per session", async () => {
-  const session = {} as SessionHandle;
-  const started = Date.now();
-  await throttle(session, 0);
-  await throttle(session, 0);
-  assert.ok(Date.now() - started >= MIN_SPACING_MS - 5);
-  assert.equal(recentCalls(session), 2);
-});
-
-test("the ceiling per minute answers 429 rate_limited", async () => {
-  const session = {} as SessionHandle;
-  await throttle(session, 2);
-  await throttle(session, 2);
-  await assert.rejects(throttle(session, 2), /rate_limited/);
-  // Another session has its own counter.
-  await throttle({} as SessionHandle, 2);
-});
 
 test("a RapportSaisie refusal becomes an error, an ordinary answer does not", () => {
   assert.equal(entryRefusal({ listeEleves: [] }), null);

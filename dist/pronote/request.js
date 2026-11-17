@@ -9,7 +9,6 @@
 import forge from "node-forge";
 import { deflateRaw, inflateRaw } from "pako";
 import { ServerSideError, SessionExpiredError } from "pawnote";
-import { config } from "../config.js";
 import { listOf } from "./encoding.js";
 import { throttle } from "./limiter.js";
 const atLeast = (version, wanted) => {
@@ -93,8 +92,9 @@ export const decodePayload = (session, secure) => {
  * Throws SessionExpiredError / ServerSideError like Pawnote does.
  */
 export const callPronote = async (session, call) => {
+    // Turn in the rate limiter queue first (priority of the request, P2), then the Pawnote queue (order numbers).
+    await throttle(session, call.name);
     return session.queue.push(async () => {
-        await throttle(session, config.maxCallsPerMinute);
         const keys = propertyKeys(session);
         const payload = {};
         if (call.signature)

@@ -1,7 +1,7 @@
 import { HttpError } from "../errors.js";
 import { requireSession } from "../session.js";
 import { RESOURCE_KINDS, resourceTimetable } from "../teacher/resourceTimetable.js";
-import { INCLUDE_VALUES, MAX_FILES, checkStudentFiles, studentFiles } from "../teacher/students.js";
+import { INCLUDE_VALUES, MAX_FILES, MAX_IDS, checkStudentFiles, studentFiles, studentFilesByIds } from "../teacher/students.js";
 import { studentPhoto } from "../teacher/photos.js";
 import { epochToWall } from "../time.js";
 const filesQuery = {
@@ -13,6 +13,8 @@ const filesQuery = {
         include: { type: "string", maxLength: 100 },
         offset: { type: "integer", minimum: 0, maximum: 10000 },
         limit: { type: "integer", minimum: 1, maximum: MAX_FILES },
+        // 0.9.0: bulk read of a list of student ids (comma separated), paced by the sidecar, partial results.
+        ids: { type: "string", maxLength: MAX_IDS * 60 },
     },
 };
 const resourceTimetableQuery = {
@@ -37,7 +39,13 @@ export const parseInclude = (value) => {
 };
 export default async function studentsRoutes(app) {
     app.get("/students/files", { schema: { querystring: filesQuery } }, async (request) => {
-        const { resource, student = "", include, offset, limit } = request.query;
+        const { resource, student = "", include, offset, limit, ids } = request.query;
+        if (ids !== undefined) {
+            const list = ids.split(",").map((item) => item.trim()).filter(Boolean);
+            if (list.length === 0 || list.length > MAX_IDS)
+                throw new HttpError(400, "validation_failed:ids");
+            return studentFilesByIds(requireSession(request), resource, parseInclude(include), list);
+        }
         return studentFiles(requireSession(request), resource, parseInclude(include), student, { offset, limit });
     });
     // Health check of the student files path: one FicheEleve call, counts only.

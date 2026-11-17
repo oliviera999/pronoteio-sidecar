@@ -5,8 +5,20 @@ export class HttpError extends Error {
   constructor(
     public readonly status: number,
     public readonly code: string,
+    /** Members added to the error body (retry_after, candidates, fields…), never personal data. */
+    public readonly extra: Record<string, unknown> = {},
+    /** Headers added to the error answer (Retry-After). */
+    public readonly headers: Record<string, string> = {},
   ) {
     super(code);
+  }
+}
+
+/** Queue of the Pronote calls too long (P2): 429 rate_limited with retry_after (seconds) and Retry-After. */
+export class RateLimitedError extends HttpError {
+  constructor(public readonly retryAfter: number) {
+    const seconds = Math.max(1, Math.ceil(retryAfter));
+    super(429, "rate_limited", { retry_after: seconds }, { "retry-after": String(seconds) });
   }
 }
 
