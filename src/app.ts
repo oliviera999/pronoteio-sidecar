@@ -1,6 +1,7 @@
 import "./time.js";
 import Fastify, { type FastifyInstance } from "fastify";
-import { INTERNAL_HEADER, INTERNAL_TOKEN, registerAuth } from "./auth.js";
+import { INTERNAL_HEADER, INTERNAL_TOKEN, PUBLIC_ROUTES, registerAuth, securityStats } from "./auth.js";
+import { addressAllowed } from "./address.js";
 import { registerJobs } from "./jobs.js";
 import { config } from "./config.js";
 import { currentContext, PRIORITY, priorityOf, requestContext } from "./context.js";
@@ -63,6 +64,8 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
   const accessLog = options.accessLog ?? defaultAccessLog;
   const app = Fastify({
     bodyLimit: 512 * 1024,
+    // Client address behind the web server (X-Forwarded-For), for PRONOTEIO_ALLOWED_IPS (P11).
+    trustProxy: config.trustProxy,
     // Request bodies carry passwords and tokens: they are never logged.
     logger: options.logger ?? {
       level: config.logLevel,
@@ -128,6 +131,16 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
       calls: 0,
       route,
     }, done);
+  });
+
+  // Addresses allowed (P11): the Moodle server only, when PRONOTEIO_ALLOWED_IPS is set.
+  app.addHook("onRequest", async (request) => {
+    if (config.allowedIps.length === 0 || PUBLIC_ROUTES.has(request.routeOptions.url ?? "")) return;
+    if (request.headers[INTERNAL_HEADER] === INTERNAL_TOKEN) return;
+    if (!addressAllowed(request.ip, config.allowedIps)) {
+      securityStats.addressRefused++;
+      throw new HttpError(403, "address_not_allowed");
+    }
   });
 
   // Raw body, signature check and replay protection (a read delivered twice while it runs is answered twice).

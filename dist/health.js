@@ -1,4 +1,4 @@
-import { checkSignature, proxyStats } from "./auth.js";
+import { checkSignature, proxyStats, securityStats } from "./auth.js";
 import { readCache } from "./cache.js";
 import { config } from "./config.js";
 import { jobStats } from "./jobs.js";
@@ -45,6 +45,14 @@ export const fullHealth = (now = Date.now()) => {
             validated: state.pronote.version ? isValidated(state.pronote.version) : null,
             validatedVersions: validatedVersions(),
             seenAt: state.pronote.seenAt,
+        },
+        security: {
+            secrets: config.secrets.length,
+            windowSeconds: config.maxSkew,
+            nonceRequired: config.requireNonce,
+            allowedIps: config.allowedIps.length,
+            trustProxy: config.trustProxy,
+            ...securityStats,
         },
         errors: [...state.errors].reverse(),
     };

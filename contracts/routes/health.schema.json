@@ -436,6 +436,54 @@
             ],
             "additionalProperties": false
           }
+        },
+        "security": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "secrets": {
+              "type": "integer"
+            },
+            "windowSeconds": {
+              "type": "integer"
+            },
+            "nonceRequired": {
+              "type": "boolean"
+            },
+            "allowedIps": {
+              "type": "integer"
+            },
+            "trustProxy": {
+              "type": "boolean"
+            },
+            "previousKeyUses": {
+              "type": "integer"
+            },
+            "invalidSignature": {
+              "type": "integer"
+            },
+            "invalidTimestamp": {
+              "type": "integer"
+            },
+            "replayed": {
+              "type": "integer"
+            },
+            "addressRefused": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "secrets",
+            "windowSeconds",
+            "nonceRequired",
+            "allowedIps",
+            "trustProxy",
+            "previousKeyUses",
+            "invalidSignature",
+            "invalidTimestamp",
+            "replayed",
+            "addressRefused"
+          ]
         }
       },
       "required": [
@@ -455,7 +503,8 @@
         "jobs",
         "proxy",
         "pronote",
-        "errors"
+        "errors",
+        "security"
       ],
       "additionalProperties": false
     }

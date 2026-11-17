@@ -6,6 +6,7 @@ import type { FastifyRequest } from "fastify";
 process.env.PRONOTEIO_SECRET = "test-secret-0123456789abcdef";
 const { signedPayload, verifySignature } = await import("../src/auth.js");
 const { HttpError } = await import("../src/errors.js");
+const { config } = await import("../src/config.js");
 
 const sign = (timestamp: string, nonce: string, method: string, url: string, body = "") =>
   createHmac("sha256", process.env.PRONOTEIO_SECRET!).update(signedPayload(timestamp, nonce, method, url, body)).digest("hex");
@@ -41,12 +42,19 @@ test("a replayed request is refused", () => {
   fails(() => verifySignature(request(headers, "POST", "/session/login", "{}")), "replayed_request");
 });
 
-test("requests signed without nonce (plugin 0.2.2) are still accepted", () => {
+test("requests signed without nonce (plugin 0.2.2) are refused since 0.9.0, accepted with PRONOTEIO_REQUIRE_NONCE=false", () => {
   const timestamp = now();
-  verifySignature(request({
+  const unsigned = () => request({
     "x-pronoteio-timestamp": timestamp,
     "x-pronoteio-signature": sign(timestamp, "", "GET", "/absences?resource=c%3AT01"),
-  }, "GET", "/absences?resource=c%3AT01"));
+  }, "GET", "/absences?resource=c%3AT01");
+  fails(() => verifySignature(unsigned()), "invalid_signature");
+  (config as { requireNonce: boolean }).requireNonce = false;
+  try {
+    verifySignature(unsigned());
+  } finally {
+    (config as { requireNonce: boolean }).requireNonce = true;
+  }
 });
 
 test("the nonce is covered by the signature", () => {
@@ -65,8 +73,10 @@ test("the nonce is covered by the signature", () => {
 
 test("old timestamps are refused", () => {
   const timestamp = String(Math.floor(Date.now() / 1000) - 3600);
+  const nonce = "0011223344556677889900aabbccddee";
   fails(() => verifySignature(request({
     "x-pronoteio-timestamp": timestamp,
-    "x-pronoteio-signature": sign(timestamp, "", "GET", "/resources"),
+    "x-pronoteio-nonce": nonce,
+    "x-pronoteio-signature": sign(timestamp, nonce, "GET", "/resources"),
   })), "invalid_timestamp");
 });

@@ -1,13 +1,13 @@
 {
   "ok": true,
   "version": "0.8.0",
-  "commit": "ba729e7226ad69584bccd57d56ab8f78c64c41c1",
+  "commit": "a0d5dfcd196dd9b45bd97c947dd595880c0caa70",
   "node": "22.23.4",
-  "startedAt": "2026-11-17T19:20:45.902Z",
+  "startedAt": "2026-11-17T19:30:11.446Z",
   "uptimeSeconds": 2,
   "starts": 0,
   "process": {
-    "pid": 10652,
+    "pid": 15614,
     "primary": true,
     "holder": null,
     "lockFile": "off",
@@ -24,7 +24,7 @@
     "icu": "78.3",
     "hostTimezone": "UTC",
     "hostTzEnv": null,
-    "localNow": "2026-11-17 19:20"
+    "localNow": "2026-11-17 19:30"
   },
   "writeMode": "simulate",
   "session": {
@@ -48,7 +48,7 @@
   },
   "queue": {
     "size": 0,
-    "averageWaitMs": 126,
+    "averageWaitMs": 127,
     "tokens": 22.8,
     "lastMinute": 7,
     "served": 7,
@@ -88,20 +88,32 @@
     ],
     "seenAt": null
   },
+  "security": {
+    "secrets": 1,
+    "windowSeconds": 60,
+    "nonceRequired": true,
+    "allowedIps": 0,
+    "trustProxy": false,
+    "previousKeyUses": 0,
+    "invalidSignature": 0,
+    "invalidTimestamp": 0,
+    "replayed": 0,
+    "addressRefused": 0
+  },
   "errors": [
     {
       "code": "session_expired",
       "error": "session_expired",
       "route": "/roster",
       "status": 401,
-      "at": "2026-11-17T19:20:47.058Z"
+      "at": "2026-11-17T19:30:12.594Z"
     },
     {
       "code": "validation_failed",
       "error": "invalid_request",
       "route": "/roster",
       "status": 400,
-      "at": "2026-11-17T19:20:47.056Z"
+      "at": "2026-11-17T19:30:12.592Z"
     }
   ]
 }

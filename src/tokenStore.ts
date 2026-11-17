@@ -42,6 +42,8 @@ export const accountKey = (url: string, username: string, deviceuuid: string): s
 
 export class TokenStore {
   private readonly key: Buffer;
+  /** Keys of the previous secrets (rotation, P11): still read, never written. */
+  private readonly previousKeys: Buffer[];
   /** Store kept in memory when no file is configured (tests, PRONOTEIO_TOKEN_STORE=off is handled by the caller). */
   private memory: Store = {};
 
@@ -49,8 +51,11 @@ export class TokenStore {
     private readonly file: string | null,
     secret: string,
     private readonly now: () => number = Date.now,
+    previousSecrets: string[] = [],
   ) {
-    this.key = createHash("sha256").update(`pronoteio-token-store\n${secret}`).digest();
+    const derive = (value: string) => createHash("sha256").update(`pronoteio-token-store\n${value}`).digest();
+    this.key = derive(secret);
+    this.previousKeys = previousSecrets.map(derive);
   }
 
   private encrypt(token: string): string {
@@ -62,14 +67,17 @@ export class TokenStore {
 
   /** Clear token, or null when it cannot be read (other secret, damaged file). */
   private decrypt(value: string): string | null {
-    try {
-      const raw = Buffer.from(value, "base64");
-      const decipher = createDecipheriv("aes-256-gcm", this.key, raw.subarray(0, 12));
-      decipher.setAuthTag(raw.subarray(12, 28));
-      return Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString("utf8");
-    } catch {
-      return null;
+    for (const key of [this.key, ...this.previousKeys]) {
+      try {
+        const raw = Buffer.from(value, "base64");
+        const decipher = createDecipheriv("aes-256-gcm", key, raw.subarray(0, 12));
+        decipher.setAuthTag(raw.subarray(12, 28));
+        return Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString("utf8");
+      } catch {
+        // Next key (rotation of PRONOTEIO_SECRET).
+      }
     }
+    return null;
   }
 
   private read(): Store {

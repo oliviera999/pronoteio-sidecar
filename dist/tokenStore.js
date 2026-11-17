@@ -27,12 +27,16 @@ export class TokenStore {
     file;
     now;
     key;
+    /** Keys of the previous secrets (rotation, P11): still read, never written. */
+    previousKeys;
     /** Store kept in memory when no file is configured (tests, PRONOTEIO_TOKEN_STORE=off is handled by the caller). */
     memory = {};
-    constructor(file, secret, now = Date.now) {
+    constructor(file, secret, now = Date.now, previousSecrets = []) {
         this.file = file;
         this.now = now;
-        this.key = createHash("sha256").update(`pronoteio-token-store\n${secret}`).digest();
+        const derive = (value) => createHash("sha256").update(`pronoteio-token-store\n${value}`).digest();
+        this.key = derive(secret);
+        this.previousKeys = previousSecrets.map(derive);
     }
     encrypt(token) {
         const iv = randomBytes(12);
@@ -42,15 +46,18 @@ export class TokenStore {
     }
     /** Clear token, or null when it cannot be read (other secret, damaged file). */
     decrypt(value) {
-        try {
-            const raw = Buffer.from(value, "base64");
-            const decipher = createDecipheriv("aes-256-gcm", this.key, raw.subarray(0, 12));
-            decipher.setAuthTag(raw.subarray(12, 28));
-            return Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString("utf8");
+        for (const key of [this.key, ...this.previousKeys]) {
+            try {
+                const raw = Buffer.from(value, "base64");
+                const decipher = createDecipheriv("aes-256-gcm", key, raw.subarray(0, 12));
+                decipher.setAuthTag(raw.subarray(12, 28));
+                return Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString("utf8");
+            }
+            catch {
+                // Next key (rotation of PRONOTEIO_SECRET).
+            }
         }
-        catch {
-            return null;
-        }
+        return null;
     }
     read() {
         if (this.file === null)

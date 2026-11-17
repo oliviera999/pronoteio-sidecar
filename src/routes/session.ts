@@ -38,7 +38,7 @@ type LoginBody = {
 };
 
 /** Chain of the single-use tokens (see tokenStore.ts); null when PRONOTEIO_TOKEN_STORE=off. */
-const tokenStore = config.tokenStoreFile === null ? null : new TokenStore(config.tokenStoreFile, config.secret);
+const tokenStore = config.tokenStoreFile === null ? null : new TokenStore(config.tokenStoreFile, config.secret, Date.now, config.secrets.slice(1));
 
 /** Name shown in the teacher's Pronote "known devices" list (limited to 30 characters by Pronote). */
 const DEFAULT_DEVICE_NAME = "Moodle pronoteio";

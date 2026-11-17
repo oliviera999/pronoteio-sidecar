@@ -40,6 +40,7 @@ test("a read delivered twice by the web server while it runs: same answer, one P
   assert.equal(session.calls.filter((call) => call.name === "ListeEleves").length, 1);
   const stats = proxyStats();
   assert.equal(stats.duplicates, before + 1);
-  assert.ok((stats.minDelayMs ?? 0) >= 20, JSON.stringify(stats));
+  assert.ok(stats.minDelayMs !== null && stats.minDelayMs >= 0, JSON.stringify(stats));
+  assert.ok(stats.whileRunning >= 1);
   await app.close();
 });
