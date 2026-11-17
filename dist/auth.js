@@ -7,6 +7,8 @@ import { HttpError } from "./errors.js";
  */
 export const INTERNAL_TOKEN = randomBytes(32).toString("hex");
 export const INTERNAL_HEADER = "x-pronoteio-internal";
+/** Routes answered without signature. */
+export const PUBLIC_ROUTES = new Set(["/health", "/health/public", "/errors"]);
 /** Second deliveries of the same request by the web server (P4): delay after the first one, to size the proxy timeout. */
 const duplicateDelays = [];
 export const proxyStats = (now = Date.now()) => {
@@ -136,7 +138,8 @@ export const registerAuth = (app) => {
         }
     });
     app.addHook("preValidation", async (request, reply) => {
-        if (request.routeOptions.url === "/health")
+        // Public routes: no data (health of the deployment, table of the error codes). /health checks its own signature.
+        if (PUBLIC_ROUTES.has(request.routeOptions.url ?? ""))
             return;
         const internal = request.headers[INTERNAL_HEADER];
         if (typeof internal === "string" && internal.length === INTERNAL_TOKEN.length

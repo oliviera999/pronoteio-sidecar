@@ -6,6 +6,9 @@ import { config } from "./config.js";
 import { currentContext, PRIORITY, priorityOf, requestContext } from "./context.js";
 import { lostSessionReason, reconnect, sessionEntry, sessionLostError } from "./session.js";
 import { HttpError, toHttp } from "./errors.js";
+import { ERROR_CODES, errorBody } from "./errorCodes.js";
+import { stateStore } from "./state.js";
+import { SIDECAR_VERSION } from "./version.js";
 import { limiterOptions } from "./pronote/limiter.js";
 import { applyLocalTimes } from "./localInput.js";
 import { registerCache } from "./cache.js";
@@ -75,14 +78,27 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
     if (request.body && typeof request.body === "object") applyLocalTimes(request.body);
   });
 
+  // Error answers (P7): historical "error", stable "code", French "message"; recorded without personal data (P8).
   app.setErrorHandler((error, request, reply) => {
-    const [status, code] = toHttp(error);
+    const [status, legacy] = toHttp(error);
+    const body = errorBody(status, legacy, error instanceof HttpError ? error.extra : {}, request.method, error);
+    const route = request.routeOptions.url ?? "";
+    // Only the code, the route and the kind of error: never the message of Pronote (it may name a student).
+    const summary = { code: body.code as string, error: legacy.split(":")[0], route, status };
+    stateStore.recordError(summary);
     if (status >= 500 && status !== 501) {
-      request.log.error({ err: error }, "request failed");
+      request.log.error({ ...summary, kind: (error as Error)?.name ?? typeof error }, "request failed");
     }
     if (error instanceof HttpError) reply.headers(error.headers);
-    reply.status(status).send({ error: code, ...(error instanceof HttpError ? error.extra : {}) });
+    reply.status(status).send(body);
   });
+
+  app.setNotFoundHandler((request, reply) => {
+    reply.status(404).send(errorBody(404, "not_found", {}, request.method));
+  });
+
+  // Table of the stable error codes (P7), read by local_pronoteio; public: it holds no data.
+  app.get("/errors", async () => ({ version: SIDECAR_VERSION, codes: ERROR_CODES }));
 
   // Lost Pronote session (expired, or closed because the account connected elsewhere): reconnect once with the token
   // chain and replay the request once (P5). A write whose write call was already sent is not replayed.
