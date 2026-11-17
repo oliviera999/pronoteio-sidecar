@@ -14,7 +14,7 @@ test("health: public view unsigned, full report signed, wrong signature refused"
   const app = await buildApp({ logger: false });
   const publicView = await app.inject({ method: "GET", url: "/health/public" });
   assert.equal(publicView.statusCode, 200);
-  assert.deepEqual(Object.keys(publicView.json()).sort(), ["ok", "version"]);
+  assert.deepEqual(Object.keys(publicView.json()).sort(), ["commit", "ok", "version"]);
   assert.equal(publicView.json().version, JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version);
   const legacy = await app.inject({ method: "GET", url: "/health" });
   assert.deepEqual(legacy.json(), publicView.json());

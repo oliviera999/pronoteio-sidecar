@@ -13,6 +13,7 @@ import { limiterOptions } from "./pronote/limiter.js";
 import { applyLocalTimes } from "./localInput.js";
 import { registerCache } from "./cache.js";
 import { registerHealth } from "./health.js";
+import { registerAdmin } from "./admin.js";
 import { accessLog as defaultAccessLog } from "./logs.js";
 import { assertWritable, isValidated, pronoteVersion } from "./pronote/formats.js";
 import absencesRoutes from "./routes/absences.js";
@@ -154,7 +155,7 @@ export const buildApp = async (options = {}) => {
         };
     });
     // Pronote version (P6): in the headers of every answer of a session; writes refused on an unvalidated version.
-    const NOT_WRITES = new Set(["/session/login", "/session/logout", "/jobs"]);
+    const NOT_WRITES = new Set(["/session/login", "/session/logout", "/jobs", "/admin/update"]);
     app.addHook("preHandler", async (request) => {
         if (request.method !== "POST" || NOT_WRITES.has(request.routeOptions.url ?? ""))
             return;
@@ -173,6 +174,8 @@ export const buildApp = async (options = {}) => {
     });
     // Asynchronous jobs of the heavy reads (P4).
     registerJobs(app);
+    // Update on demand (P9).
+    registerAdmin(app);
     await app.register(sessionRoutes);
     await app.register(timetableRoutes);
     await app.register(homeworkRoutes);

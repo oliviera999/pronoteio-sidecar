@@ -9,7 +9,8 @@ import { sessionStats } from "./session.js";
 import { stateStore } from "./state.js";
 import { timeInfo } from "./time.js";
 import { COMMIT, SIDECAR_VERSION, STARTED_AT } from "./version.js";
-export const publicHealth = () => ({ ok: true, version: SIDECAR_VERSION });
+/** Public view: ok, version and short commit (the update script tells the new code from the old one with it). */
+export const publicHealth = () => ({ ok: true, version: SIDECAR_VERSION, commit: COMMIT ? COMMIT.slice(0, 7) : "" });
 export const fullHealth = (now = Date.now()) => {
     const state = stateStore.state;
     const queue = limiterStats();
