@@ -4,9 +4,10 @@ import type { SessionHandle } from "pawnote";
  * Session whose Pronote calls are answered by a handler keyed on the function name (no encryption, no
  * compression: the request body carries the payload as an object and the answer is returned as is). The handler
  * receives the "data" member sent and returns the "data" member of the answer; it may throw a Pronote
- * "Erreur" envelope by returning { Erreur: { Titre } }. Every call is recorded in "calls".
+ * "Erreur" envelope by returning { Erreur: { Titre } }. Every call is recorded in "calls". A handler keyed
+ * "<name>@<onglet>" answers only the calls sent with that tab (ListeServices of tab 23 and of tab 65), before "<name>".
  */
-export type FakeCall = { name: string; data: Record<string, any> | undefined };
+export type FakeCall = { name: string; data: Record<string, any> | undefined; onglet?: number };
 
 export const fakeSession = (
   handlers: Record<string, (data: Record<string, any> | undefined, call: FakeCall) => Record<string, any>>,
@@ -22,9 +23,10 @@ export const fakeSession = (
       const body = JSON.parse(String(request.content ?? "{}"));
       const name = String(body.id);
       const data = body.dataSec?.data;
-      const call: FakeCall = { name, data };
+      const onglet = body.dataSec?.Signature?.onglet;
+      const call: FakeCall = { name, data, ...(onglet !== undefined ? { onglet } : {}) };
       calls.push(call);
-      const handler = handlers[name];
+      const handler = handlers[`${name}@${onglet}`] ?? handlers[name];
       if (!handler) return { content: JSON.stringify({ Erreur: { Titre: `Vos droits sont insuffisants pour effectuer cette opération (${name})` } }), headers: {}, status: 200 };
       const answer = handler(data, call);
       if (answer && "Erreur" in answer) return { content: JSON.stringify(answer), headers: {}, status: 200 };

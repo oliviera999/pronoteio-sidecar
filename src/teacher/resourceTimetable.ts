@@ -5,12 +5,17 @@
  *
  * NOT VALIDATED for teachers, rooms and students: the demo account only read its own timetable. A refusal of Pronote
  * is returned as available=false with the reason.
+ *
+ * 0.8.0: a class or group label is found with or without its brackets, case, accents and punctuation ("6-SC-603",
+ * "[6-SC-603]"); "me" (or the account's own name) designates the authenticated teacher; a class or group the account
+ * cannot read (Pronote refuses, or answers with the teacher's own lessons) gives available=false, reason
+ * "resource_not_accessible".
  */
 import type { SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
 import { listOf } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
-import { normalise, type Lesson } from "../normalise.js";
+import { labelKey, normalise, type Lesson } from "../normalise.js";
 import { callFunction, isTabClosed } from "./functions.js";
 import { rosterEntries } from "./roster.js";
 import { stableId } from "./ids.js";
@@ -39,11 +44,22 @@ export const edtResources = (data: Record<string, any>, genre: number): Resource
     .filter((item) => typeof item?.N === "string" && Number(item?.G) === genre)
     .map((item) => ({ N: String(item.N), G: genre, L: String(item.L ?? "").trim() }));
 
-const find = (items: ResourceRef[], label: string, kind: string): ResourceRef => {
-  const found = items.filter((item) => normalise(item.L) === normalise(label));
+/** Resource of a label: same label (case and accents ignored), else same labelKey (brackets, punctuation ignored). */
+export const find = (items: ResourceRef[], label: string, kind: string): ResourceRef => {
+  let found = items.filter((item) => normalise(item.L) === normalise(label));
+  if (found.length === 0) found = items.filter((item) => labelKey(item.L) !== "" && labelKey(item.L) === labelKey(label));
   if (found.length === 0) throw new HttpError(404, `${kind}_not_found`);
   if (found.length > 1) throw new HttpError(409, `${kind}_ambiguous`);
   return found[0];
+};
+
+/** Words designating the authenticated teacher. */
+export const SELF_NAMES = ["", "me", "moi"];
+
+/** The authenticated teacher (genre 3) as a resource. */
+const self = (session: SessionHandle): ResourceRef => {
+  const me = session.user.resources[0];
+  return { N: me.id, G: GENRES.teacher, L: String(me.name ?? "") };
 };
 
 /** Resource of the request, with its session-bound identifier. */
@@ -69,6 +85,10 @@ export const resolveResource = async (
     if (found.length === 0) throw new HttpError(404, "student_not_found");
     if (found.length > 1) throw new HttpError(409, "student_ambiguous");
     return { N: found[0].pronoteId, G: GENRES.student, L: found[0].label };
+  }
+  if (kind === "teacher") {
+    const own = self(session);
+    if (SELF_NAMES.includes(label.trim().toLowerCase()) || normalise(label) === normalise(own.L)) return own;
   }
   const data = await callFunction(session, "timetableResources", {});
   return find(edtResources(data, GENRES[kind]), label, kind);
@@ -107,7 +127,9 @@ export const resourceTimetable = async (
         avecCoursSortiePeda: true,
       });
     } catch (error) {
-      return { ...empty, resource: { kind, label: resource.L }, reason: String((error as Error)?.message ?? error).slice(0, 300) };
+      const message = String((error as Error)?.message ?? error).slice(0, 300);
+      const denied = (kind === "class" || kind === "group") && /droits|insuffisant/i.test(message);
+      return { ...empty, resource: { kind, label: resource.L }, reason: denied ? "resource_not_accessible" : message };
     }
     for (const cours of listOf<any>(data.ListeCours)) {
       const ref = lessonFromPage(session, cours, week, "");

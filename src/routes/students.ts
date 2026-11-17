@@ -27,7 +27,7 @@ const resourceTimetableQuery = {
   required: ["kind", "name", "from", "to"],
   properties: {
     kind: { type: "string", enum: [...RESOURCE_KINDS] },
-    name: { type: "string", minLength: 1, maxLength: 200 },
+    name: { type: "string", maxLength: 200 },
     class: { type: "string", maxLength: 100 },
     from: { type: "integer", minimum: 0 },
     to: { type: "integer", minimum: 0 },

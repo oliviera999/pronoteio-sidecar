@@ -1,7 +1,7 @@
 import { HttpError } from "../errors.js";
 import { listOf } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
-import { normalise } from "../normalise.js";
+import { labelKey, normalise } from "../normalise.js";
 import { callFunction, isTabClosed } from "./functions.js";
 import { rosterEntries } from "./roster.js";
 import { stableId } from "./ids.js";
@@ -14,13 +14,23 @@ export const edtResources = (data, genre) => listOf(data?.listeRessources)
     .flatMap((group) => listOf(group?.liste))
     .filter((item) => typeof item?.N === "string" && Number(item?.G) === genre)
     .map((item) => ({ N: String(item.N), G: genre, L: String(item.L ?? "").trim() }));
-const find = (items, label, kind) => {
-    const found = items.filter((item) => normalise(item.L) === normalise(label));
+/** Resource of a label: same label (case and accents ignored), else same labelKey (brackets, punctuation ignored). */
+export const find = (items, label, kind) => {
+    let found = items.filter((item) => normalise(item.L) === normalise(label));
+    if (found.length === 0)
+        found = items.filter((item) => labelKey(item.L) !== "" && labelKey(item.L) === labelKey(label));
     if (found.length === 0)
         throw new HttpError(404, `${kind}_not_found`);
     if (found.length > 1)
         throw new HttpError(409, `${kind}_ambiguous`);
     return found[0];
+};
+/** Words designating the authenticated teacher. */
+export const SELF_NAMES = ["", "me", "moi"];
+/** The authenticated teacher (genre 3) as a resource. */
+const self = (session) => {
+    const me = session.user.resources[0];
+    return { N: me.id, G: GENRES.teacher, L: String(me.name ?? "") };
 };
 /** Resource of the request, with its session-bound identifier. */
 export const resolveResource = async (session, kind, label, className = "") => {
@@ -43,6 +53,11 @@ export const resolveResource = async (session, kind, label, className = "") => {
         if (found.length > 1)
             throw new HttpError(409, "student_ambiguous");
         return { N: found[0].pronoteId, G: GENRES.student, L: found[0].label };
+    }
+    if (kind === "teacher") {
+        const own = self(session);
+        if (SELF_NAMES.includes(label.trim().toLowerCase()) || normalise(label) === normalise(own.L))
+            return own;
     }
     const data = await callFunction(session, "timetableResources", {});
     return find(edtResources(data, GENRES[kind]), label, kind);
@@ -77,7 +92,9 @@ export const resourceTimetable = async (session, kind, label, from, to, classNam
             });
         }
         catch (error) {
-            return { ...empty, resource: { kind, label: resource.L }, reason: String(error?.message ?? error).slice(0, 300) };
+            const message = String(error?.message ?? error).slice(0, 300);
+            const denied = (kind === "class" || kind === "group") && /droits|insuffisant/i.test(message);
+            return { ...empty, resource: { kind, label: resource.L }, reason: denied ? "resource_not_accessible" : message };
         }
         for (const cours of listOf(data.ListeCours)) {
             const ref = lessonFromPage(session, cours, week, "");

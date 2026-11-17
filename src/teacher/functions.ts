@@ -126,6 +126,11 @@ export type FunctionKey =
   | "appointments"
   /** Pedagogical forum (ForumPedagogique, tab 275; read with fpcr_Sujets and fpcr_Posts only). */
   | "forum"
+  /* ---- Skills services and referential (0.8.0, not validated: skills tabs closed on the demo profile) ---- */
+  /** Services of the skills tab, as the "Saisie des évaluations" page lists them (ListeServices, tab 65). */
+  | "competencyServicesList"
+  /** Domains and items of the skills referential of a service (ListePiliers, tab 65). */
+  | "competencyReferential"
   /* ---- Student files (0.3.0): only the students of the classes taught, checked by Moodle ---- */
   /** File of one student: identity, image rights, guardians, health (FicheEleve, tab 105; not validated). */
   | "studentFile";
@@ -188,6 +193,8 @@ const defaults: Record<FunctionKey, TeacherFunction> = {
   appointments: { name: "RDV", onglet: 284 },
   forum: { name: "ForumPedagogique", onglet: 275 },
   studentFile: { name: "FicheEleve", onglet: 105 },
+  competencyServicesList: { name: "ListeServices", onglet: 65 },
+  competencyReferential: { name: "ListePiliers", onglet: 65 },
 };
 
 const load = (): Record<FunctionKey, TeacherFunction> => {

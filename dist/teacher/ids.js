@@ -28,6 +28,7 @@ const PREFIX = {
     meeting: "mt",
     appointment: "rdv",
     forumTopic: "ft",
+    referential: "rf",
 };
 const MAX_KEY = 80;
 const normaliseKey = (key) => key.normalize("NFC").replace(/\s+/g, " ").trim();

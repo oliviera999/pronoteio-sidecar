@@ -74,6 +74,9 @@ export type Assessment = {
 
 export type Period = { id: string; name: string; current: boolean };
 
+/** Tab a service comes from: grade entry (tab 23) and/or skills assessments (tab 65). */
+export type ServiceKind = "grades" | "competencies";
+
 export type Service = {
   id: string;
   name: string;
@@ -83,6 +86,8 @@ export type Service = {
   type: "class" | "group";
   /** Periods (stable ids) in which the service is graded: a group may be graded by semester only. */
   periods: string[];
+  /** 0.8.0: tabs listing the service (absent from GET /grades/context, whose services are the grade ones). */
+  kinds?: ServiceKind[];
 };
 
 export type GradeContext = {
@@ -409,15 +414,36 @@ export type Unavailable = { available: false; reason: string };
 
 export type CompetencyRating = { student: string; skill: string; level: number | null; observation: string };
 
+/**
+ * Skill of an assessment. 0.8.0: domainCode ("D2"), number ("4.1"), code ("D2/4.1"), cycle ("Cycle 3"); "name" no
+ * longer carries the number when Pronote writes it at the start of the label.
+ */
+export type CompetencySkill = {
+  id: string;
+  name: string;
+  domain: string;
+  domainCode: string;
+  number: string;
+  code: string;
+  cycle: string;
+};
+
 export type CompetencyItem = {
   id: string;
   title: string;
   date: number | null;
   publication: number | null;
+  /** 0.8.0: publication to parents (Pronote's date, else publication + parentsDelayDays), null when unknown. */
+  publicationParents: number | null;
+  coefficient: number | null;
+  /** 0.8.0: taken into account in the "bilans de cycle" (priseEnCompteDansBilan). */
+  cycleReport: boolean;
   subject: string;
   resourcename: string;
   type: "class" | "group";
-  skills: { id: string; name: string; domain: string }[];
+  /** 0.8.0: stable id of the service (s:…). */
+  serviceid: string;
+  skills: CompetencySkill[];
   ratings: CompetencyRating[];
 };
 
@@ -426,7 +452,23 @@ export type CompetencyOverview = {
   reason: string;
   levels: { code: number; name: string }[];
   period: { id: string; name: string };
+  /** 0.8.0: days between the publication to students and to parents, null when unknown. */
+  parentsDelayDays: number | null;
+  /** 0.8.0: services of the period (both tabs, filtered by classes) with their kinds. */
+  services: Service[];
   items: CompetencyItem[];
+};
+
+/** Item of the skills referential of a service (0.8.0). */
+export type ReferentialItem = {
+  id: string;
+  cycle: string;
+  domain: string;
+  domainCode: string;
+  element: string;
+  number: string;
+  code: string;
+  name: string;
 };
 
 export type ReportComments = {

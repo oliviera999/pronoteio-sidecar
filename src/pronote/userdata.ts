@@ -20,6 +20,9 @@ export type SchoolResource = { id: string; label: string; genre: 1 | 2; taught: 
  * "rights": raw "autorisations" object of ParametresUtilisateur (absences.*, cours.*, casierNumerique.*...), {} when
  * not received. "acquisitionLevels": raw listeNiveauxDAcquisitions (skills levels of the school), [] when not
  * received. "maxCommentLength": General.TailleMaxAppreciation (per kind), null when not received.
+ * "parentsDelayDays" (0.8.0): days between the publication to students and to parents ("publiée aux parents un jour
+ * après la publication aux élèves"), from the first numeric member of General whose name speaks of parents and of a
+ * delay (decalage, delai), null when not received. NOT VALIDATED: member name unknown, read defensively.
  */
 export type UserData = {
   resources: SchoolResource[];
@@ -28,9 +31,30 @@ export type UserData = {
   rights: Record<string, unknown>;
   acquisitionLevels: unknown[];
   maxCommentLength: unknown;
+  parentsDelayDays: number | null;
 };
 
-const EMPTY: UserData = { resources: [], maxScale: null, tabs: null, rights: {}, acquisitionLevels: [], maxCommentLength: null };
+const EMPTY: UserData = {
+  resources: [],
+  maxScale: null,
+  tabs: null,
+  rights: {},
+  acquisitionLevels: [],
+  maxCommentLength: null,
+  parentsDelayDays: null,
+};
+
+/** Delay of the publication to parents (days) in a General member of FonctionParametres, null when absent. */
+export const parentsDelayOf = (general: unknown): number | null => {
+  if (!general || typeof general !== "object") return null;
+  for (const [key, raw] of Object.entries(general as Record<string, unknown>)) {
+    if (!/parent/i.test(key) || !/decal|d[ée]lai/i.test(key)) continue;
+    const value = raw !== null && typeof raw === "object" && "V" in (raw as object) ? (raw as { V: unknown }).V : raw;
+    const number = Number.parseFloat(String(value ?? "").replace(",", "."));
+    if (Number.isFinite(number) && number >= 0 && number <= 60) return number;
+  }
+  return null;
+};
 
 /** Tab numbers of a listeOnglets tree ([{ G, Onglet: [{ G }...] }...]). */
 export const tabsOf = (value: unknown): number[] => {
@@ -71,6 +95,8 @@ const absorb = (data: UserData, answer: any): void => {
   const maxScale = parseNumber(content.General?.BaremeMaxDevoirs?.V);
   if (maxScale !== null) data.maxScale = maxScale;
   if (content.General?.TailleMaxAppreciation !== undefined) data.maxCommentLength = content.General.TailleMaxAppreciation;
+  const delay = parentsDelayOf(content.General);
+  if (delay !== null) data.parentsDelayDays = delay;
 };
 
 /** Session handle whose fetcher records the login-only data (read back with userData()). */

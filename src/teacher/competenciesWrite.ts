@@ -6,15 +6,32 @@
  * client code only. The sidecar reads the assessment before (ListeEvaluations, PageCompetencesParEvaluation), sends
  * the assessment with its state E (1 created, 2 modified, 3 deleted), the skills (relations ESI as read) and only the
  * students whose levels change, then reads again. A published assessment is visible to families.
+ *
+ * 0.8.0: the service may be a skills service of tab 65 only (group of a "collège" class), designated with or without
+ * the brackets of its group; a skill to create may be given by its referential id (rf:…), its code ("D2/4.1") or its
+ * label; "defaultLevel" gives a level to every student of the class or group for every skill (niveauAcquiDefaut, the
+ * "Niv." of the client's creation window), explicit ratings win; "cycleReport" sets priseEnCompteDansBilan.
  */
 import type { SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
 import { listOf, pronoteDate, pronoteNumber } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
 import { normalise, type CompetencyItem } from "../normalise.js";
-import { DEFAULT_LEVELS, isAccessDenied, itemFromList, levelsOf, ratingsFromPage } from "./competencies.js";
-import { call, loadServices, pickPeriod, ref, resourceOf, serviceKey, type Element } from "./grades.js";
-import { resolve, stableId, stableIds } from "./ids.js";
+import {
+  competencyElement,
+  DEFAULT_LEVELS,
+  findReferentialItem,
+  isAccessDenied,
+  itemFromList,
+  levelsOf,
+  loadReferential,
+  parentsDelayOf,
+  ratingsFromPage,
+  resourceRefOf,
+  type SessionReferentialItem,
+} from "./competencies.js";
+import { call, loadAllServices, pickPeriod, ref, resolveService, resourceOf, resourceType, serviceIdsOf, type Element } from "./grades.js";
+import { stableId } from "./ids.js";
 import { rosterEntries } from "./roster.js";
 import { sendWrite } from "./write.js";
 
@@ -42,8 +59,21 @@ export type CompetencyWrite = {
   skills?: string[];
   ratings?: RatingChange[];
   delete?: boolean;
+  /** 0.8.0: taken into account in the "bilans de cycle"; absent: true at creation, unchanged otherwise. */
+  cycleReport?: boolean;
+  /** 0.8.0: level code given to every student for every skill of the assessment, explicit ratings win. */
+  defaultLevel?: number;
   dryRun: boolean;
   force?: boolean;
+};
+
+/** Skill wanted in the assessment: an existing skill of the assessment or a skill of the referential to add. */
+export type WantedSkill = {
+  /** Value given in "skills" (stable id, referential id, code or label). */
+  key: string;
+  existing: any | null;
+  relation: Record<string, unknown>;
+  item: SessionReferentialItem | null;
 };
 
 export type CompetencyWriteResult = {
@@ -53,6 +83,8 @@ export type CompetencyWriteResult = {
   written: boolean;
   dryRun: boolean;
   validated: false;
+  /** 0.8.0: days between the publication to students and to parents, null when unknown. */
+  parentsDelayDays: number | null;
 };
 
 /** Pronote element of a level code ({N, G, L} from the school's list, or {G, L} from the client enumeration). */
@@ -75,6 +107,54 @@ const studentsOf = (page: Record<string, any> | null, roster: { pronoteId: strin
   return fromPage.length ? fromPage : roster.map((item) => ({ N: item.pronoteId, L: item.label }));
 };
 
+/**
+ * Skills wanted in the assessment, resolved against the existing skills of the assessment (stable ids), then the
+ * referential of the service (rf: id, code "D2/4.1" or label), then a raw relation ESI identifier ("15#…", legacy).
+ * HTTP 404 skill_not_found:<value> otherwise.
+ */
+export const resolveSkills = (
+  wanted: string[],
+  existing: Element | null,
+  skillIds: Map<string, string>,
+  referential: () => SessionReferentialItem[],
+): WantedSkill[] => {
+  const byStableId = new Map<string, any>();
+  listOf<any>(existing?.listeCompetences).forEach((skill) => {
+    const id = skillIds.get(String(skill?.relationESI?.V?.N ?? skill?.N ?? ""));
+    if (id) byStableId.set(id, skill);
+  });
+  return wanted.map((key) => {
+    const skill = byStableId.get(key);
+    if (skill) return { key, existing: skill, relation: skill.relationESI?.V ? ref(skill.relationESI.V) : { N: skill.N }, item: null };
+    const item = findReferentialItem(key, referential());
+    if (item) {
+      const same = [...byStableId.values()].find((s) => String(s?.relationESI?.V?.N ?? "") === item.relation);
+      if (same) return { key, existing: same, relation: ref(same.relationESI.V), item };
+      return { key, existing: null, relation: { N: item.relation }, item };
+    }
+    if (/^\d+#/.test(key)) return { key, existing: null, relation: { N: key }, item: null };
+    throw new HttpError(404, `skill_not_found:${key}`);
+  });
+};
+
+/** Ratings to send: explicit ones, plus the default level for every student and skill they leave out. */
+export const expandRatings = (
+  ratings: RatingChange[],
+  defaultLevel: number | undefined,
+  students: { N: string; L: string }[],
+  skills: string[],
+): RatingChange[] => {
+  if (defaultLevel === undefined || defaultLevel === null) return ratings;
+  const given = new Set(ratings.map((rating) => `${normalise(rating.student)}|${rating.skill}`));
+  const result = [...ratings];
+  for (const student of students) {
+    for (const skill of skills) {
+      if (!given.has(`${normalise(student.L)}|${skill}`)) result.push({ student: student.L, skill, level: defaultLevel });
+    }
+  }
+  return result;
+};
+
 /** SaisieEvaluations JSON for one assessment (creation, modification or deletion). */
 export const buildCompetencyRequest = (
   session: SessionHandle,
@@ -85,50 +165,52 @@ export const buildCompetencyRequest = (
   skillIds: Map<string, string>,
   students: { N: string; L: string }[],
   write: CompetencyWrite,
+  resolved?: WantedSkill[],
 ): Record<string, unknown> => {
-  const skills = listOf<any>(existing?.listeCompetences);
-  const byStableId = new Map<string, any>();
-  skills.forEach((skill) => {
-    const key = String(skill?.relationESI?.V?.N ?? skill?.N ?? "");
-    const id = skillIds.get(key);
-    if (id) byStableId.set(id, skill);
-  });
-  const wantedSkills = write.skills ?? [...byStableId.keys()];
-  const skillMembers = wantedSkills.map((id, index) => {
-    const skill = byStableId.get(id);
+  const wanted = resolved ?? resolveSkills(write.skills ?? [...skillIds.values()], existing, skillIds, () => []);
+  const kept = write.skills ? wanted : resolveSkills([...skillIds.values()], existing, skillIds, () => []);
+  const skillMembers = kept.map(({ existing: skill, relation }, index) => {
     if (skill) {
       return {
         N: skill.N,
         E: STATE_MODIFIED,
         relationESI: skill.relationESI?.V ? ref(skill.relationESI.V) : undefined,
         coefficient: skill.coefficient ?? number(1),
-        niveauAcquiDefaut: skill.niveauAcquiDefaut,
+        niveauAcquiDefaut: write.defaultLevel !== undefined ? levelElement(session, write.defaultLevel) : skill.niveauAcquiDefaut,
         ordre: index,
         palier: skill.palier,
       };
     }
-    // Creation from a relation ESI identifier of the school's grid (not a stable id).
-    return { N: 0, E: STATE_CREATED, relationESI: { N: id }, coefficient: number(1), ordre: index };
+    return {
+      N: 0,
+      E: STATE_CREATED,
+      relationESI: relation,
+      coefficient: number(1),
+      ...(write.defaultLevel !== undefined ? { niveauAcquiDefaut: levelElement(session, write.defaultLevel) } : {}),
+      ordre: index,
+    };
   });
   const relationOf = (skillId: string): Record<string, unknown> => {
-    const skill = byStableId.get(skillId);
-    if (skill?.relationESI?.V) return ref(skill.relationESI.V);
-    if (wantedSkills.includes(skillId)) return { N: skillId };
+    const found = kept.find((skill) => skill.key === skillId)
+      ?? kept.find((skill) => skill.existing && skillIds.get(String(skill.existing?.relationESI?.V?.N ?? skill.existing?.N ?? "")) === skillId)
+      ?? kept.find((skill) => skill.item && findReferentialItem(skillId, [skill.item]));
+    if (found) return found.relation;
     throw new HttpError(404, `skill_not_found:${skillId}`);
   };
   const byStudent = new Map<string, RatingChange[]>();
-  for (const rating of write.ratings ?? []) {
+  const ratings = write.delete ? [] : expandRatings(write.ratings ?? [], write.defaultLevel, students, kept.map((skill) => skill.key));
+  for (const rating of ratings) {
     const key = normalise(rating.student);
     byStudent.set(key, [...(byStudent.get(key) ?? []), rating]);
   }
-  const studentMembers = [...byStudent.entries()].map(([key, ratings]) => {
+  const studentMembers = [...byStudent.entries()].map(([key, items]) => {
     const student = students.find((item) => normalise(item.L) === key);
-    if (!student) throw new HttpError(404, `student_not_found:${ratings[0].student}`);
+    if (!student) throw new HttpError(404, `student_not_found:${items[0].student}`);
     return {
       N: student.N,
       G: GENRE_STUDENT,
       E: STATE_MODIFIED,
-      listeCompetences: ratings.map((rating) => ({
+      listeCompetences: items.map((rating) => ({
         relationESI: relationOf(rating.skill),
         niveauDAcquisition: levelElement(session, rating.level),
         observation: rating.observation ?? "",
@@ -154,7 +236,7 @@ export const buildCompetencyRequest = (
           : pronoteDate(new Date(write.publication * 1000)),
     Descriptif: { _T: TYPE_HTML, V: write.description ?? String(existing?.descriptif?.V ?? "") },
     coefficient: write.coefficient !== undefined ? number(write.coefficient) : existing?.coefficient ?? number(1),
-    priseEnCompteDansBilan: existing?.priseEnCompteDansBilan ?? true,
+    priseEnCompteDansBilan: write.cycleReport ?? existing?.priseEnCompteDansBilan ?? true,
     listeCompetences: write.delete ? [] : skillMembers,
     listeEleves: write.delete ? [] : studentMembers,
   };
@@ -164,13 +246,18 @@ export const buildCompetencyRequest = (
 /* non validé sur la démo : onglet 65 fermé au profil de démonstration, écritures ignorées */
 export const writeCompetency = async (session: SessionHandle, write: CompetencyWrite): Promise<CompetencyWriteResult> => {
   const picked = await pickPeriod(session, write.period);
-  const services = await loadServices(session, picked.period);
-  const service = resolve("service", write.service, services, serviceKey);
-  const resource = resourceOf(service);
-  const resourcename = String(resource?.L ?? "");
-  const type = userData(session).resources.find((item) => item.label === resourcename)?.genre === 2 ? "group" : "class";
-  const resourceRef = resource ? { ...resource, G: type === "group" ? 2 : 1 } : undefined;
+  const all = await loadAllServices(session, picked.period);
+  const entry = resolveService(write.service, all);
+  const serviceid = serviceIdsOf(all)[all.indexOf(entry)];
+  const service = competencyElement(entry);
+  const resourcename = String(resourceOf(service)?.L ?? "");
+  const type = entry.grade
+    ? userData(session).resources.find((item) => item.label === resourcename)?.genre === 2 ? "group" : "class"
+    : resourceType(session, resourcename, true);
+  const resourceRef = resourceRefOf(service, type);
   const subject = String(service.matiere?.V?.L ?? service.L ?? "");
+  const parentsDelay = parentsDelayOf(session);
+  const item = (evaluation: Element) => itemFromList(evaluation, subject, resourcename, type, serviceid, parentsDelay);
   let list: Record<string, any>;
   try {
     list = await call(session, "competencyList", {
@@ -189,7 +276,7 @@ export const writeCompetency = async (session: SessionHandle, write: CompetencyW
   let page: Record<string, any> | null = null;
   if (write.assessment) {
     for (const evaluation of evaluations) {
-      const parsed = itemFromList(evaluation, subject, resourcename, type);
+      const parsed = item(evaluation);
       if (parsed.item.id === write.assessment) {
         existing = evaluation;
         skillIds = parsed.skillIds;
@@ -209,26 +296,56 @@ export const writeCompetency = async (session: SessionHandle, write: CompetencyW
     throw new HttpError(400, "title_and_date_required");
   }
   if (write.delete && !existing) throw new HttpError(400, "delete_without_id");
-  const roster = resourceRef ? await rosterEntries(session, stableId(type, resourcename)) : [];
+  const roster = resourceRef && (page === null || write.defaultLevel !== undefined)
+    ? await rosterEntries(session, stableId(type, resourcename))
+    : [];
   const students = studentsOf(page, roster);
-  const request = buildCompetencyRequest(session, service, resourceRef, picked.period, existing, skillIds, students, write);
+  let referential: SessionReferentialItem[] | null = null;
+  const referentialOf = () => (referential ??= []);
+  const wantedKeys = write.skills ?? [...skillIds.values()];
+  const needsReferential = !write.delete && wantedKeys.some((key) => ![...skillIds.values()].includes(key) && !/^\d+#/.test(key));
+  if (needsReferential) referential = await loadReferential(session, service, resourceRef, list);
+  const resolved = write.delete ? [] : resolveSkills(wantedKeys, existing, skillIds, referentialOf);
+  const request = buildCompetencyRequest(session, service, resourceRef, picked.period, existing, skillIds, students, write, resolved);
 
   const plannedTitle = write.title ?? before?.title ?? "";
   const plannedDate = write.date ?? before?.date ?? null;
+  const plannedPublication = write.publication === undefined ? before?.publication ?? null : write.publication;
+  const plannedSkills = resolved.map((skill) => {
+    const kept = before?.skills.find((s) => s.id === skill.key || (skill.existing && s.name === String(skill.existing?.L ?? "").trim()));
+    if (kept) return kept;
+    const ref = skill.item;
+    return {
+      id: skill.key,
+      name: ref?.name ?? skill.key,
+      domain: ref?.domain ?? "",
+      domainCode: ref?.domainCode ?? "",
+      number: ref?.number ?? "",
+      code: ref?.code ?? "",
+      cycle: ref?.cycle ?? "",
+    };
+  });
   const planned: CompetencyItem | null = write.delete
     ? null
     : {
         id: before?.id ?? stableId("competency", `${plannedDate ?? 0}|${resourcename}|${plannedTitle}`),
         title: plannedTitle,
         date: plannedDate,
-        publication: write.publication === undefined ? before?.publication ?? null : write.publication,
+        publication: plannedPublication,
+        publicationParents: plannedPublication !== null && parentsDelay !== null
+          ? plannedPublication + Math.round(parentsDelay * 86400)
+          : before?.publicationParents ?? null,
+        coefficient: write.coefficient ?? before?.coefficient ?? (existing ? null : 1),
+        cycleReport: write.cycleReport ?? before?.cycleReport ?? true,
         subject,
         resourcename,
         type,
-        skills: before?.skills.filter((skill) => (write.skills ?? before.skills.map((s) => s.id)).includes(skill.id)) ?? [],
-        ratings: mergeRatings(before?.ratings ?? [], write.ratings ?? []),
+        serviceid,
+        skills: plannedSkills,
+        ratings: mergeRatings(before?.ratings ?? [], expandRatings(write.ratings ?? [], write.defaultLevel, students, resolved.map((s) => s.key))),
       };
-  if (write.dryRun) return { before, after: planned, request, written: false, dryRun: true, validated: false };
+  const common = { request, validated: false as const, parentsDelayDays: parentsDelay };
+  if (write.dryRun) return { before, after: planned, written: false, dryRun: true, ...common };
 
   await sendWrite(session, "competencySave", request, write.force === true);
   const reread = listOf<Element>((await call(session, "competencyList", {
@@ -236,13 +353,13 @@ export const writeCompetency = async (session: SessionHandle, write: CompetencyW
     ...(resourceRef ? { ressource: ref(resourceRef) } : {}),
     periode: ref(picked.period),
   }))?.listeEvaluations);
-  const found = reread.map((item) => itemFromList(item, subject, resourcename, type)).find((parsed) => parsed.item.id === (planned?.id ?? before?.id));
+  const found = reread.map((evaluation) => item(evaluation)).find((parsed) => parsed.item.id === (planned?.id ?? before?.id));
   if (write.delete) {
     if (found) throw new HttpError(502, "assessment_not_deleted");
-    return { before, after: null, request, written: true, dryRun: false, validated: false };
+    return { before, after: null, written: true, dryRun: false, ...common };
   }
   if (!found) throw new HttpError(502, "assessment_not_saved");
-  const evaluation = reread.find((item) => itemFromList(item, subject, resourcename, type).item.id === found.item.id)!;
+  const evaluation = reread.find((candidate) => item(candidate).item.id === found.item.id)!;
   const afterPage = await call(session, "competencyPage", {
     evaluation: ref(evaluation),
     ...(evaluation.devoir?.V?.N ? { devoir: ref(evaluation.devoir.V) } : {}),
@@ -250,7 +367,7 @@ export const writeCompetency = async (session: SessionHandle, write: CompetencyW
     periodeEvaluation: ref(picked.period),
   });
   found.item.ratings = ratingsFromPage(afterPage, found.skillIds);
-  return { before, after: found.item, request, written: true, dryRun: false, validated: false };
+  return { before, after: found.item, written: true, dryRun: false, ...common };
 };
 
 /** Ratings as they should read after the write: requested levels replace the ones read. */
