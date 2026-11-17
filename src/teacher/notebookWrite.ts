@@ -20,7 +20,7 @@ import { requireFunction } from "./functions.js";
 import { loadPeriods, periodKey, type Element } from "./grades.js";
 import { resolve } from "./ids.js";
 import { lessonPage, notebookFromPage } from "./notebook.js";
-import { lessons, type LessonRef } from "./timetable.js";
+import { lessons, pickLesson, rebaseElementId, type LessonRef } from "./timetable.js";
 
 const STATE_CREATED = 1;
 const STATE_MODIFIED = 2;
@@ -116,16 +116,24 @@ export const lessonDateOf = (lessonId: string): Date | null => {
   return new Date(Number(y), Number(m) - 1, Number(d), Number(h), Number(i), 0);
 };
 
-/** Lesson of the teacher matching a stable id (read on its day), or HTTP 404 lesson_not_found. */
+/**
+ * Lesson of the teacher matching a stable id (read on its day, see pickLesson): exact id, or base id of duplicated
+ * lessons resolved to the only lesson held. HTTP 404 lesson_not_found, HTTP 409 lesson_ambiguous:<ids>.
+ */
 export const findLesson = async (session: SessionHandle, lessonId: string): Promise<LessonRef> => {
   const date = lessonDateOf(lessonId);
   if (!date) throw new HttpError(400, "invalid_lesson_id");
   const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const next = new Date(day.getTime() + 24 * 3600 * 1000);
-  const found = (await lessons(session, day, next)).find((item) => item.lesson.id === lessonId);
-  if (!found) throw new HttpError(404, "lesson_not_found");
-  return found;
+  return pickLesson(await lessons(session, day, next), lessonId);
 };
+
+/** Entry whose content and homework ids are rebuilt on the resolved lesson (rebaseElementId). */
+export const rebaseEntry = (lesson: TeacherLesson, entry: WriteEntry): WriteEntry => ({
+  ...entry,
+  ...(entry.contents ? { contents: entry.contents.map((item) => ({ ...item, id: rebaseElementId(lesson, item.id) })) } : {}),
+  ...(entry.homework ? { homework: entry.homework.map((item) => ({ ...item, id: rebaseElementId(lesson, item.id) })) } : {}),
+});
 
 export const categoriesOf = (settings: Record<string, any>): Category[] =>
   listOf<any>(settings?.ListeCategories)
@@ -420,6 +428,7 @@ export const writeNotebook = async (
   options: WriteOptions,
 ): Promise<NotebookWriteResult> => {
   const lessonRef = await findLesson(session, lessonId);
+  entry = rebaseEntry(lessonRef.lesson, entry);
   const page = lessonRef.lesson.hasNotebook ? await lessonPage(session, lessonRef) : await lessonPage(session, lessonRef);
   const before = notebookFromPage(session, lessonRef, page);
   if (before.locked) throw new HttpError(409, "notebook_locked");
@@ -462,7 +471,7 @@ export const writeNotebook = async (
       throw new HttpError(409, `pronote_refused:${[report.titre_Messages_Erreur, ...messages].filter(Boolean).join(" : ")}`);
     }
   }
-  const reread = await findLesson(session, lessonId);
+  const reread = await findLesson(session, lessonRef.lesson.id);
   const after = notebookFromPage(session, reread, await lessonPage(session, reread));
   verifyWritten(after, entry);
   return { lesson: reread.lesson, before, after, request, written: true, dryRun: false };

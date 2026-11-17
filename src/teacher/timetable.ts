@@ -9,7 +9,7 @@ import { translateToWeekNumber, type SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
 import { answerData, callPronote } from "../pronote/request.js";
 import { listOf, parsePronoteDate, pronoteDate } from "../pronote/encoding.js";
-import { normalise, seconds, type TeacherLesson } from "../normalise.js";
+import { matchesLabels, seconds, type TeacherLesson } from "../normalise.js";
 import { requireFunction } from "./functions.js";
 import { stableId } from "./ids.js";
 
@@ -88,8 +88,9 @@ export const lessonFromPage = (session: SessionHandle, cours: any, week: number,
   const subject = labels([GENRE_SUBJECT])[0] ?? "";
   const groups = labels([GENRE_CLASS, GENRE_GROUP, GENRE_CLASS_PART]);
   const teachers = labels([GENRE_TEACHER]);
+  const id = lessonIdFor(start, groups, subject);
   const lesson: TeacherLesson = {
-    id: lessonIdFor(start, groups, subject),
+    id,
     subject,
     teacher: teachers.length ? teachers.join(", ") : (fallbackTeacher ?? session.user.name),
     rooms: labels([GENRE_ROOM]),
@@ -103,6 +104,8 @@ export const lessonFromPage = (session: SessionHandle, cours: any, week: number,
     attendanceDone: cours.AppelFait === true,
     editable: cours.modifiable === true,
     roomsEditable: cours.modifiable === true && cours.ressourcesModifiables === true,
+    baseId: id,
+    duplicates: 1,
   };
   const notebook = cours.cahierDeTextes?.V?.N;
   const rooms = contents
@@ -176,15 +179,94 @@ export const lessons = async (session: SessionHandle, from: Date, to: Date): Pro
       if (start >= from.getTime() && start < to.getTime()) found.push(ref);
     }
   }
-  return found.sort((a, b) => a.lesson.start - b.lesson.start || a.lesson.id.localeCompare(b.lesson.id));
+  return discriminate(found).sort((a, b) => a.lesson.start - b.lesson.start || a.lesson.id.localeCompare(b.lesson.id));
 };
 
-/** Keeps the lessons of the given class or group labels (empty: all), compared without case nor accents. */
-export const filterByGroups = <T extends { lesson: { groups: string[] } }>(items: T[], classes: string[]): T[] => {
-  const wanted = classes.map(normalise).filter(Boolean);
-  if (wanted.length === 0) return items;
-  return items.filter((item) => item.lesson.groups.some((group) => wanted.includes(normalise(group))));
+/** Room part of a discriminated lesson id: room labels, spaces collapsed, "|" replaced, joined with "+". */
+export const roomKey = (rooms: string[]): string =>
+  rooms.map((room) => room.normalize("NFC").replace(/\s+/g, " ").replace(/\|/g, "/").trim()).filter(Boolean).join("+");
+
+/**
+ * Deterministic order of the lessons sharing a stable id: lesson held first (not cancelled), then by end, rooms,
+ * label and status. Pronote ids are encrypted per session and never used for the order, except to break a complete
+ * tie (identical lessons in every visible field).
+ */
+const compareDuplicates = (a: LessonRef, b: LessonRef): number =>
+  Number(a.lesson.cancelled) - Number(b.lesson.cancelled)
+  || a.lesson.end - b.lesson.end
+  || roomKey(a.lesson.rooms).localeCompare(roomKey(b.lesson.rooms))
+  || a.label.localeCompare(b.label)
+  || a.lesson.status.localeCompare(b.lesson.status)
+  || a.pronoteId.localeCompare(b.pronoteId);
+
+/**
+ * Unique ids when several lessons share the same stable id (same minute, classes or groups and subject: the cancelled
+ * lesson and the moved one after a change of room, or a split lesson). A lesson alone keeps its id exactly; each
+ * duplicate gets "<id>|r:<rooms>" when its rooms are given and differ from the other duplicates', else
+ * "<id>|n:<rank>" (rank in compareDuplicates order, from 1). Every lesson gets baseId and duplicates. Mutates and
+ * returns the refs.
+ */
+export const discriminate = (refs: LessonRef[]): LessonRef[] => {
+  const groups = new Map<string, LessonRef[]>();
+  for (const ref of refs) {
+    const base = ref.lesson.baseId || ref.lesson.id;
+    const list = groups.get(base) ?? [];
+    list.push(ref);
+    groups.set(base, list);
+  }
+  for (const [base, list] of groups) {
+    for (const ref of list) {
+      ref.lesson.baseId = base;
+      ref.lesson.duplicates = list.length;
+      ref.lesson.id = base;
+    }
+    if (list.length < 2) continue;
+    const rooms = new Map<string, number>();
+    for (const ref of list) {
+      const key = roomKey(ref.lesson.rooms);
+      rooms.set(key, (rooms.get(key) ?? 0) + 1);
+    }
+    [...list].sort(compareDuplicates).forEach((ref, index) => {
+      const key = roomKey(ref.lesson.rooms);
+      ref.lesson.id = key !== "" && rooms.get(key) === 1 ? `${base}|r:${key}` : `${base}|n:${index + 1}`;
+    });
+  }
+  return refs;
 };
+
+/**
+ * Lesson matching a stable id among the lessons of its day: the exact id (discriminated or not); else, for a base id
+ * shared by several lessons, the only one that is not cancelled. HTTP 404 lesson_not_found when none matches, HTTP 409
+ * "lesson_ambiguous:<id> ; <id>…" (full ids of the candidates) when several remain.
+ */
+export const pickLesson = (refs: LessonRef[], lessonId: string): LessonRef => {
+  const exact = refs.find((item) => item.lesson.id === lessonId);
+  if (exact) return exact;
+  const candidates = refs.filter((item) => item.lesson.baseId === lessonId);
+  if (candidates.length === 0) throw new HttpError(404, "lesson_not_found");
+  const held = candidates.filter((item) => !item.lesson.cancelled);
+  if (held.length === 1) return held[0];
+  throw new HttpError(409, `lesson_ambiguous:${candidates.map((item) => item.lesson.id).join(" ; ")}`);
+};
+
+/**
+ * Element id (content "…|c1|Title" or homework "…|h1") rebuilt on the resolved lesson: an id built on the base id
+ * of a duplicated lesson (before 0.7.0, or copied from the base id) is moved onto the full id. Ids of another
+ * duplicate ("<base>|r:…", "<base>|n:…") and ids of other lessons are left as they are (then not found).
+ */
+export const rebaseElementId = (lesson: TeacherLesson, id: string | null | undefined): string | null | undefined => {
+  if (!id || lesson.duplicates < 2 || lesson.id === lesson.baseId) return id;
+  if (id.startsWith(`${lesson.id}|`) || !id.startsWith(`${lesson.baseId}|`)) return id;
+  const rest = id.slice(lesson.baseId.length + 1);
+  return /^(c\d+|h\d+)(\||$)/.test(rest) ? `${lesson.id}|${rest}` : id;
+};
+
+/**
+ * Keeps the lessons of the given class or group labels (empty: all): labelMatches() rule, without case, accents nor
+ * brackets, prefix at a word boundary accepted ("T06AP" keeps "[T06AP ORIENT]", "1G" keeps "1G3").
+ */
+export const filterByGroups = <T extends { lesson: { groups: string[] } }>(items: T[], classes: string[]): T[] =>
+  items.filter((item) => matchesLabels(item.lesson.groups, classes));
 
 /** Pronote date range members, for the functions that take dateDebut / dateFin. */
 export const dateRange = (from: Date, to: Date) => ({ dateDebut: pronoteDate(from), dateFin: pronoteDate(to) });

@@ -9,7 +9,7 @@ import { ServerSideError } from "pawnote";
 import { answerData, callPronote } from "../pronote/request.js";
 import { listOf, parsePronoteDate } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
-import { normalise, plainText, seconds } from "../normalise.js";
+import { matchesLabels, normalise, plainText, seconds } from "../normalise.js";
 import { requireFunction } from "./functions.js";
 import { call, loadPeriods, loadServices, resourceOf } from "./grades.js";
 import { stableId } from "./ids.js";
@@ -28,10 +28,7 @@ const number = (value) => {
 };
 const isAccessDenied = (error) => error instanceof ServerSideError && /droits|insuffisant/i.test(error.message);
 const inRange = (time, from, to) => time * 1000 >= from.getTime() && time * 1000 < to.getTime();
-const matchesClasses = (groups, classes) => {
-    const wanted = classes.map(normalise).filter(Boolean);
-    return wanted.length === 0 || groups.some((group) => wanted.includes(normalise(group)));
-};
+const matchesClasses = (groups, classes) => matchesLabels(groups, classes);
 /** Assessments flagged in the notebook of the lessons in range. */
 export const fromNotebook = async (session, from, to, classes) => {
     const { items } = await notebook(session, from, to, classes, false);

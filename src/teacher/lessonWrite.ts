@@ -116,7 +116,7 @@ export const changeLesson = async (session: SessionHandle, lessonId: string, cha
   }
   const day = new Date(ref.lesson.start * 1000);
   const start = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-  const reread = (await lessons(session, start, new Date(start.getTime() + 24 * 3600 * 1000))).find((item) => item.lesson.id === lessonId);
+  const reread = (await lessons(session, start, new Date(start.getTime() + 24 * 3600 * 1000))).find((item) => item.lesson.id === ref.lesson.id);
   if (!reread) throw new HttpError(502, "lesson_not_found_after_write");
   if (rooms && rooms.some((room) => !reread.lesson.rooms.some((label) => normalise(label) === normalise(room.L)))) {
     throw new HttpError(502, "lesson_not_saved");

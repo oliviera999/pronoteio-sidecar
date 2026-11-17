@@ -25,6 +25,8 @@ const ref = (locked = false): LessonRef => ({
     attendanceDone: false,
     editable: false,
     roomsEditable: false,
+    baseId: "l:2026-11-06 09:00|6A|MATHÉMATIQUES",
+    duplicates: 1,
   },
   pronoteId: "29#x1",
   week: 10,

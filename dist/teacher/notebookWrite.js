@@ -20,7 +20,7 @@ import { requireFunction } from "./functions.js";
 import { loadPeriods, periodKey } from "./grades.js";
 import { resolve } from "./ids.js";
 import { lessonPage, notebookFromPage } from "./notebook.js";
-import { lessons } from "./timetable.js";
+import { lessons, pickLesson, rebaseElementId } from "./timetable.js";
 const STATE_CREATED = 1;
 const STATE_MODIFIED = 2;
 const STATE_DELETED = 3;
@@ -47,18 +47,24 @@ export const lessonDateOf = (lessonId) => {
     const [, y, m, d, h, i] = match;
     return new Date(Number(y), Number(m) - 1, Number(d), Number(h), Number(i), 0);
 };
-/** Lesson of the teacher matching a stable id (read on its day), or HTTP 404 lesson_not_found. */
+/**
+ * Lesson of the teacher matching a stable id (read on its day, see pickLesson): exact id, or base id of duplicated
+ * lessons resolved to the only lesson held. HTTP 404 lesson_not_found, HTTP 409 lesson_ambiguous:<ids>.
+ */
 export const findLesson = async (session, lessonId) => {
     const date = lessonDateOf(lessonId);
     if (!date)
         throw new HttpError(400, "invalid_lesson_id");
     const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const next = new Date(day.getTime() + 24 * 3600 * 1000);
-    const found = (await lessons(session, day, next)).find((item) => item.lesson.id === lessonId);
-    if (!found)
-        throw new HttpError(404, "lesson_not_found");
-    return found;
+    return pickLesson(await lessons(session, day, next), lessonId);
 };
+/** Entry whose content and homework ids are rebuilt on the resolved lesson (rebaseElementId). */
+export const rebaseEntry = (lesson, entry) => ({
+    ...entry,
+    ...(entry.contents ? { contents: entry.contents.map((item) => ({ ...item, id: rebaseElementId(lesson, item.id) })) } : {}),
+    ...(entry.homework ? { homework: entry.homework.map((item) => ({ ...item, id: rebaseElementId(lesson, item.id) })) } : {}),
+});
 export const categoriesOf = (settings) => listOf(settings?.ListeCategories)
     .filter((item) => typeof item?.N === "string")
     .map((item) => ({ N: String(item.N), L: String(item.L ?? "").trim(), G: Number(item.G ?? 0) }));
@@ -332,6 +338,7 @@ export const verifyWritten = (after, entry) => {
 /** Reads, builds, writes (unless dryRun) and re-reads the notebook entry of a lesson. */
 export const writeNotebook = async (session, lessonId, entry, options) => {
     const lessonRef = await findLesson(session, lessonId);
+    entry = rebaseEntry(lessonRef.lesson, entry);
     const page = lessonRef.lesson.hasNotebook ? await lessonPage(session, lessonRef) : await lessonPage(session, lessonRef);
     const before = notebookFromPage(session, lessonRef, page);
     if (before.locked)
@@ -374,7 +381,7 @@ export const writeNotebook = async (session, lessonId, entry, options) => {
             throw new HttpError(409, `pronote_refused:${[report.titre_Messages_Erreur, ...messages].filter(Boolean).join(" : ")}`);
         }
     }
-    const reread = await findLesson(session, lessonId);
+    const reread = await findLesson(session, lessonRef.lesson.id);
     const after = notebookFromPage(session, reread, await lessonPage(session, reread));
     verifyWritten(after, entry);
     return { lesson: reread.lesson, before, after, request, written: true, dryRun: false };
