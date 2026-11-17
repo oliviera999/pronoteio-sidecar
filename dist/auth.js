@@ -1,6 +1,30 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { config } from "./config.js";
 import { HttpError } from "./errors.js";
+/**
+ * Token of the requests made inside the process by the asynchronous jobs (app.inject, P4): random at each start,
+ * never sent outside, never logged. A request carrying it skips the signature check.
+ */
+export const INTERNAL_TOKEN = randomBytes(32).toString("hex");
+export const INTERNAL_HEADER = "x-pronoteio-internal";
+/** Second deliveries of the same request by the web server (P4): delay after the first one, to size the proxy timeout. */
+const duplicateDelays = [];
+export const proxyStats = (now = Date.now()) => {
+    while (duplicateDelays.length > 0 && duplicateDelays[0].at < now - 7 * 24 * 3600 * 1000)
+        duplicateDelays.shift();
+    const delays = duplicateDelays.map((item) => item.delay).sort((a, b) => a - b);
+    return {
+        /** Second deliveries during the last 7 days (answered with the answer of the first). */
+        duplicates: delays.length,
+        /** Of which while the first delivery was still running. */
+        whileRunning: duplicateDelays.filter((item) => item.running).length,
+        /** Median and shortest delay between the two deliveries (ms): about the timeout of the web server in front. */
+        medianDelayMs: delays.length ? delays[Math.floor(delays.length / 2)] : null,
+        minDelayMs: delays.length ? delays[0] : null,
+        lastAt: duplicateDelays.length ? new Date(duplicateDelays[duplicateDelays.length - 1].at).toISOString() : null,
+    };
+};
+const arrivals = new Map();
 /** Signatures already seen during the skew window (replay protection). */
 const seen = new Map();
 const purgeSeen = (now) => {
@@ -114,12 +138,21 @@ export const registerAuth = (app) => {
     app.addHook("preValidation", async (request, reply) => {
         if (request.routeOptions.url === "/health")
             return;
+        const internal = request.headers[INTERNAL_HEADER];
+        if (typeof internal === "string" && internal.length === INTERNAL_TOKEN.length
+            && timingSafeEqual(Buffer.from(internal), Buffer.from(INTERNAL_TOKEN))) {
+            request.internal = true;
+            return;
+        }
         const signature = checkSignature(request);
         if (recordSignature(signature)) {
+            arrivals.set(signature, Date.now());
             let resolve;
             inflight.set(signature, new Promise((done) => (resolve = done)));
             request.inflightResolve = (answer) => {
                 inflight.delete(signature);
+                if (arrivals.size > MAX_KEPT_ANSWERS * 4)
+                    arrivals.delete(arrivals.keys().next().value);
                 keepAnswer(signature, answer);
                 resolve(answer);
             };
@@ -130,8 +163,13 @@ export const registerAuth = (app) => {
         if (!running)
             throw new HttpError(401, "replayed_request");
         request.log.info({ method: request.method }, "same request delivered again: answered with the result of the first delivery");
+        const first = arrivals.get(signature);
+        if (first !== undefined)
+            duplicateDelays.push({ at: Date.now(), delay: Date.now() - first, running: inflight.has(signature) });
+        if (duplicateDelays.length > 1000)
+            duplicateDelays.shift();
         const answer = await running;
-        reply.code(answer.status).headers(answer.headers);
+        reply.code(answer.status).headers(answer.headers).header("x-pronoteio-duplicate", "shared");
         return reply.send(answer.payload);
     });
     // Answer of a request (success or error): shared with the deliveries waiting for it, kept for late ones.

@@ -1,8 +1,9 @@
 import "./time.js";
 import Fastify, { type FastifyInstance } from "fastify";
-import { registerAuth } from "./auth.js";
+import { INTERNAL_HEADER, INTERNAL_TOKEN, registerAuth } from "./auth.js";
+import { registerJobs } from "./jobs.js";
 import { config } from "./config.js";
-import { priorityOf, requestContext } from "./context.js";
+import { PRIORITY, priorityOf, requestContext } from "./context.js";
 import { HttpError, toHttp } from "./errors.js";
 import { limiterOptions } from "./pronote/limiter.js";
 import { applyLocalTimes } from "./localInput.js";
@@ -49,7 +50,14 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
   app.addHook("onRequest", (request, _reply, done) => {
     const route = request.routeOptions.url ?? request.url.split("?")[0];
     const query = (request.query ?? {}) as Record<string, unknown>;
-    requestContext.run({ priority: priorityOf(request.method, route, query), deadline: Date.now() + queueWait, calls: 0, route }, done);
+    // Reads of an asynchronous job (P4): bulk priority, longer wait (nobody waits for the HTTP answer).
+    const job = request.headers[INTERNAL_HEADER] === INTERNAL_TOKEN;
+    requestContext.run({
+      priority: job ? PRIORITY.bulk : priorityOf(request.method, route, query),
+      deadline: Date.now() + (job ? Math.max(queueWait, 120_000) : queueWait),
+      calls: 0,
+      route,
+    }, done);
   });
 
   // Raw body, signature check and replay protection (a read delivered twice while it runs is answered twice).
@@ -73,6 +81,9 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
     if (error instanceof HttpError) reply.headers(error.headers);
     reply.status(status).send({ error: code, ...(error instanceof HttpError ? error.extra : {}) });
   });
+
+  // Asynchronous jobs of the heavy reads (P4).
+  registerJobs(app);
 
   await app.register(sessionRoutes);
   await app.register(timetableRoutes);
