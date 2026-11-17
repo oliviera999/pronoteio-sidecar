@@ -351,6 +351,9 @@ export type SessionInfo = {
   maxScale: number | null;
   functions: Record<string, { name: string; onglet: number | null; configured: boolean }>;
   writeMode: "simulate" | "live";
+  /** 0.9.0: version of the Pronote server and whether it is validated (writes refused otherwise, see formats.ts). */
+  pronoteversion?: string;
+  validated?: boolean;
   classes: { id: string; name: string; type: "class" | "group"; taught: boolean; principal: boolean }[];
 };
 

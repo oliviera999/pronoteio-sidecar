@@ -9,6 +9,7 @@ import { HttpError, toHttp } from "./errors.js";
 import { limiterOptions } from "./pronote/limiter.js";
 import { applyLocalTimes } from "./localInput.js";
 import { registerCache } from "./cache.js";
+import { assertWritable, isValidated, pronoteVersion } from "./pronote/formats.js";
 import absencesRoutes from "./routes/absences.js";
 import assessmentsRoutes from "./routes/assessments.js";
 import filesRoutes from "./routes/files.js";
@@ -96,6 +97,24 @@ export const buildApp = async (options = {}) => {
                 return await handler.call(this, request, reply);
             }
         };
+    });
+    // Pronote version (P6): in the headers of every answer of a session; writes refused on an unvalidated version.
+    const NOT_WRITES = new Set(["/session/login", "/session/logout", "/jobs"]);
+    app.addHook("preHandler", async (request) => {
+        if (request.method !== "POST" || NOT_WRITES.has(request.routeOptions.url ?? ""))
+            return;
+        const body = (request.body ?? {});
+        if (body.dryRun === true || body.dryrun === true)
+            return;
+        assertWritable(sessionEntry(request)?.handle);
+    });
+    app.addHook("onSend", async (request, reply, payload) => {
+        const version = pronoteVersion(sessionEntry(request)?.handle);
+        if (version !== "") {
+            reply.header("x-pronoteio-pronote-version", version);
+            reply.header("x-pronoteio-pronote-validated", isValidated(version) ? "true" : "false");
+        }
+        return payload;
     });
     // Asynchronous jobs of the heavy reads (P4).
     registerJobs(app);

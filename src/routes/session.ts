@@ -18,6 +18,8 @@ import type { SessionInfo } from "../normalise.js";
 import { pronoteBaseUrl } from "../pronote/compat.js";
 import { createCapturingHandle, userData } from "../pronote/userdata.js";
 import { isPrimary } from "../lock.js";
+import { isValidated, pronoteVersion } from "../pronote/formats.js";
+import { stateStore } from "../state.js";
 import { createSession, dropSession, requireSession, sessionOfAccount, setPresenceSender, setReconnector } from "../session.js";
 import { limiterOf } from "../pronote/limiter.js";
 import { PRIORITY } from "../context.js";
@@ -81,6 +83,8 @@ export const sessionInfo = (session: SessionHandle): SessionInfo => {
       Object.entries(functions).map(([key, fn]) => [key, { name: fn.name, onglet: fn.onglet, configured: fn.name !== "" }]),
     ),
     writeMode: config.writeMode,
+    pronoteversion: pronoteVersion(session),
+    validated: isValidated(pronoteVersion(session)),
     classes: data.resources.map((item) => ({
       id: stableId(item.genre === 1 ? "class" : "group", item.label),
       name: item.label,
@@ -182,6 +186,9 @@ export default async function sessionRoutes(app: FastifyInstance): Promise<void>
         };
       }
       const refresh = outcome.refresh as RefreshInformation;
+      // Version of the Pronote server (P6), kept in the state for the health check.
+      const seen = pronoteVersion(handle);
+      stateStore.state.pronote = { version: seen, validated: isValidated(seen), seenAt: new Date().toISOString() };
 
       async function doLogin(): Promise<RefreshInformation> {
         if (password !== undefined) {

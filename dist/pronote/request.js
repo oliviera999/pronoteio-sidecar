@@ -10,6 +10,7 @@ import forge from "node-forge";
 import { deflateRaw, inflateRaw } from "pako";
 import { ServerSideError, SessionExpiredError } from "pawnote";
 import { listOf } from "./encoding.js";
+import { checkFormat } from "./formats.js";
 import { throttle } from "./limiter.js";
 const atLeast = (version, wanted) => {
     for (let i = 0; i < 3; i++) {
@@ -130,6 +131,8 @@ export const callPronote = async (session, call) => {
         const refusal = call.keepRefusal ? null : entryRefusal(entryReport(decoded, keys.data));
         if (refusal !== null)
             throw new ServerSideError(refusal);
+        // Answer format of the main functions (P6): a renamed member fails clearly instead of returning wrong data.
+        checkFormat(call.name, decoded?.[keys.data]);
         return decoded;
     });
 };
