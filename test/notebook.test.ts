@@ -27,6 +27,8 @@ const ref = (notebookPublished = false): LessonRef => ({
     attendanceDone: false,
     editable: false,
     roomsEditable: false,
+    baseId: "l:2026-11-03 13:30|3D|MATHÉMATIQUES",
+    duplicates: 1,
   },
   pronoteId: "29#x1",
   week: 10,

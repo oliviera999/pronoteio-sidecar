@@ -158,7 +158,7 @@ export const writeAttendance = async (session, lessonId, write) => {
     if (write.dryRun)
         return { lesson: ref.lesson, before, after: planned, request, written: false, dryRun: true };
     await sendWrite(session, "attendanceSave", request, write.force === true);
-    const reread = await findLesson(session, lessonId);
+    const reread = await findLesson(session, ref.lesson.id);
     const after = stateOf(await readSheet(session, reread), reread.lesson.attendanceDone);
     for (const item of write.items) {
         const found = after.entries.some((entry) => normalise(entry.student) === normalise(item.student) && entry.kind === item.kind);

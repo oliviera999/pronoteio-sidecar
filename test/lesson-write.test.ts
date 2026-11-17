@@ -22,6 +22,8 @@ const ref = (editable = true, roomsEditable = true): LessonRef => ({
     attendanceDone: false,
     editable,
     roomsEditable,
+    baseId: "l:2026-11-10 13:30|3D|MATHÉMATIQUES",
+    duplicates: 1,
   },
   pronoteId: "29#x2",
   week: 11,

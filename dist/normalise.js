@@ -81,12 +81,35 @@ export const plainText = (html, max = 300) => {
     return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 };
 /* ---- Lot 2 (0.7.0): grades overview, skills, report comments, messaging, news, locker, quizzes ---- */
-/** Label filter: a wanted label matches a group when equal or when the group starts with it ("1G" keeps "1G3"). */
+/**
+ * Comparable form of a class or group label: normalise(), then brackets, dashes and any other punctuation become
+ * single spaces ("[T06AP ORIENT]" → "t06ap orient", "[1-SPE SVT-10]" → "1 spe svt 10"). Same rule as
+ * get_pronote_classes::normalise() in local_olutionmcp.
+ */
+export const labelKey = (value) => normalise(value).replace(/[^a-z0-9]+/g, " ").trim();
+/**
+ * Does a class or group label match a wanted label? Both sides go through labelKey(); the wanted label matches when
+ * equal, or when it is a prefix that ends at a word boundary: followed by a space ("T06AP" keeps "[T06AP ORIENT]"),
+ * or by a digit when the wanted label ends with a letter ("1G" keeps "1G3"). A wanted label ending with a digit never
+ * catches a longer number ("T11" does not keep "T110").
+ */
+export const labelMatches = (label, wanted) => {
+    const key = labelKey(label);
+    const want = labelKey(wanted);
+    if (want === "" || key === "")
+        return false;
+    if (key === want)
+        return true;
+    if (!key.startsWith(want))
+        return false;
+    const next = key.charAt(want.length);
+    return next === " " || (/[0-9]/.test(next) && /[a-z]/.test(want.charAt(want.length - 1)));
+};
+/** Label filter: a group is kept when one of the wanted labels matches it (labelMatches), all kept when none. */
 export const matchesLabels = (groups, wanted) => {
-    const filter = wanted.map(normalise).filter(Boolean);
+    const filter = wanted.filter((label) => labelKey(label) !== "");
     if (filter.length === 0)
         return true;
-    const own = groups.map(normalise);
-    return filter.some((label) => own.some((group) => group === label || group.startsWith(label)));
+    return filter.some((label) => groups.some((group) => labelMatches(group, label)));
 };
 //# sourceMappingURL=normalise.js.map
