@@ -1,0 +1,8 @@
+{
+  "error": "invalid_request",
+  "code": "validation_failed",
+  "message": "Requête invalide : un champ manque ou est mal formé.",
+  "fields": [
+    "resource"
+  ]
+}

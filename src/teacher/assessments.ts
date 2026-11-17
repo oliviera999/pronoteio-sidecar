@@ -9,16 +9,17 @@ import { ServerSideError, type SessionHandle } from "pawnote";
 import { answerData, callPronote } from "../pronote/request.js";
 import { listOf, parsePronoteDate } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
-import { matchesLabels, normalise, plainText, seconds, type AssessmentsResult, type PlannedAssessment, type Sources } from "../normalise.js";
+import { localTimes, matchesLabels, normalise, plainText, seconds, type AssessmentsResult, type PlannedAssessment, type Sources } from "../normalise.js";
 import { requireFunction } from "./functions.js";
 import { call, loadPeriods, loadServices, resourceOf, type Element } from "./grades.js";
 import { stableId } from "./ids.js";
 import { notebook } from "./notebook.js";
 import { dateRange } from "./timetable.js";
+import { epochToWall } from "../time.js";
 
 const pad = (value: number) => String(value).padStart(2, "0");
 const dayOf = (time: number) => {
-  const date = new Date(time * 1000);
+  const date = epochToWall(time);
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 };
 
@@ -34,7 +35,8 @@ const number = (value: unknown): number | null => {
 const isAccessDenied = (error: unknown): boolean =>
   error instanceof ServerSideError && /droits|insuffisant/i.test(error.message);
 
-const inRange = (time: number, from: Date, to: Date): boolean => time * 1000 >= from.getTime() && time * 1000 < to.getTime();
+/** Timestamp in [from, to) (wall Dates, read in the school's zone). */
+const inRange = (time: number, from: Date, to: Date): boolean => time >= seconds(from) && time < seconds(to);
 
 const matchesClasses = (groups: string[], classes: string[]): boolean => matchesLabels(groups, classes);
 
@@ -60,6 +62,8 @@ export const fromNotebook = async (session: SessionHandle, from: Date, to: Date,
         coefficient: null,
         max: null,
         details: plainText(content.description),
+        local: { ...(entry.lesson.local?.start ? { date: entry.lesson.local.start } : {}), ...(entry.lesson.local?.end ? { end: entry.lesson.local.end } : {}),
+          ...(entry.local?.publication ? { publication: entry.local.publication } : {}) },
       });
     }
   }
@@ -96,13 +100,14 @@ export const gradedFromPage = (
       groups: finalGroups,
       title,
       kind: "graded",
-      published: publication ? publication.getTime() <= now.getTime() : null,
+      published: publication ? seconds(publication) * 1000 <= now.getTime() : null,
       publication: publication ? seconds(publication) : null,
       coefficient: number(devoir.coefficient),
       max: number(devoir.bareme),
       details: [devoir.verrouille === true ? "verrouillé" : "", devoir.existesDesNotes === true ? "notes saisies" : ""]
         .filter(Boolean)
         .join(", "),
+      local: localTimes({ date, publication }),
     });
   }
   return result;
@@ -152,6 +157,7 @@ export const writtenTestsFromAnswer = (data: Record<string, any>, from: Date, to
       coefficient: null,
       max: null,
       details,
+      local: localTimes({ date }),
     }];
   });
 

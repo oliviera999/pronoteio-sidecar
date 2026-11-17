@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "admin-update.schema.json",
+  "title": "POST /admin/update",
+  "method": "POST",
+  "url": "/admin/update",
+  "fixture": "fixtures/admin-update.json",
+  "properties": {
+    "response": {
+      "type": "object",
+      "properties": {
+        "running": {
+          "type": "boolean"
+        },
+        "at": {
+          "type": "string"
+        },
+        "old": {
+          "type": "object",
+          "properties": {
+            "commit": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "commit",
+            "version"
+          ],
+          "additionalProperties": false
+        },
+        "new": {
+          "type": "object",
+          "properties": {
+            "commit": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "commit",
+            "version"
+          ],
+          "additionalProperties": false
+        },
+        "result": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "health": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "running",
+        "old"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

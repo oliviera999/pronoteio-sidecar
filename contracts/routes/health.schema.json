@@ -1,0 +1,512 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "health.schema.json",
+  "title": "GET /health (signée)",
+  "method": "GET",
+  "url": "/health",
+  "fixture": "fixtures/health.json",
+  "properties": {
+    "response": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "string"
+        },
+        "commit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "node": {
+          "type": "string"
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "uptimeSeconds": {
+          "type": "integer"
+        },
+        "starts": {
+          "type": "integer"
+        },
+        "process": {
+          "type": "object",
+          "properties": {
+            "pid": {
+              "type": "integer"
+            },
+            "primary": {
+              "type": "boolean"
+            },
+            "holder": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "lockFile": {
+              "enum": [
+                "set",
+                "off"
+              ]
+            },
+            "conflicts": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "pid",
+            "primary",
+            "holder",
+            "lockFile",
+            "conflicts"
+          ],
+          "additionalProperties": false
+        },
+        "time": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string"
+            },
+            "offsetMinutes": {
+              "type": "integer"
+            },
+            "source": {
+              "enum": [
+                "node",
+                "tzdata"
+              ]
+            },
+            "tzVersion": {
+              "type": "string"
+            },
+            "nodeTzVersion": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "embeddedTzVersion": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "nodeTzOutdated": {
+              "type": "boolean"
+            },
+            "icu": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "hostTimezone": {
+              "type": "string"
+            },
+            "hostTzEnv": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "localNow": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "timezone",
+            "offsetMinutes",
+            "source",
+            "tzVersion",
+            "nodeTzVersion",
+            "embeddedTzVersion",
+            "nodeTzOutdated",
+            "icu",
+            "hostTimezone",
+            "hostTzEnv",
+            "localNow"
+          ],
+          "additionalProperties": false
+        },
+        "writeMode": {
+          "enum": [
+            "simulate",
+            "live"
+          ]
+        },
+        "session": {
+          "type": "object",
+          "properties": {
+            "open": {
+              "type": "integer"
+            },
+            "states": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "enum": [
+                      "open",
+                      "reconnecting",
+                      "lost"
+                    ]
+                  },
+                  "ageSeconds": {
+                    "type": "integer"
+                  },
+                  "idleSeconds": {
+                    "type": "integer"
+                  },
+                  "reconnects": {
+                    "type": "integer"
+                  },
+                  "lastReconnect": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "state",
+                  "ageSeconds",
+                  "idleSeconds",
+                  "reconnects",
+                  "lastReconnect"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "reconnects": {
+              "type": "object",
+              "properties": {
+                "total": {
+                  "type": "integer"
+                },
+                "expired": {
+                  "type": "integer"
+                },
+                "replaced": {
+                  "type": "integer"
+                },
+                "failed": {
+                  "type": "integer"
+                },
+                "lastAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "total",
+                "expired",
+                "replaced",
+                "failed",
+                "lastAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "open",
+            "states",
+            "reconnects"
+          ],
+          "additionalProperties": false
+        },
+        "queue": {
+          "type": "object",
+          "properties": {
+            "size": {
+              "type": "integer"
+            },
+            "averageWaitMs": {
+              "type": "integer"
+            },
+            "tokens": {
+              "type": "number"
+            },
+            "lastMinute": {
+              "type": "integer"
+            },
+            "served": {
+              "type": "integer"
+            },
+            "refused": {
+              "type": "integer"
+            },
+            "limits": {
+              "type": "object",
+              "properties": {
+                "perMinute": {
+                  "type": "integer"
+                },
+                "burst": {
+                  "type": "integer"
+                },
+                "minSpacingMs": {
+                  "type": "integer"
+                },
+                "maxWaitSeconds": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "perMinute",
+                "burst",
+                "minSpacingMs",
+                "maxWaitSeconds"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "size",
+            "averageWaitMs",
+            "tokens",
+            "lastMinute",
+            "served",
+            "refused",
+            "limits"
+          ],
+          "additionalProperties": false
+        },
+        "cache": {
+          "type": "object",
+          "properties": {
+            "entries": {
+              "type": "integer"
+            },
+            "bytes": {
+              "type": "integer"
+            },
+            "hits": {
+              "type": "integer"
+            },
+            "misses": {
+              "type": "integer"
+            },
+            "hitRate": {
+              "type": "number"
+            },
+            "invalidations": {
+              "type": "integer"
+            },
+            "maxBytes": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "entries",
+            "bytes",
+            "hits",
+            "misses",
+            "hitRate",
+            "invalidations",
+            "maxBytes"
+          ],
+          "additionalProperties": false
+        },
+        "jobs": {
+          "type": "object",
+          "properties": {
+            "jobs": {
+              "type": "integer"
+            },
+            "running": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "jobs",
+            "running"
+          ],
+          "additionalProperties": false
+        },
+        "proxy": {
+          "type": "object",
+          "properties": {
+            "duplicates": {
+              "type": "integer"
+            },
+            "whileRunning": {
+              "type": "integer"
+            },
+            "medianDelayMs": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "minDelayMs": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "lastAt": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "duplicates",
+            "whileRunning",
+            "medianDelayMs",
+            "minDelayMs",
+            "lastAt"
+          ],
+          "additionalProperties": false
+        },
+        "pronote": {
+          "type": "object",
+          "properties": {
+            "pronoteversion": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "validated": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "validatedVersions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "seenAt": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "pronoteversion",
+            "validated",
+            "validatedVersions",
+            "seenAt"
+          ],
+          "additionalProperties": false
+        },
+        "errors": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "error": {
+                "type": "string"
+              },
+              "route": {
+                "type": "string"
+              },
+              "status": {
+                "type": "integer"
+              },
+              "at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "error",
+              "route",
+              "status",
+              "at"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "security": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "secrets": {
+              "type": "integer"
+            },
+            "windowSeconds": {
+              "type": "integer"
+            },
+            "nonceRequired": {
+              "type": "boolean"
+            },
+            "allowedIps": {
+              "type": "integer"
+            },
+            "trustProxy": {
+              "type": "boolean"
+            },
+            "previousKeyUses": {
+              "type": "integer"
+            },
+            "invalidSignature": {
+              "type": "integer"
+            },
+            "invalidTimestamp": {
+              "type": "integer"
+            },
+            "replayed": {
+              "type": "integer"
+            },
+            "addressRefused": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "secrets",
+            "windowSeconds",
+            "nonceRequired",
+            "allowedIps",
+            "trustProxy",
+            "previousKeyUses",
+            "invalidSignature",
+            "invalidTimestamp",
+            "replayed",
+            "addressRefused"
+          ]
+        }
+      },
+      "required": [
+        "ok",
+        "version",
+        "commit",
+        "node",
+        "startedAt",
+        "uptimeSeconds",
+        "starts",
+        "process",
+        "time",
+        "writeMode",
+        "session",
+        "queue",
+        "cache",
+        "jobs",
+        "proxy",
+        "pronote",
+        "errors",
+        "security"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

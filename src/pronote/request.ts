@@ -9,8 +9,8 @@
 import forge from "node-forge";
 import { deflateRaw, inflateRaw } from "pako";
 import { ServerSideError, SessionExpiredError, type SessionHandle } from "pawnote";
-import { config } from "../config.js";
 import { listOf } from "./encoding.js";
+import { checkFormat } from "./formats.js";
 import { throttle } from "./limiter.js";
 
 type Keys = {
@@ -120,8 +120,9 @@ export type PronoteCall = {
  * Throws SessionExpiredError / ServerSideError like Pawnote does.
  */
 export const callPronote = async (session: SessionHandle, call: PronoteCall): Promise<Record<string, any>> => {
+  // Turn in the rate limiter queue first (priority of the request, P2), then the Pawnote queue (order numbers).
+  await throttle(session, call.name);
   return session.queue.push(async () => {
-    await throttle(session, config.maxCallsPerMinute);
     const keys = propertyKeys(session);
     const payload: Record<string, unknown> = {};
     if (call.signature) payload[keys.signature] = call.signature;
@@ -159,6 +160,8 @@ export const callPronote = async (session: SessionHandle, call: PronoteCall): Pr
     }
     const refusal = call.keepRefusal ? null : entryRefusal(entryReport(decoded, keys.data));
     if (refusal !== null) throw new ServerSideError(refusal);
+    // Answer format of the main functions (P6): a renamed member fails clearly instead of returning wrong data.
+    checkFormat(call.name, decoded?.[keys.data]);
     return decoded;
   });
 };

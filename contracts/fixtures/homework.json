@@ -1,0 +1,20 @@
+{
+  "items": [
+    {
+      "id": "50#h1",
+      "subject": "SVT",
+      "description": "<p>Exercice 3</p>",
+      "due": 1795046400,
+      "groups": [],
+      "attachments": [
+        {
+          "name": "fiche.pdf",
+          "url": "https://demo.example/fiche.pdf"
+        }
+      ],
+      "local": {
+        "due": "2026-11-19 00:00"
+      }
+    }
+  ]
+}

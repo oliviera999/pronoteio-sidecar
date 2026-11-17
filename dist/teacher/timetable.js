@@ -9,7 +9,7 @@ import { translateToWeekNumber } from "pawnote";
 import { HttpError } from "../errors.js";
 import { answerData, callPronote } from "../pronote/request.js";
 import { listOf, parsePronoteDate, pronoteDate } from "../pronote/encoding.js";
-import { matchesLabels, seconds } from "../normalise.js";
+import { localTimes, matchesLabels, seconds } from "../normalise.js";
 import { requireFunction } from "./functions.js";
 import { stableId } from "./ids.js";
 /** Genres of the ListeContenus entries of a lesson. */
@@ -67,6 +67,7 @@ export const lessonFromPage = (session, cours, week, fallbackTeacher) => {
     const groups = labels([GENRE_CLASS, GENRE_GROUP, GENRE_CLASS_PART]);
     const teachers = labels([GENRE_TEACHER]);
     const id = lessonIdFor(start, groups, subject);
+    const end = lessonEnd(session, cours, start);
     const lesson = {
         id,
         subject,
@@ -74,7 +75,7 @@ export const lessonFromPage = (session, cours, week, fallbackTeacher) => {
         rooms: labels([GENRE_ROOM]),
         groups,
         start: seconds(start),
-        end: seconds(lessonEnd(session, cours, start)),
+        end: seconds(end),
         cancelled: cours.estAnnule === true,
         status: statusLabel(cours.Statut),
         hasNotebook: cours.AvecCdT === true,
@@ -84,6 +85,7 @@ export const lessonFromPage = (session, cours, week, fallbackTeacher) => {
         roomsEditable: cours.modifiable === true && cours.ressourcesModifiables === true,
         baseId: id,
         duplicates: 1,
+        local: localTimes({ start, end }),
     };
     const notebook = cours.cahierDeTextes?.V?.N;
     const rooms = contents
@@ -154,8 +156,9 @@ export const lessons = async (session, from, to) => {
             const ref = lessonFromPage(session, cours, week);
             if (!ref)
                 continue;
-            const start = ref.lesson.start * 1000;
-            if (start >= from.getTime() && start < to.getTime())
+            // Wall Dates from/to compared in the school's zone with the lesson timestamp.
+            const start = ref.lesson.start;
+            if (start >= seconds(from) && start < seconds(to))
                 found.push(ref);
         }
     }

@@ -27,6 +27,8 @@ import {
   type ReferentialItem,
   type Service,
 } from "../normalise.js";
+import { localTimes } from "../normalise.js";
+import { legacySeconds } from "../time.js";
 import {
   call,
   describeService,
@@ -155,7 +157,8 @@ export const itemFromList = (
   return {
     skillIds,
     item: {
-      id: stableId("competency", `${date ? seconds(date) : 0}|${resourcename}|${title}`),
+      // Legacy timestamp (host zone, as until 0.8.0): the id of an assessment must not change with the time zone fix.
+      id: stableId("competency", `${date ? legacySeconds(date) : 0}|${resourcename}|${title}`),
       title,
       date: date ? seconds(date) : null,
       publication: publication ? seconds(publication) : null,
@@ -166,6 +169,7 @@ export const itemFromList = (
           : null,
       coefficient: Number.isFinite(coefficient) ? coefficient : null,
       cycleReport: evaluation.priseEnCompteDansBilan !== false,
+      local: localTimes({ date, publication, publicationParents: parents }),
       subject,
       resourcename,
       type,

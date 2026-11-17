@@ -1,0 +1,135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "students-files.schema.json",
+  "title": "GET /students/files",
+  "method": "GET",
+  "url": "/students/files",
+  "fixture": "fixtures/students-files.json",
+  "properties": {
+    "response": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "available": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "validated": {
+              "const": false
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "common.schema.json#/definitions/studentFile"
+              }
+            },
+            "unmappedKeys": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "total": {
+              "type": "integer"
+            },
+            "offset": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "available",
+            "reason",
+            "validated",
+            "items",
+            "unmappedKeys",
+            "truncated",
+            "total",
+            "offset"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "available": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "validated": {
+              "const": false
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "common.schema.json#/definitions/studentFile"
+              }
+            },
+            "unmappedKeys": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "total": {
+              "type": "integer"
+            },
+            "offset": {
+              "type": "integer"
+            },
+            "read": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "remaining": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "notFound": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "partial": {
+              "type": "boolean"
+            },
+            "retry_after": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "available",
+            "reason",
+            "validated",
+            "items",
+            "unmappedKeys",
+            "truncated",
+            "total",
+            "offset",
+            "read",
+            "remaining",
+            "notFound",
+            "partial",
+            "retry_after"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

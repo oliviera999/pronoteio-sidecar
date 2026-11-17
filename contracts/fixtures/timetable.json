@@ -1,0 +1,23 @@
+{
+  "items": [
+    {
+      "id": "29#ap",
+      "subject": "AP",
+      "teacher": "PROFESSEUR M.",
+      "rooms": [
+        "B12"
+      ],
+      "groups": [
+        "T06"
+      ],
+      "start": 1794503400,
+      "end": 1794506700,
+      "cancelled": false,
+      "status": "",
+      "local": {
+        "start": "2026-11-12 17:10",
+        "end": "2026-11-12 18:05"
+      }
+    }
+  ]
+}

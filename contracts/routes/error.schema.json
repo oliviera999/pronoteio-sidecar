@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "error.schema.json",
+  "title": "Réponse d'erreur (toutes routes)",
+  "fixture": [
+    "fixtures/error-validation.json",
+    "fixtures/error-session.json"
+  ],
+  "properties": {
+    "response": {
+      "$ref": "common.schema.json#/definitions/error"
+    }
+  }
+}

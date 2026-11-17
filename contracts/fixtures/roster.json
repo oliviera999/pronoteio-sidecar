@@ -1,0 +1,20 @@
+{
+  "items": [
+    {
+      "id": "e:MARTIN Léa",
+      "key": "f6ca7fa170be7749",
+      "lastname": "MARTIN",
+      "firstname": "Léa",
+      "email": null,
+      "birthdate": null
+    },
+    {
+      "id": "e:PETIT Hugo",
+      "key": "c654449f0245f1d8",
+      "lastname": "PETIT",
+      "firstname": "Hugo",
+      "email": null,
+      "birthdate": null
+    }
+  ]
+}

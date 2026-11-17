@@ -1,0 +1,59 @@
+{
+  "available": true,
+  "reason": "",
+  "validated": false,
+  "items": [
+    {
+      "id": "e:MARTIN Léa",
+      "key": "f6ca7fa170be7749",
+      "label": "MARTIN Léa",
+      "lastname": "MARTIN",
+      "firstname": "Léa Anne",
+      "sex": "F",
+      "birthdate": 1268524800,
+      "number": "E000123",
+      "email": "lea.martin@pedagolyautey.org",
+      "class": "T06",
+      "groups": [
+        "T-SPE SVT 2",
+        "T-EMC 3"
+      ],
+      "options": [
+        "Latin"
+      ],
+      "regime": "Demi-pensionnaire"
+    },
+    {
+      "id": "e:PETIT Hugo",
+      "key": "c654449f0245f1d8",
+      "label": "PETIT Hugo",
+      "lastname": "PETIT",
+      "firstname": "Hugo",
+      "sex": "M",
+      "birthdate": null,
+      "number": "",
+      "email": "",
+      "class": "",
+      "groups": [],
+      "options": [],
+      "regime": ""
+    }
+  ],
+  "unmappedKeys": [
+    "L",
+    "champInconnu"
+  ],
+  "truncated": false,
+  "total": 2,
+  "offset": 0,
+  "read": [
+    "e:MARTIN Léa",
+    "e:PETIT Hugo"
+  ],
+  "remaining": [],
+  "notFound": [
+    "e:INCONNU Élève"
+  ],
+  "partial": false,
+  "retry_after": 0
+}

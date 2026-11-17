@@ -2,6 +2,7 @@ import { answerData, callPronote } from "../pronote/request.js";
 import { downloadUrl } from "../pronote/files.js";
 import { listOf, parsePronoteDate } from "../pronote/encoding.js";
 import { ASSESSMENT_KINDS, seconds, } from "../normalise.js";
+import { localTimes } from "../normalise.js";
 import { requireFunction } from "./functions.js";
 import { filterByGroups, lessons } from "./timetable.js";
 /** Largest number of lessons whose notebook is read in one call. */
@@ -60,6 +61,7 @@ const homeworkOf = (session, lessonId, item, index) => {
         forAll,
         students: forAll ? [] : listOf(item?.listeEleves).map((student) => String(student?.L ?? "").trim()).filter(Boolean),
         attachments: attachmentsOf(session, item?.ListePieceJointe),
+        local: localTimes({ due, given }),
     };
 };
 /**
@@ -83,6 +85,7 @@ export const notebookFromPage = (session, ref, data) => {
         homework: listOf(entry?.ListeTravailAFaire)
             .map((item, index) => homeworkOf(session, lessonId, item, index))
             .filter((item) => item !== null),
+        local: localTimes({ publication }),
     };
 };
 /** Reads the notebook page of one lesson. */

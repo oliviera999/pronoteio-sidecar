@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "session-login.schema.json",
+  "title": "POST /session/login",
+  "method": "POST",
+  "url": "/session/login",
+  "fixture": "fixtures/session-login-reused.json",
+  "properties": {
+    "response": {
+      "type": "object",
+      "properties": {
+        "sessionid": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        },
+        "displayname": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "reused": {
+          "const": true
+        }
+      },
+      "required": [
+        "sessionid",
+        "token",
+        "displayname",
+        "version"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -3,10 +3,27 @@ import { BadCredentialsError, SecurityError, SessionExpiredError } from "pawnote
 export class HttpError extends Error {
     status;
     code;
-    constructor(status, code) {
+    extra;
+    headers;
+    constructor(status, code, 
+    /** Members added to the error body (retry_after, candidates, fields…), never personal data. */
+    extra = {}, 
+    /** Headers added to the error answer (Retry-After). */
+    headers = {}) {
         super(code);
         this.status = status;
         this.code = code;
+        this.extra = extra;
+        this.headers = headers;
+    }
+}
+/** Queue of the Pronote calls too long (P2): 429 rate_limited with retry_after (seconds) and Retry-After. */
+export class RateLimitedError extends HttpError {
+    retryAfter;
+    constructor(retryAfter) {
+        const seconds = Math.max(1, Math.ceil(retryAfter));
+        super(429, "rate_limited", { retry_after: seconds }, { "retry-after": String(seconds) });
+        this.retryAfter = retryAfter;
     }
 }
 /** Teacher-space request not implemented yet (see src/teacher/). */

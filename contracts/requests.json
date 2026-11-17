@@ -1,0 +1,2004 @@
+{
+  "note": "Schémas des requêtes de toutes les routes, extraits du code (npm run contracts:requests). /health : signée pour le rapport complet.",
+  "routes": [
+    {
+      "method": "GET",
+      "url": "/absences",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "resource",
+          "from",
+          "to"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "minLength": 1
+          },
+          "from": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "to": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/absences",
+      "body": {
+        "type": "object",
+        "required": [
+          "lesson",
+          "items"
+        ],
+        "properties": {
+          "lesson": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "required": [
+                "student",
+                "kind"
+              ],
+              "properties": {
+                "student": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "absence",
+                    "late"
+                  ]
+                },
+                "minutes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 600
+                },
+                "delete": {
+                  "type": "boolean",
+                  "default": false
+                }
+              }
+            }
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false
+          },
+          "force": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/admin/update",
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/admin/update",
+      "body": {
+        "type": "object",
+        "properties": {
+          "timeout": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 300
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/assessments",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "from",
+          "to"
+        ],
+        "properties": {
+          "from": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "to": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "classes": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/competencies",
+      "querystring": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "maxLength": 200,
+            "default": ""
+          },
+          "classes": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/competencies",
+      "body": {
+        "type": "object",
+        "required": [
+          "service",
+          "period"
+        ],
+        "properties": {
+          "assessment": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 300
+          },
+          "service": {
+            "type": "string",
+            "minLength": 1
+          },
+          "period": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "date": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "publication": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 10000
+          },
+          "coefficient": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "skills": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          },
+          "ratings": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "type": "object",
+              "required": [
+                "student",
+                "skill",
+                "level"
+              ],
+              "properties": {
+                "student": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "skill": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "level": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "observation": {
+                  "type": "string",
+                  "maxLength": 1000
+                },
+                "published": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "delete": {
+            "type": "boolean",
+            "default": false
+          },
+          "cycleReport": {
+            "type": "boolean"
+          },
+          "defaultLevel": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false
+          },
+          "force": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/competencies/referential",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "service"
+        ],
+        "properties": {
+          "service": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "period": {
+            "type": "string",
+            "maxLength": 200,
+            "default": ""
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/errors",
+      "signed": false
+    },
+    {
+      "method": "POST",
+      "url": "/files",
+      "body": {
+        "type": "object",
+        "required": [
+          "name",
+          "content",
+          "function"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1
+          },
+          "function": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/forum",
+      "querystring": {
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/grades",
+      "body": {
+        "type": "object",
+        "required": [
+          "service",
+          "period",
+          "assessment",
+          "grades"
+        ],
+        "properties": {
+          "service": {
+            "type": "string",
+            "minLength": 1
+          },
+          "period": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dryRun": {
+            "type": "boolean"
+          },
+          "assessment": {
+            "type": "object",
+            "required": [
+              "title",
+              "date",
+              "max",
+              "coefficient"
+            ],
+            "properties": {
+              "id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              },
+              "date": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "publication": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "max": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1000
+              },
+              "coefficient": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "scaleTo20": {
+                "type": "boolean",
+                "default": false
+              },
+              "optional": {
+                "type": "boolean",
+                "default": false
+              },
+              "bonus": {
+                "type": "boolean",
+                "default": false
+              },
+              "comment": {
+                "type": "string",
+                "maxLength": 1000,
+                "default": ""
+              },
+              "delete": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          },
+          "grades": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "type": "object",
+              "required": [
+                "studentid"
+              ],
+              "properties": {
+                "studentid": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "default": null
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "",
+                    "abs",
+                    "disp",
+                    "nonnote",
+                    "inapte",
+                    "nonrendu",
+                    "abszero",
+                    "nonrenduzero"
+                  ],
+                  "default": ""
+                }
+              }
+            }
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/grades/comment",
+      "body": {
+        "type": "object",
+        "required": [
+          "service",
+          "period",
+          "assessment",
+          "student",
+          "comment"
+        ],
+        "properties": {
+          "service": {
+            "type": "string",
+            "minLength": 1
+          },
+          "period": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assessment": {
+            "type": "string",
+            "minLength": 1
+          },
+          "student": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "",
+              "abs",
+              "disp",
+              "nonnote",
+              "inapte",
+              "nonrendu",
+              "abszero",
+              "nonrenduzero"
+            ]
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/grades/context",
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/grades/overview",
+      "querystring": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "maxLength": 200,
+            "default": ""
+          },
+          "classes": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/health",
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/health/public",
+      "signed": false
+    },
+    {
+      "method": "GET",
+      "url": "/homework",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "from",
+          "to"
+        ],
+        "properties": {
+          "from": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "to": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/jobs",
+      "body": {
+        "type": "object",
+        "required": [
+          "requests"
+        ],
+        "properties": {
+          "requests": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "required": [
+                "url"
+              ],
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 12000
+                }
+              }
+            }
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/jobs/:id",
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/lists",
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/lists",
+      "body": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update",
+              "delete"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "public": {
+            "type": "boolean"
+          },
+          "members": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "type": "object",
+              "required": [
+                "kind",
+                "label"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "class",
+                    "group",
+                    "teacher",
+                    "student",
+                    "parent",
+                    "staff"
+                  ]
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              }
+            }
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/locker",
+      "querystring": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "received",
+              "deposited"
+            ],
+            "default": "received"
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/meetings",
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/meetings/appointments",
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/meetings/wishes",
+      "body": {
+        "type": "object",
+        "required": [
+          "session"
+        ],
+        "properties": {
+          "session": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "wishes": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^w[0-9]+$"
+                },
+                "duration": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 1440
+                },
+                "wish": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "unavailability": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "maxItems": 500,
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/messages",
+      "querystring": {
+        "type": "object",
+        "properties": {
+          "folder": {
+            "type": "string",
+            "enum": [
+              "inbox",
+              "sent",
+              "drafts",
+              "archive",
+              "trash"
+            ],
+            "default": "inbox"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/messages",
+      "body": {
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "new",
+              "reply",
+              "draft",
+              "draft_update",
+              "draft_delete"
+            ]
+          },
+          "subject": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "recipients": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "required": [
+                "kind",
+                "label"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "class",
+                    "group",
+                    "teacher",
+                    "student",
+                    "parent",
+                    "staff",
+                    "list"
+                  ]
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              }
+            }
+          },
+          "discussion": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "attachments": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "maxLength": 255
+                },
+                "fileId": {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                "url": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              }
+            }
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/messages/discussion",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/messages/mailbox",
+      "body": {
+        "type": "object",
+        "required": [
+          "action",
+          "discussions"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "read",
+              "unread",
+              "archive",
+              "unarchive",
+              "trash",
+              "restore"
+            ]
+          },
+          "discussions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/messages/preferences",
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/messages/recipients",
+      "querystring": {
+        "type": "object",
+        "properties": {
+          "kinds": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "query": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "class": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "student": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 200
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/news",
+      "querystring": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "received",
+              "sent",
+              "drafts",
+              "templates",
+              "library"
+            ],
+            "default": "received"
+          },
+          "unreadOnly": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/news",
+      "body": {
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update",
+              "delete",
+              "publish",
+              "unpublish"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "information",
+              "survey"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 50000
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "anonymous": {
+            "type": "boolean"
+          },
+          "template": {
+            "type": "boolean"
+          },
+          "audience": {
+            "type": "object",
+            "properties": {
+              "classes": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "type": "string",
+                  "maxLength": 100
+                }
+              },
+              "groups": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "type": "string",
+                  "maxLength": 100
+                }
+              },
+              "students": {
+                "type": "boolean"
+              },
+              "parents": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "one",
+                  "all"
+                ]
+              },
+              "mainTeachers": {
+                "type": "boolean"
+              },
+              "tutors": {
+                "type": "boolean"
+              },
+              "individuals": {
+                "type": "array",
+                "maxItems": 200,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "label"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "class",
+                        "group",
+                        "teacher",
+                        "student",
+                        "parent",
+                        "staff"
+                      ]
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "questions": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "required": [
+                "text",
+                "kind"
+              ],
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "maxLength": 50000
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "ack",
+                    "text",
+                    "single",
+                    "multiple",
+                    "none"
+                  ]
+                },
+                "choices": {
+                  "type": "array",
+                  "maxItems": 50,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "label"
+                    ],
+                    "properties": {
+                      "label": {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      "free": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                },
+                "maxLength": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "attachments": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "maxLength": 255
+                },
+                "fileId": {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                "url": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              }
+            }
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/news/response",
+      "body": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "read": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "acknowledge": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "answers": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "required": [
+                "question"
+              ],
+              "properties": {
+                "question": {
+                  "type": "string",
+                  "pattern": "^q[0-9]+$"
+                },
+                "choices": {
+                  "type": "array",
+                  "maxItems": 50,
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 5000
+                }
+              }
+            }
+          },
+          "remove": {
+            "type": "boolean"
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/news/results",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nominative": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/notebook",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "from",
+          "to"
+        ],
+        "properties": {
+          "from": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "to": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "classes": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "includeEmpty": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/notebook",
+      "body": {
+        "type": "object",
+        "required": [
+          "lesson",
+          "entry"
+        ],
+        "properties": {
+          "lesson": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false
+          },
+          "force": {
+            "type": "boolean",
+            "default": false
+          },
+          "entry": {
+            "type": "object",
+            "properties": {
+              "published": {
+                "type": "boolean"
+              },
+              "publication": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "noteForNext": {
+                "type": "string",
+                "maxLength": 4000
+              },
+              "privateComment": {
+                "type": "string",
+                "maxLength": 4000
+              },
+              "contents": {
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "title",
+                    "description",
+                    "category"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 300
+                    },
+                    "title": {
+                      "type": "string",
+                      "maxLength": 500
+                    },
+                    "description": {
+                      "type": "string",
+                      "maxLength": 50000
+                    },
+                    "objectives": {
+                      "type": "string",
+                      "maxLength": 10000
+                    },
+                    "category": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 100
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "kind"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "attachments": {
+                      "type": "array",
+                      "maxItems": 20,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "name"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "maxLength": 255
+                          },
+                          "fileId": {
+                            "type": "string",
+                            "maxLength": 100
+                          },
+                          "url": {
+                            "type": "string",
+                            "maxLength": 2000
+                          }
+                        }
+                      }
+                    },
+                    "delete": {
+                      "type": "boolean"
+                    },
+                    "assessment": {
+                      "type": "object",
+                      "required": [
+                        "kind"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "written_test",
+                            "skills"
+                          ]
+                        },
+                        "createGraded": {
+                          "type": "object",
+                          "required": [
+                            "service",
+                            "period",
+                            "coefficient",
+                            "max"
+                          ],
+                          "properties": {
+                            "service": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "period": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "coefficient": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            "max": {
+                              "type": "number",
+                              "exclusiveMinimum": 0,
+                              "maximum": 1000
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "homework": {
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "description",
+                    "due"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 300
+                    },
+                    "description": {
+                      "type": "string",
+                      "maxLength": 50000
+                    },
+                    "due": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "minutes": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 1440
+                    },
+                    "difficulty": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 3
+                    },
+                    "returnKind": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4
+                    },
+                    "forAll": {
+                      "type": "boolean"
+                    },
+                    "students": {
+                      "type": "array",
+                      "maxItems": 60,
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      }
+                    },
+                    "attachments": {
+                      "type": "array",
+                      "maxItems": 20,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "name"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "maxLength": 255
+                          },
+                          "fileId": {
+                            "type": "string",
+                            "maxLength": 100
+                          },
+                          "url": {
+                            "type": "string",
+                            "maxLength": 2000
+                          }
+                        }
+                      }
+                    },
+                    "delete": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/notifications",
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/quizzes",
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/reports",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "resource",
+          "period"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "minLength": 1
+          },
+          "period": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/reports/comments",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "resource",
+          "period"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "minLength": 1
+          },
+          "period": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/reports/comments",
+      "body": {
+        "type": "object",
+        "required": [
+          "class",
+          "period",
+          "items"
+        ],
+        "properties": {
+          "class": {
+            "type": "string",
+            "minLength": 1
+          },
+          "period": {
+            "type": "string",
+            "minLength": 1
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "required": [
+                "kind",
+                "text"
+              ],
+              "properties": {
+                "student": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "subject",
+                    "general"
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 4000
+                }
+              }
+            }
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/reports/context",
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/resources",
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/roster",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "resource"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/session/info",
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/session/login",
+      "body": {
+        "type": "object",
+        "required": [
+          "url",
+          "username",
+          "deviceuuid"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "pattern": "^https://"
+          },
+          "username": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deviceuuid": {
+            "type": "string",
+            "minLength": 8
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          },
+          "token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "pin": {
+            "type": "string",
+            "pattern": "^[0-9]{4,8}$"
+          },
+          "devicename": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "password"
+            ]
+          },
+          {
+            "required": [
+              "token"
+            ]
+          }
+        ]
+      },
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/session/logout",
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/students/files",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "resource"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "student": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "include": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 40
+          },
+          "ids": {
+            "type": "string",
+            "maxLength": 12000
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/students/files/check",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "resource"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/students/photo",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "resource",
+          "student"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "student": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/timetable",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "from",
+          "to"
+        ],
+        "properties": {
+          "from": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "to": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/timetable/lesson",
+      "body": {
+        "type": "object",
+        "required": [
+          "lesson"
+        ],
+        "properties": {
+          "lesson": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200
+          },
+          "rooms": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "memo": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false
+          },
+          "force": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/timetable/resource",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "kind",
+          "name",
+          "from",
+          "to"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "class",
+              "group",
+              "student",
+              "teacher",
+              "room"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "class": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "from": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "to": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "signed": true
+    }
+  ]
+}

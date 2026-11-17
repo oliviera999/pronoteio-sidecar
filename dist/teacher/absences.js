@@ -9,7 +9,7 @@
 import { parseTimetable, timetableFromIntervals } from "pawnote";
 import { answerData, callPronote } from "../pronote/request.js";
 import { listOf, parsePronoteDate, pronoteDate } from "../pronote/encoding.js";
-import { seconds } from "../normalise.js";
+import { localTimes, seconds } from "../normalise.js";
 import { requireFunction } from "./functions.js";
 import { stableId } from "./ids.js";
 import { rosterEntries } from "./roster.js";
@@ -46,6 +46,7 @@ export const absencesFromCallSheet = (data, students) => {
                 justified: item.justifie === true,
                 reason: listOf(item.listeMotifs).map((motif) => String(motif?.L ?? "")).filter(Boolean).join(", "),
                 kind: item.G === GENRE_LATE ? "late" : "absence",
+                local: localTimes({ start, end }),
             });
         }
     }

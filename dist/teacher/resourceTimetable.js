@@ -6,6 +6,7 @@ import { callFunction, isTabClosed } from "./functions.js";
 import { rosterEntries } from "./roster.js";
 import { stableId } from "./ids.js";
 import { lessonFromPage, weeksOf } from "./timetable.js";
+import { wallToEpoch } from "../time.js";
 export const RESOURCE_KINDS = ["class", "group", "student", "teacher", "room"];
 /** TypeHttpRessource of each kind in PageEmploiDuTemps. */
 const GENRES = { class: 1, group: 2, teacher: 3, student: 4, room: 17 };
@@ -100,8 +101,8 @@ export const resourceTimetable = async (session, kind, label, from, to, classNam
             const ref = lessonFromPage(session, cours, week, "");
             if (!ref)
                 continue;
-            const start = ref.lesson.start * 1000;
-            if (start < from.getTime() || start >= to.getTime())
+            const start = ref.lesson.start;
+            if (start < wallToEpoch(from) || start >= wallToEpoch(to))
                 continue;
             const { id, subject, teacher, rooms, groups, start: begin, end, cancelled, status } = ref.lesson;
             items.push({ id, subject, teacher, rooms, groups, start: begin, end, cancelled, status });

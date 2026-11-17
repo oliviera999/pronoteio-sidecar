@@ -1,33 +1,264 @@
 /**
- * Rate limiting of the calls sent to Pronote, per session: a minimum spacing between two calls and a ceiling
- * per sliding minute (HTTP 429 rate_limited beyond). Pronote servers block accounts that call too fast.
+ * Rate limiting of the calls sent to Pronote, per Pronote session (P2, 0.9.0): a token bucket with a priority queue.
+ *
+ * Until 0.8.0 a call beyond 120 per minute was refused at once (429 rate_limited, no delay given): the student files
+ * of one class of 32 read three times in a row by the plugin were enough, and the plugin kept retrying blindly.
+ * Now:
+ * - each call takes "cost" tokens (a student file costs more than a list, see callCost); the bucket refills at
+ *   PRONOTEIO_MAX_CALLS_PER_MINUTE tokens per minute up to PRONOTEIO_RATE_BURST tokens; two calls are always spaced by
+ *   PRONOTEIO_MIN_SPACING_MS (Pronote servers block accounts that call too fast);
+ * - a call without token waits in the queue, writes first, then unit reads, then bulk reads (FIFO within a
+ *   priority), until the deadline of its HTTP request (PRONOTEIO_QUEUE_MAX_WAIT seconds after it arrived, 20 s);
+ * - beyond, or when the queue ahead cannot be served before that deadline, the call is refused with
+ *   429 rate_limited, retry_after (seconds) and the Retry-After header: the time after which the queue ahead will have
+ *   drained enough for a new request to be served within the wait.
+ * Everything lives in memory (single process, see P5); the counters are not personal data.
  */
 import type { SessionHandle } from "pawnote";
-import { HttpError } from "../errors.js";
+import { currentContext, isWriteFunction, PRIORITY, type Priority } from "../context.js";
+import { HttpError, RateLimitedError } from "../errors.js";
+import { isPrimary } from "../lock.js";
 
-type State = { last: number; calls: number[] };
-
-const states = new WeakMap<object, State>();
-
-export const MIN_SPACING_MS = 150;
-
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
-/** Waits for the spacing, checks the ceiling and records the call. */
-export const throttle = async (session: SessionHandle, maxPerMinute: number, now = Date.now()): Promise<void> => {
-  const state = states.get(session) ?? { last: 0, calls: [] };
-  states.set(session, state);
-  state.calls = state.calls.filter((time) => time > now - 60_000);
-  if (maxPerMinute > 0 && state.calls.length >= maxPerMinute) {
-    throw new HttpError(429, "rate_limited");
-  }
-  const wait = state.last + MIN_SPACING_MS - now;
-  if (wait > 0) await sleep(wait);
-  const time = Date.now();
-  state.last = time;
-  state.calls.push(time);
+export type LimiterOptions = {
+  /** Tokens added per minute (0: no limit). */
+  ratePerMinute: number;
+  /** Bucket size (calls that may go at once after a quiet period). */
+  burst: number;
+  /** Minimum spacing between two calls (ms). */
+  minSpacingMs: number;
+  /** Default wait allowed in the queue (ms), when the call has no request deadline. */
+  maxWaitMs: number;
 };
 
-/** Calls made during the last minute (for tests and the health check). */
-export const recentCalls = (session: SessionHandle, now = Date.now()): number =>
-  (states.get(session)?.calls ?? []).filter((time) => time > now - 60_000).length;
+type Waiter = {
+  cost: number;
+  priority: Priority;
+  seq: number;
+  deadline: number;
+  enqueued: number;
+  resolve: () => void;
+  reject: (error: Error) => void;
+  timer?: NodeJS.Timeout;
+};
+
+export type LimiterStats = {
+  queued: number;
+  tokens: number;
+  served: number;
+  refused: number;
+  /** Average wait of the calls served during the last 5 minutes (ms). */
+  averageWaitMs: number;
+  /** Calls during the last minute. */
+  lastMinute: number;
+};
+
+export class Limiter {
+  private tokens: number;
+  private refilled: number;
+  private lastCall = 0;
+  private seq = 0;
+  private queue: Waiter[] = [];
+  private timer: NodeJS.Timeout | null = null;
+  private served = 0;
+  private refused = 0;
+  private waits: { at: number; wait: number }[] = [];
+  private calls: number[] = [];
+
+  constructor(
+    public readonly options: LimiterOptions,
+    private readonly now: () => number = Date.now,
+  ) {
+    this.tokens = options.burst;
+    this.refilled = now();
+  }
+
+  private get perMs(): number {
+    return this.options.ratePerMinute / 60_000;
+  }
+
+  private refill(now: number): void {
+    if (this.options.ratePerMinute <= 0) {
+      this.tokens = this.options.burst;
+    } else {
+      this.tokens = Math.min(this.options.burst, this.tokens + (now - this.refilled) * this.perMs);
+    }
+    this.refilled = now;
+  }
+
+  /** Time (ms from now) when "cost" more tokens are available after serving "ahead" tokens, spacing included. */
+  private estimate(ahead: number, cost: number, count: number, now: number): number {
+    const spacing = Math.max(0, this.lastCall + this.options.minSpacingMs - now) + count * this.options.minSpacingMs;
+    if (this.options.ratePerMinute <= 0) return spacing;
+    const missing = ahead + cost - this.tokens;
+    return Math.max(spacing, missing > 0 ? missing / this.perMs : 0);
+  }
+
+  private ordered(): Waiter[] {
+    return this.queue.sort((a, b) => a.priority - b.priority || a.seq - b.seq);
+  }
+
+  /** Seconds after which a new request of this priority would be served within the maximum wait (at least 1). */
+  retryAfter(priority: Priority = PRIORITY.read, now = this.now()): number {
+    this.refill(now);
+    const ahead = this.queue.filter((item) => item.priority <= priority);
+    const tokens = ahead.reduce((sum, item) => sum + item.cost, 0);
+    const drain = this.estimate(tokens, 1, ahead.length, now);
+    return Math.max(1, Math.ceil((drain - this.options.maxWaitMs) / 1000));
+  }
+
+  /** Waits for a token (or refuses with RateLimitedError); resolves when the call may be sent. */
+  acquire(cost = 1, priority: Priority = PRIORITY.read, deadline?: number): Promise<void> {
+    const now = this.now();
+    const until = deadline ?? now + this.options.maxWaitMs;
+    this.refill(now);
+    const ahead = this.queue.filter((item) => item.priority <= priority);
+    const expected = this.estimate(ahead.reduce((sum, item) => sum + item.cost, 0), cost, ahead.length, now);
+    if (now + expected > until) {
+      this.refused++;
+      return Promise.reject(new RateLimitedError(this.retryAfter(priority, now)));
+    }
+    return new Promise<void>((resolve, reject) => {
+      const waiter: Waiter = { cost, priority, seq: this.seq++, deadline: until, enqueued: now, resolve, reject };
+      // Still waiting at its deadline (calls of a higher priority went first): refused with the remaining delay.
+      waiter.timer = setTimeout(() => {
+        const index = this.queue.indexOf(waiter);
+        if (index < 0) return;
+        this.queue.splice(index, 1);
+        this.refused++;
+        reject(new RateLimitedError(this.retryAfter(priority)));
+        this.pump();
+      }, Math.max(0, until - now) + 1);
+      this.queue.push(waiter);
+      this.pump();
+    });
+  }
+
+  private pump(): void {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    while (this.queue.length > 0) {
+      const now = this.now();
+      this.refill(now);
+      const head = this.ordered()[0];
+      const wait = this.estimate(0, head.cost, 0, now);
+      if (wait > 0) {
+        this.timer = setTimeout(() => this.pump(), Math.ceil(wait));
+        return;
+      }
+      this.queue.shift();
+      if (head.timer) clearTimeout(head.timer);
+      if (this.options.ratePerMinute > 0) this.tokens -= head.cost;
+      this.lastCall = now;
+      this.served++;
+      this.calls.push(now);
+      this.waits.push({ at: now, wait: now - head.enqueued });
+      head.resolve();
+    }
+  }
+
+  stats(): LimiterStats {
+    const now = this.now();
+    this.refill(now);
+    this.waits = this.waits.filter((item) => item.at > now - 300_000);
+    this.calls = this.calls.filter((time) => time > now - 60_000);
+    const total = this.waits.reduce((sum, item) => sum + item.wait, 0);
+    return {
+      queued: this.queue.length,
+      tokens: Math.floor(this.tokens * 10) / 10,
+      served: this.served,
+      refused: this.refused,
+      averageWaitMs: this.waits.length ? Math.round(total / this.waits.length) : 0,
+      lastMinute: this.calls.length,
+    };
+  }
+}
+
+const int = (value: string | undefined, fallback: number): number => {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+};
+
+/** Options read from the environment (defaults: 120 per minute, burst 30, 150 ms, 20 s). */
+export const limiterOptions = (env: Record<string, string | undefined> = process.env): LimiterOptions => ({
+  ratePerMinute: int(env.PRONOTEIO_MAX_CALLS_PER_MINUTE, 120),
+  burst: Math.max(1, int(env.PRONOTEIO_RATE_BURST, 30)),
+  minSpacingMs: int(env.PRONOTEIO_MIN_SPACING_MS, 150),
+  maxWaitMs: int(env.PRONOTEIO_QUEUE_MAX_WAIT, 20) * 1000,
+});
+
+/**
+ * Cost of the Pronote functions heavier than a list (tokens; 1 for the others). PRONOTEIO_CALL_COSTS overrides or
+ * adds: "FicheEleve=3,PageNotes=2".
+ */
+const DEFAULT_COSTS: Record<string, number> = { FicheEleve: 2, PageBulletins: 2, PageNotes: 2, PageCahierDeTexte: 2 };
+
+export const parseCosts = (value: string | undefined): Record<string, number> => {
+  const costs: Record<string, number> = { ...DEFAULT_COSTS };
+  for (const part of String(value ?? "").split(",")) {
+    const [name, raw] = part.split("=").map((item) => item.trim());
+    const cost = Number.parseFloat(raw ?? "");
+    if (name && Number.isFinite(cost) && cost > 0) costs[name] = cost;
+  }
+  return costs;
+};
+
+const costs = parseCosts(process.env.PRONOTEIO_CALL_COSTS);
+
+/** Cost of a Pronote function call (tokens). */
+export const callCost = (name: string): number => costs[name] ?? 1;
+
+const limiters = new WeakMap<object, Limiter>();
+const live = new Set<WeakRef<Limiter>>();
+
+/** Limiter of a Pronote session (created on first use). */
+export const limiterOf = (session: SessionHandle, options: LimiterOptions = limiterOptions()): Limiter => {
+  let limiter = limiters.get(session);
+  if (!limiter) {
+    limiter = new Limiter(options);
+    limiters.set(session, limiter);
+    live.add(new WeakRef(limiter));
+  }
+  return limiter;
+};
+
+/** Waits for the turn of a call of the current request (priority and deadline of its context). */
+export const throttle = async (session: SessionHandle, name = ""): Promise<void> => {
+  // Only the primary process talks to Pronote (P5, lock.ts).
+  if (!isPrimary()) throw new HttpError(503, "pronote_unavailable", { reason: "second_process" });
+  const context = currentContext();
+  // Safety net of the simulations (P12): a write call during a dryRun is a bug, never sent.
+  if (context?.dryRun && isWriteFunction(name)) throw new HttpError(500, "internal", { reason: "dryrun_write_blocked" });
+  await limiterOf(session).acquire(callCost(name), context?.priority ?? PRIORITY.read, context?.deadline);
+  if (context) {
+    context.calls++;
+    if (isWriteFunction(name)) context.writeSent = true;
+  }
+};
+
+/** Calls made during the last minute (tests and health check). */
+export const recentCalls = (session: SessionHandle): number => limiters.get(session)?.stats().lastMinute ?? 0;
+
+/** Sum of the statistics of the live limiters (health check). */
+export const limiterStats = (): LimiterStats & { sessions: number } => {
+  const total = { queued: 0, tokens: 0, served: 0, refused: 0, averageWaitMs: 0, lastMinute: 0, sessions: 0 };
+  let weighted = 0;
+  for (const ref of live) {
+    const limiter = ref.deref();
+    if (!limiter) {
+      live.delete(ref);
+      continue;
+    }
+    const stats = limiter.stats();
+    total.sessions++;
+    total.queued += stats.queued;
+    total.tokens += stats.tokens;
+    total.served += stats.served;
+    total.refused += stats.refused;
+    total.lastMinute += stats.lastMinute;
+    weighted += stats.averageWaitMs * stats.served;
+  }
+  total.averageWaitMs = total.served ? Math.round(weighted / total.served) : 0;
+  return total;
+};

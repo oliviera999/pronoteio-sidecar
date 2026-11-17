@@ -3,6 +3,7 @@ import { HttpError } from "../errors.js";
 import { requireSession } from "../session.js";
 import * as teacher from "../teacher/index.js";
 import { attachmentSchema, intervalQuery } from "./schemas.js";
+import { epochToWall } from "../time.js";
 export const notebookWriteBody = {
     type: "object",
     required: ["lesson", "entry"],
@@ -89,7 +90,7 @@ export const notebookQuery = {
 export default async function notebookRoutes(app) {
     app.get("/notebook", { schema: { querystring: notebookQuery } }, async (request) => {
         const { from, to, classes, includeEmpty = false } = request.query;
-        return teacher.notebook(requireSession(request), new Date(from * 1000), new Date(to * 1000), classesOf(classes), includeEmpty);
+        return teacher.notebook(requireSession(request), epochToWall(from), epochToWall(to), classesOf(classes), includeEmpty);
     });
     app.post("/notebook", { schema: { body: notebookWriteBody } }, async (request) => {
         const { lesson, entry, dryRun = false, force = false } = request.body;

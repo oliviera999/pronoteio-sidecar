@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "health-public.schema.json",
+  "title": "GET /health/public",
+  "method": "GET",
+  "url": "/health/public",
+  "fixture": "fixtures/health-public.json",
+  "properties": {
+    "response": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ok",
+        "version",
+        "commit"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,4 +1,18 @@
-export const seconds = (date) => Math.floor(date.getTime() / 1000);
+import { localString, wallToEpoch } from "./time.js";
+/** LocalTimes of the given wall Dates (null and undefined left out). */
+export const localTimes = (dates) => {
+    const result = {};
+    for (const [key, date] of Object.entries(dates)) {
+        if (date instanceof Date && !Number.isNaN(date.getTime()))
+            result[key] = localString(date);
+    }
+    return result;
+};
+/**
+ * Timestamp (seconds) of a wall Date read from Pronote, in the school's time zone (time.ts). Until 0.8.0 the host's
+ * time zone was used: one hour too early on a host in UTC+1 while Casablanca is in UTC+0.
+ */
+export const seconds = (date) => wallToEpoch(date);
 export const lessonFromPawnote = (item) => {
     if (item.is !== "lesson")
         return null;
@@ -12,6 +26,7 @@ export const lessonFromPawnote = (item) => {
         end: seconds(item.endDate),
         cancelled: item.canceled,
         status: item.status ?? "",
+        local: localTimes({ start: item.startDate, end: item.endDate }),
     };
 };
 export const homeworkFromPawnote = (item) => ({
@@ -22,6 +37,7 @@ export const homeworkFromPawnote = (item) => ({
     // TODO: Pawnote does not expose the target groups of an assignment; resolve them via item.resourceID.
     groups: [],
     attachments: item.attachments.map((file) => ({ name: file.name, url: file.url })),
+    local: localTimes({ due: item.deadline }),
 });
 /** Splits a Pronote display name "NOM Prénom" (upper-case words form the last name). */
 export const splitDisplayName = (label) => {

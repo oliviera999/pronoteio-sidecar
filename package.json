@@ -1,6 +1,6 @@
 {
   "name": "pronoteio-sidecar",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "description": "Pronote sidecar service for the Moodle plugin local_pronoteio (Pawnote based).",
   "license": "GPL-3.0-or-later",
@@ -13,21 +13,27 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.check.json",
-    "test": "tsx --test test/*.test.ts",
+    "test": "PRONOTEIO_LOG_FILE=off PRONOTEIO_STATE_FILE=off PRONOTEIO_LOCK_FILE=off tsx --test test/*.test.ts",
     "probe": "tsx --env-file=.env tools/probe.ts",
-    "postinstall": "node -e \"const p=require('path');import(require('url').pathToFileURL(p.join(p.dirname(require('fs').realpathSync('package.json')),'tools','patch-pawnote.mjs')).href)\""
+    "postinstall": "node -e \"const p=require('path');import(require('url').pathToFileURL(p.join(p.dirname(require('fs').realpathSync('package.json')),'tools','patch-pawnote.mjs')).href)\"",
+    "contracts:fixtures": "tsx tools/contracts-fixtures.ts",
+    "contracts:export": "bash contracts/export.sh",
+    "contracts:requests": "tsx tools/contracts-requests.ts"
   },
   "dependencies": {
     "@literate.ink/utilities": "1.0.0-10641118381.1",
     "fastify": "^5.12.5",
     "node-forge": "^1.4.0",
     "pako": "^3.0.2",
-    "pawnote": "^1.6.2"
+    "pawnote": "^1.6.2",
+    "timezonecomplete": "5.15.1",
+    "tzdata": "1.0.54"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",
     "@types/node-forge": "^1.3.14",
     "@types/pako": "^2.0.4",
+    "ajv": "8.20.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }

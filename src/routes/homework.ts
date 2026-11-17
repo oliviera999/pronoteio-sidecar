@@ -3,6 +3,7 @@ import type { Homework } from "../normalise.js";
 import { requireSession } from "../session.js";
 import * as teacher from "../teacher/index.js";
 import { intervalQuery, type IntervalQuery } from "./schemas.js";
+import { epochToWall } from "../time.js";
 
 /**
  * Homework of the teacher's lessons due in [from, to), in the historical shape used by the Moodle calendar sync.
@@ -13,7 +14,7 @@ export default async function homeworkRoutes(app: FastifyInstance): Promise<void
   app.get<{ Querystring: IntervalQuery }>("/homework", { schema: { querystring: intervalQuery } }, async (request) => {
     const session = requireSession(request);
     const { from, to } = request.query;
-    const result = await teacher.notebook(session, new Date(from * 1000), new Date(to * 1000), [], false);
+    const result = await teacher.notebook(session, epochToWall(from), epochToWall(to), [], false);
     const items: Homework[] = [];
     for (const entry of result.items) {
       for (const homework of entry.homework) {

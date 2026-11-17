@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { config } from "./config.js";
 import { HttpError } from "./errors.js";
@@ -6,8 +6,40 @@ import { HttpError } from "./errors.js";
 declare module "fastify" {
   interface FastifyRequest {
     rawBody?: string;
+    /** Request made inside the process (asynchronous job, P4): no signature. */
+    internal?: boolean;
   }
 }
+
+/**
+ * Token of the requests made inside the process by the asynchronous jobs (app.inject, P4): random at each start,
+ * never sent outside, never logged. A request carrying it skips the signature check.
+ */
+export const INTERNAL_TOKEN = randomBytes(32).toString("hex");
+export const INTERNAL_HEADER = "x-pronoteio-internal";
+
+/** Routes answered without signature. */
+export const PUBLIC_ROUTES = new Set(["/health", "/health/public", "/errors"]);
+
+/** Second deliveries of the same request by the web server (P4): delay after the first one, to size the proxy timeout. */
+const duplicateDelays: { at: number; delay: number; running: boolean }[] = [];
+
+export const proxyStats = (now = Date.now()) => {
+  while (duplicateDelays.length > 0 && duplicateDelays[0].at < now - 7 * 24 * 3600 * 1000) duplicateDelays.shift();
+  const delays = duplicateDelays.map((item) => item.delay).sort((a, b) => a - b);
+  return {
+    /** Second deliveries during the last 7 days (answered with the answer of the first). */
+    duplicates: delays.length,
+    /** Of which while the first delivery was still running. */
+    whileRunning: duplicateDelays.filter((item) => item.running).length,
+    /** Median and shortest delay between the two deliveries (ms): about the timeout of the web server in front. */
+    medianDelayMs: delays.length ? delays[Math.floor(delays.length / 2)] : null,
+    minDelayMs: delays.length ? delays[0] : null,
+    lastAt: duplicateDelays.length ? new Date(duplicateDelays[duplicateDelays.length - 1].at).toISOString() : null,
+  };
+};
+
+const arrivals = new Map<string, number>();
 
 /** Signatures already seen during the skew window (replay protection). */
 const seen = new Map<string, number>();
@@ -24,34 +56,55 @@ export const signedPayload = (timestamp: string, nonce: string, method: string, 
   return [timestamp, ...(nonce ? [nonce] : []), method, url, bodyHash].join("\n");
 };
 
+/** Uses of the previous secret during a key rotation (health check), and refusals by kind. */
+export const securityStats = { previousKeyUses: 0, invalidSignature: 0, invalidTimestamp: 0, replayed: 0, addressRefused: 0 };
+
 /**
- * Checks the timestamp, the nonce and the signature of a request produced by sidecar_connector::send():
- * HMAC-SHA256(secret, signedPayload(...)), and returns the signature. Does not record it (see recordSignature).
- * Errors: invalid_timestamp (clocks of Moodle and of the sidecar more than PRONOTEIO_MAX_SKEW apart, or no
- * timestamp), invalid_signature (secret different from Moodle's, or altered request).
+ * Checks the nonce and the HMAC signature of a request produced by sidecar_connector::send():
+ * HMAC-SHA256(secret, signedPayload(...)) with the current secret or, during a rotation, a previous one
+ * (PRONOTEIO_SECRET_PREVIOUS); returns the signature. Errors: invalid_signature (secret different from Moodle's,
+ * altered request, missing or malformed nonce).
  */
-export const checkSignature = (request: FastifyRequest): string => {
+export const checkHmac = (request: FastifyRequest): string => {
   const timestamp = String(request.headers["x-pronoteio-timestamp"] ?? "");
   const nonce = String(request.headers["x-pronoteio-nonce"] ?? "");
   const signature = String(request.headers["x-pronoteio-signature"] ?? "");
-  const now = Math.floor(Date.now() / 1000);
-
-  if (!/^\d+$/.test(timestamp) || Math.abs(now - Number(timestamp)) > config.maxSkew) {
+  if (!/^\d+$/.test(timestamp)) {
+    securityStats.invalidTimestamp++;
     throw new HttpError(401, "invalid_timestamp");
   }
-  if (nonce !== "" && !/^[0-9a-f]{16,64}$/.test(nonce)) {
+  // P11: the random nonce is required (local_pronoteio sends it since 0.2.3); PRONOTEIO_REQUIRE_NONCE=false accepts
+  // older clients.
+  if ((nonce === "" && config.requireNonce) || (nonce !== "" && !/^[0-9a-f]{16,64}$/.test(nonce))) {
+    securityStats.invalidSignature++;
     throw new HttpError(401, "invalid_signature");
   }
-
-  const expected = createHmac("sha256", config.secret)
-    .update(signedPayload(timestamp, nonce, request.method, request.url, request.rawBody ?? ""))
-    .digest("hex");
-
+  const payload = signedPayload(timestamp, nonce, request.method, request.url, request.rawBody ?? "");
   const given = Buffer.from(signature, "utf8");
-  const wanted = Buffer.from(expected, "utf8");
-  if (given.length !== wanted.length || !timingSafeEqual(given, wanted)) {
-    throw new HttpError(401, "invalid_signature");
+  for (const [index, secret] of config.secrets.entries()) {
+    const wanted = Buffer.from(createHmac("sha256", secret).update(payload).digest("hex"), "utf8");
+    if (given.length === wanted.length && timingSafeEqual(given, wanted)) {
+      if (index > 0) securityStats.previousKeyUses++;
+      return signature;
+    }
   }
+  securityStats.invalidSignature++;
+  throw new HttpError(401, "invalid_signature");
+};
+
+/** Refuses a timestamp outside the window (PRONOTEIO_MAX_SKEW seconds, 60 since 0.9.0): invalid_timestamp. */
+export const checkTimestamp = (request: FastifyRequest, now = Math.floor(Date.now() / 1000)): void => {
+  const timestamp = Number(String(request.headers["x-pronoteio-timestamp"] ?? ""));
+  if (!Number.isFinite(timestamp) || Math.abs(now - timestamp) > config.maxSkew) {
+    securityStats.invalidTimestamp++;
+    throw new HttpError(401, "invalid_timestamp");
+  }
+};
+
+/** Signature and timestamp of a request (health check): returns the signature. */
+export const checkSignature = (request: FastifyRequest): string => {
+  const signature = checkHmac(request);
+  checkTimestamp(request);
   return signature;
 };
 
@@ -63,14 +116,25 @@ export const checkSignature = (request: FastifyRequest): string => {
 export const recordSignature = (signature: string, now = Math.floor(Date.now() / 1000)): boolean => {
   purgeSeen(now);
   if (seen.has(signature)) return false;
-  seen.set(signature, now + config.maxSkew);
+  // Kept longer than the window and than the kept answers: a late replay is refused as a replay (duplicate_write),
+  // not as a clock problem.
+  seen.set(signature, now + Math.max(config.maxSkew, ANSWER_TTL / 1000) + SEEN_EXTRA_SECONDS);
   return true;
+};
+
+/** Signatures are remembered this long after the window and the kept answers (seconds). */
+const SEEN_EXTRA_SECONDS = 480;
+
+/** Whether a signature was already seen (and not forgotten). */
+const wasSeen = (signature: string, now = Math.floor(Date.now() / 1000)): boolean => {
+  const expires = seen.get(signature);
+  return expires !== undefined && expires >= now;
 };
 
 /**
  * Checks the request signature and refuses a request already seen (replayed_request). The random nonce (plugin
  * 0.2.3+) makes two identical requests sent in the same second distinct, e.g. a request retried after a new login;
- * requests without nonce (older plugins) are still accepted.
+ * since 0.9.0 it is required (PRONOTEIO_REQUIRE_NONCE=false accepts older plugins).
  */
 export const verifySignature = (request: FastifyRequest): void => {
   if (!recordSignature(checkSignature(request))) {
@@ -140,13 +204,31 @@ export const registerAuth = (app: FastifyInstance): void => {
   });
 
   app.addHook("preValidation", async (request: FastifyRequest, reply: FastifyReply) => {
-    if (request.routeOptions.url === "/health") return;
-    const signature = checkSignature(request);
-    if (recordSignature(signature)) {
+    // Public routes: no data (health of the deployment, table of the error codes). /health checks its own signature.
+    if (PUBLIC_ROUTES.has(request.routeOptions.url ?? "")) return;
+    const internal = request.headers[INTERNAL_HEADER];
+    if (typeof internal === "string" && internal.length === INTERNAL_TOKEN.length
+      && timingSafeEqual(Buffer.from(internal), Buffer.from(INTERNAL_TOKEN))) {
+      request.internal = true;
+      return;
+    }
+    // P11 order: signature first; a second delivery of a request still running or just answered is served whatever
+    // its age (the web server may deliver it again after the window); a request already seen is a replay; only then
+    // the timestamp window applies.
+    const signature = checkHmac(request);
+    const shared = inflight.has(signature) || (answered.get(signature)?.expires ?? 0) >= Date.now();
+    if (!shared && wasSeen(signature)) {
+      securityStats.replayed++;
+      throw new HttpError(401, "replayed_request");
+    }
+    if (!shared) checkTimestamp(request);
+    if (!shared && recordSignature(signature)) {
+      arrivals.set(signature, Date.now());
       let resolve!: (answer: Answer) => void;
       inflight.set(signature, new Promise<Answer>((done) => (resolve = done)));
       request.inflightResolve = (answer) => {
         inflight.delete(signature);
+        if (arrivals.size > MAX_KEPT_ANSWERS * 4) arrivals.delete(arrivals.keys().next().value as string);
         keepAnswer(signature, answer);
         resolve(answer);
       };
@@ -154,10 +236,16 @@ export const registerAuth = (app: FastifyInstance): void => {
     }
     const kept = answered.get(signature);
     const running = inflight.get(signature) ?? (kept && kept.expires >= Date.now() ? Promise.resolve(kept.answer) : undefined);
-    if (!running) throw new HttpError(401, "replayed_request");
+    if (!running) {
+      securityStats.replayed++;
+      throw new HttpError(401, "replayed_request");
+    }
     request.log.info({ method: request.method }, "same request delivered again: answered with the result of the first delivery");
+    const first = arrivals.get(signature);
+    if (first !== undefined) duplicateDelays.push({ at: Date.now(), delay: Date.now() - first, running: inflight.has(signature) });
+    if (duplicateDelays.length > 1000) duplicateDelays.shift();
     const answer = await running;
-    reply.code(answer.status).headers(answer.headers);
+    reply.code(answer.status).headers(answer.headers).header("x-pronoteio-duplicate", "shared");
     return reply.send(answer.payload);
   });
 

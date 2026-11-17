@@ -1,6 +1,6 @@
 import { HttpError } from "../errors.js";
 import { listOf, parseNumberSet, parsePronoteDate } from "../pronote/encoding.js";
-import { seconds } from "../normalise.js";
+import { localTimes, seconds } from "../normalise.js";
 import { isAccessDenied } from "./competencies.js";
 import { userData } from "../pronote/userdata.js";
 import { callFunction, functions, isTabClosed } from "./functions.js";
@@ -23,6 +23,8 @@ const dateOf = (value) => {
     const date = parsePronoteDate(unwrap(value));
     return date ? seconds(date) : null;
 };
+/** Wall Date of a Pronote date member (local fields), null when absent. */
+const wallOf = (value) => parsePronoteDate(unwrap(value));
 const time = (value) => {
     const match = String(unwrap(value) ?? "").match(/(\d{1,2})\s*[h:]\s*(\d{2})?/);
     return match ? `${match[1].padStart(2, "0")}:${match[2] ?? "00"}` : "";
@@ -149,6 +151,7 @@ export const appointmentsFromAnswer = (data) => {
         place: label(raw?.lieu ?? raw?.salle),
         status: String(unwrap(raw?.etat) ?? "").trim(),
         mode: String(unwrap(raw?.modalite) ?? "").trim(),
+        local: localTimes({ date: wallOf(raw?.date ?? raw?.debut), end: wallOf(raw?.fin) }),
     }));
 };
 export const appointments = async (session) => {

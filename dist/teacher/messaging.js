@@ -5,6 +5,7 @@ import { isAccessDenied } from "./competencies.js";
 import { callFunction, functions } from "./functions.js";
 import { stableIds } from "./ids.js";
 import { attachmentsOf } from "./notebook.js";
+import { epochToWall } from "../time.js";
 export { news, newsFromAnswer } from "./news.js";
 /** Genres of the messaging labels (listeEtiquettes[].G). */
 const LABEL_FOLDERS = { 1: "inbox", 2: "archive", 3: "sent", 4: "drafts", 5: "trash" };
@@ -168,7 +169,9 @@ export const isMessagingOpen = (prefs, at) => {
     return true;
 };
 /** Next opening of the messaging (seconds) within 14 days, null when open now or unknown. */
-export const reopensAt = (prefs, now = new Date()) => {
+export const reopensAt = (prefs, instant = new Date()) => {
+    // Days and hours of the preferences are wall-clock times of the school.
+    const now = epochToWall(instant.getTime() / 1000);
     if (isMessagingOpen(prefs, now))
         return null;
     for (let offset = 0; offset <= 14; offset++) {

@@ -30,6 +30,7 @@ import { isAccessDenied } from "./competencies.js";
 import { callFunction, functions } from "./functions.js";
 import { stableIds } from "./ids.js";
 import { attachmentsOf } from "./notebook.js";
+import { epochToWall } from "../time.js";
 
 export { news, newsFromAnswer } from "./news.js";
 
@@ -223,7 +224,9 @@ export const isMessagingOpen = (prefs: PreferenceRanges, at: Date): boolean => {
 };
 
 /** Next opening of the messaging (seconds) within 14 days, null when open now or unknown. */
-export const reopensAt = (prefs: PreferenceRanges, now = new Date()): number | null => {
+export const reopensAt = (prefs: PreferenceRanges, instant = new Date()): number | null => {
+  // Days and hours of the preferences are wall-clock times of the school.
+  const now = epochToWall(instant.getTime() / 1000);
   if (isMessagingOpen(prefs, now)) return null;
   for (let offset = 0; offset <= 14; offset++) {
     const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);

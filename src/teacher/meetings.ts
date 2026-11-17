@@ -17,7 +17,7 @@
 import type { SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
 import { listOf, parseNumberSet, parsePronoteDate } from "../pronote/encoding.js";
-import { seconds, type Appointment, type MeetingSession, type MeetingWish } from "../normalise.js";
+import { localTimes, seconds, type Appointment, type MeetingSession, type MeetingWish } from "../normalise.js";
 import { isAccessDenied } from "./competencies.js";
 import { userData } from "../pronote/userdata.js";
 import { callFunction, functions, isTabClosed } from "./functions.js";
@@ -42,6 +42,9 @@ const dateOf = (value: unknown): number | null => {
   const date = parsePronoteDate(unwrap(value));
   return date ? seconds(date) : null;
 };
+
+/** Wall Date of a Pronote date member (local fields), null when absent. */
+const wallOf = (value: unknown): Date | null => parsePronoteDate(unwrap(value));
 
 const time = (value: unknown): string => {
   const match = String(unwrap(value) ?? "").match(/(\d{1,2})\s*[h:]\s*(\d{2})?/);
@@ -173,6 +176,7 @@ export const appointmentsFromAnswer = (data: Record<string, any>): Appointment[]
     place: label(raw?.lieu ?? raw?.salle),
     status: String(unwrap(raw?.etat) ?? "").trim(),
     mode: String(unwrap(raw?.modalite) ?? "").trim(),
+    local: localTimes({ date: wallOf(raw?.date ?? raw?.debut), end: wallOf(raw?.fin) }),
   }));
 };
 

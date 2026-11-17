@@ -1,0 +1,5 @@
+{
+  "error": "session_expired",
+  "code": "session_expired",
+  "message": "La session Pronote a expiré."
+}
