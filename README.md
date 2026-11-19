@@ -5,7 +5,8 @@ Pronote du lycée, avec le compte enseignant lié. Version **0.9.0** — voir [C
 
 - Hébergement : o2switch, cPanel « Setup Node.js App » (Phusion Passenger), fichier de démarrage `app.cjs`, code
   compilé versionné dans `dist/` (pas d'étape de build sur l'hôte).
-- Mise à jour : cron cPanel `tools/cpanel-update.sh` (ou `POST /admin/update`) — voir
+- Mise à jour : cron cPanel `tools/cpanel-update.sh` (ou `POST /admin/update`), sortie gardée
+  (`>>$HOME/logs/pronoteio-sidecar-cron.log 2>&1`, jamais `>/dev/null`) — voir
   [docs/deploiement-o2switch.md](docs/deploiement-o2switch.md).
 - Échange signé : chaque requête porte `X-Pronoteio-Timestamp`, `X-Pronoteio-Nonce` et `X-Pronoteio-Signature`
   (HMAC-SHA256 du secret partagé), et `X-Pronoteio-Session` une fois connectée.

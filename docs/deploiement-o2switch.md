@@ -33,21 +33,35 @@ est l'estimation du délai du proxy.
 ## 3. Mise à jour (cron et bouton)
 
 ```
-*/5 * * * * /bin/bash /home/<compte>/<dossier-du-sidecar>/tools/cpanel-update.sh https://<sous-domaine-du-sidecar> >/dev/null 2>&1
+*/5 * * * * /bin/bash /home/<compte>/<dossier-du-sidecar>/tools/cpanel-update.sh https://<sous-domaine-du-sidecar> >>$HOME/logs/pronoteio-sidecar-cron.log 2>&1
 ```
+
+- Garder la sortie dans `~/logs/pronoteio-sidecar-cron.log`, jamais `>/dev/null` : le script n'écrit rien quand il n'y a
+  rien à faire, et une erreur de bash lui-même (variable non définie, commande introuvable) n'apparaît que là
+  (19/11/2026 : la 0.10.0 fusionnée, mais ni `npm ci` ni redémarrage, sans aucune trace).
 
 - Toutes les 5 minutes : `git fetch` ; rien de nouveau → simple appel de `/health/public` (maintien en vie).
 - Nouveau commit sur `main` : fusion, `npm ci --omit=dev` si `package.json` ou `package-lock.json` ont changé,
   redémarrage (`tmp/restart.txt`), puis attente (90 s au plus) que `/health/public` réponde **la nouvelle version et le
   nouveau commit**. Sinon : retour au commit précédent, redémarrage, nouvelle vérification.
 - Journal : `~/logs/pronoteio-sidecar-update.log` (ancien → nouveau commit, versions, résultat) ; dernier résultat
-  dans `var/update-result.json`.
+  dans `var/update-result.json` (`ok`, `not_checked`, `rolled_back`, `rollback_failed`, `merge_failed`, `fetch_failed`,
+  `resumed`, `resume_failed`, `aborted`).
+- Mise à jour à moitié faite (code fusionné, processus resté sur l'ancienne version ou l'ancien commit) : le passage
+  suivant refait `npm ci`, redémarre et vérifie (`resumed`), sans retour arrière ; une seule tentative par commit
+  (`resume_failed` : intervention à la main, voir ci-dessous).
+- Arrêt du script après la fusion : ligne `aborted after merge (step: …, command: …)` et résultat `aborted`.
+- Activation de l'environnement Node de cPanel (`~/nodevenv/…/bin/activate`) faite hors `set -u` ; si elle échoue, son
+  `bin/` est mis en tête du `PATH` (`activate failed: PATH fallback` dans le journal).
+- Fin de mise à jour à la main : `source ~/nodevenv/<dossier>/22/bin/activate`, `npm ci --omit=dev` (lance le
+  `postinstall` `patch-pawnote`), `touch tmp/restart.txt`, puis `curl https://<sous-domaine>/health/public`.
 - Une seule mise à jour à la fois (`flock` sur `~/tmp/pronoteio-sidecar-update.lock`).
 - Bouton (tool_olutiondeploy) : `POST /admin/update` signé lance le même script tout de suite et renvoie l'ancienne et
   la nouvelle version et le résultat ; `GET /admin/update` relit le dernier résultat (utile si le processus a été
   remplacé avant la réponse). Variable `PRONOTEIO_PUBLIC_URL` = l'URL publique donnée au script.
 
-- [ ] Remplacer l'ancienne ligne de cron (toutes les 15 min, sortie redirigée vers le journal) par celle ci-dessus.
+- [x] Remplacer l'ancienne ligne de cron par celle ci-dessus (fait le 19/11/2026, sortie vers
+  `~/logs/pronoteio-sidecar-cron.log`).
 - [ ] Ajouter `PRONOTEIO_PUBLIC_URL` dans « Setup Node.js App » (ou le `.env`).
 - [ ] Première mise à jour vers 0.9.0 : les paquets `tzdata` et `timezonecomplete` sont nouveaux ; vérifier dans le
   journal que `npm ci` a réussi (sinon « Run NPM Install » dans cPanel).
