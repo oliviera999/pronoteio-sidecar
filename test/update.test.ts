@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -41,6 +41,7 @@ const setup = () => {
   const curl = join(bin, "curl");
   writeFileSync(curl, `#!/bin/bash
 [ -n "\${FAKE_DELAY:-}" ] && sleep "$FAKE_DELAY"
+[ -n "\${FAKE_DOWN:-}" ] && exit 22
 state="$FAKE_APP/fake-running"
 if [ ! -f "$state" ] || { [ -z "\${FAKE_FROZEN:-}" ] && [ "$FAKE_APP/tmp/restart.txt" -nt "$state" ]; }; then
   version=$(sed -n 's/^ *"version" *: *"\\([^"]*\\)".*/\\1/p' "$FAKE_APP/package.json")
@@ -280,5 +281,66 @@ test("the script stops after the merge: result aborted and a log line, then resu
   const next = t.run();
   assert.equal(next.status, 0, next.stdout + next.stderr);
   assert.equal(t.result().result, "resumed");
+  rmSync(t.root, { recursive: true });
+});
+
+test("a commit rolled back is not merged again at every run; the next commit is", () => {
+  const t = setup();
+  const before = git(t.app, "rev-parse", "HEAD");
+  const broken = t.publish("0.9.0-broken");
+  assert.equal(t.run({ FAKE_BROKEN: "0.9.0-broken" }).status, 2);
+  assert.equal(t.result().result, "rolled_back");
+  assert.equal(readFileSync(join(t.app, "var", "update-rejected"), "utf8").trim(), broken);
+  assert.match(t.log(), new RegExp(`${broken.slice(0, 7)} will not be merged again`));
+  const restarted = statSync(join(t.app, "tmp", "restart.txt")).mtimeMs;
+  const lines = t.log();
+  const result = readFileSync(join(t.app, "var", "update-result.json"), "utf8");
+  // Next runs (cron): no merge, no restart, no log line, result kept.
+  for (let i = 0; i < 2; i++) {
+    const again = t.run({ FAKE_BROKEN: "0.9.0-broken" });
+    assert.equal(again.status, 0, again.stdout + again.stderr);
+  }
+  assert.equal(git(t.app, "rev-parse", "HEAD"), before);
+  assert.equal(statSync(join(t.app, "tmp", "restart.txt")).mtimeMs, restarted, "not restarted");
+  assert.equal(t.log(), lines);
+  assert.equal(readFileSync(join(t.app, "var", "update-result.json"), "utf8"), result);
+  // The button (POST /admin/update) gets an answer: rejected, with the commit and its version.
+  assert.equal(t.run({ FAKE_BROKEN: "0.9.0-broken", PRONOTEIO_UPDATE_RESULT_WHEN_UP_TO_DATE: "1" }).status, 0);
+  const rejected = t.result();
+  assert.equal(rejected.result, "rejected");
+  assert.equal(rejected.old.commit, before);
+  assert.equal(rejected.new.commit, broken);
+  assert.equal(rejected.new.version, "0.9.0-broken");
+  assert.equal(rejected.health, `0.8.0@${before.slice(0, 7)}`);
+  // A fix is published: merged as usual, the mark removed.
+  const fixed = t.publish("0.9.1");
+  const run = t.run({ FAKE_BROKEN: "0.9.0-broken" });
+  assert.equal(run.status, 0, run.stdout + run.stderr);
+  assert.equal(git(t.app, "rev-parse", "HEAD"), fixed);
+  assert.equal(t.result().result, "ok");
+  assert.ok(!existsSync(join(t.app, "var", "update-rejected")));
+  rmSync(t.root, { recursive: true });
+});
+
+test("PRONOTEIO_UPDATE_RETRY_REJECTED=1 tries a rejected commit again", () => {
+  const t = setup();
+  t.publish("0.9.0-broken");
+  assert.equal(t.run({ FAKE_BROKEN: "0.9.0-broken" }).status, 2);
+  const retry = t.run({ FAKE_BROKEN: "0.9.0-broken", PRONOTEIO_UPDATE_RETRY_REJECTED: "1" });
+  assert.equal(retry.status, 2, retry.stdout + retry.stderr);
+  assert.equal((t.log().match(/health failed .*: rollback/g) ?? []).length, 2);
+  assert.equal(t.result().result, "rolled_back");
+  rmSync(t.root, { recursive: true });
+});
+
+test("rollback_failed (nothing answers, the host may be at fault): the commit is not marked, the next run tries it", () => {
+  const t = setup();
+  t.publish("0.9.0");
+  assert.equal(t.run({ FAKE_DOWN: "1" }).status, 2);
+  assert.equal(t.result().result, "rollback_failed");
+  assert.ok(!existsSync(join(t.app, "var", "update-rejected")));
+  const run = t.run();
+  assert.equal(run.status, 0, run.stdout + run.stderr);
+  assert.equal(t.result().result, "ok");
   rmSync(t.root, { recursive: true });
 });
