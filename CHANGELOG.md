@@ -15,13 +15,20 @@ HEAD = origin, le script se croit à jour : le sidecar reste sur la 0.9.0. Fin f
 - **Trace de toute sortie précoce** : piège `EXIT` ; arrêt après la fusion sans résultat → `aborted after merge
   (step: …, command: …, exit …)` et résultat `aborted` (renvoyé par `GET`/`POST /admin/update`). Le verrou de repli
   (`mkdir`, hôte sans `flock`) est libéré à toute sortie.
+- **Plus de boucle après un retour arrière** : HEAD restait derrière origin, chaque passage refusionnait le même
+  commit, redémarrait et revenait en arrière (un redémarrage toutes les 5 minutes, file et session perdues). Le commit
+  revenu en arrière est noté dans `var/update-rejected` et n'est plus fusionné ; ligne `<commit> will not be merged
+  again` ; résultat `rejected` pour le bouton (`PRONOTEIO_UPDATE_RESULT_WHEN_UP_TO_DATE`). Le commit suivant passe
+  normalement et efface la marque. Nouvel essai : `rm var/update-rejected` ou `PRONOTEIO_UPDATE_RETRY_REJECTED=1`.
+  Rien n'est noté après `rollback_failed` (aucune version ne répond : l'hôte plutôt que le commit).
 - Cron documenté avec `>>$HOME/logs/pronoteio-sidecar-cron.log 2>&1` (en-tête du script, README, déploiement).
 - Le cron exécute l'ancienne copie du script une dernière fois, pour la fusion de ce correctif : elle ne change ni
   `package.json` ni `package-lock.json`, elle passe donc sans `install_dependencies`. Les fusions suivantes (dont la
   prochaine release, version montée) passent par le nouveau script.
 - Tests (`test/update.test.ts`) : faux `curl` qui imite Passenger (code chargé au dernier redémarrage) ; activation qui
   lit des variables non définies, activation qui échoue, mise à jour à moitié faite (rattrapée ; rien quand le bon
-  commit répond ; `resume_failed` une seule fois), arrêt après la fusion (`aborted`, puis `resumed`).
+  commit répond ; `resume_failed` une seule fois), arrêt après la fusion (`aborted`, puis `resumed`), commit revenu en
+  arrière (pas refusionné, `rejected`, commit suivant fusionné, nouvel essai forcé, rien noté après `rollback_failed`).
 
 ## 0.10.0 — 2026-11-19 — Espace Professeurs web : seconde session pour les onglets absents de l'espace mobile
 

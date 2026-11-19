@@ -20,8 +20,13 @@
 #
 # Results written to var/update-result.json: ok, not_checked, rolled_back, rollback_failed, merge_failed,
 # fetch_failed, up_to_date (on request), resumed / resume_failed (the code was merged by an earlier run that stopped
-# before the restart: dependencies installed again and restart, no rollback) and aborted (the script stopped after the
-# merge without writing a result: the EXIT trap writes it, with the step and the last command).
+# before the restart: dependencies installed again and restart, no rollback), aborted (the script stopped after the
+# merge without writing a result: the EXIT trap writes it, with the step and the last command) and rejected (on
+# request, like up_to_date: origin is on a commit already rolled back, not merged again).
+#
+# A commit rolled back is written to var/update-rejected and is not merged again: without that, HEAD stays behind
+# origin and every run merged, restarted and rolled back the same commit (a restart every 5 minutes). The next commit
+# on origin is merged as usual. To try the same commit again: rm var/update-rejected, or PRONOTEIO_UPDATE_RETRY_REJECTED=1.
 
 main() {
   set -u
@@ -38,6 +43,7 @@ main() {
   log_file="${PRONOTEIO_UPDATE_LOG:-$HOME/logs/pronoteio-sidecar-update.log}"
   lock_file="${PRONOTEIO_UPDATE_LOCK:-$HOME/tmp/pronoteio-sidecar-update.lock}"
   result_file="$app/var/update-result.json"
+  local rejected_file="$app/var/update-rejected" rejected="" skipped_rev=""
   local git_cmd="${GIT:-git}" npm_cmd="${NPM:-npm}" curl_cmd="${CURL:-curl}"
   mkdir -p "$(dirname "$log_file")" "$(dirname "$lock_file")" "$app/var" "$app/tmp"
   cd "$app" || return 1
@@ -149,6 +155,12 @@ main() {
   local_rev=$("$git_cmd" rev-parse HEAD)
   remote_rev=$("$git_cmd" rev-parse "origin/$branch")
   old_version="$(pkg_version)"
+  [ -f "$rejected_file" ] && [ "${PRONOTEIO_UPDATE_RETRY_REJECTED:-0}" != "1" ] && rejected="$(head -n 1 "$rejected_file")"
+  if [ "$local_rev" != "$remote_rev" ] && [ "$remote_rev" = "$rejected" ]; then
+    # Already rolled back: stay on HEAD, as if up to date (keep-alive and half-finished check below), no log line.
+    skipped_rev="$remote_rev"
+    remote_rev="$local_rev"
+  fi
   if [ "$local_rev" = "$remote_rev" ]; then
     # Nothing to merge. The call of /health/public keeps the process alive (and starts it after a stop).
     seen="$(answered_version)"
@@ -170,7 +182,11 @@ main() {
       write_result "${seen#*@}" "${seen%%@*}" "$local_rev" "$new_version" "resume_failed" "${last_seen:-}"
       return 2
     fi
-    if [ "${PRONOTEIO_UPDATE_RESULT_WHEN_UP_TO_DATE:-0}" = "1" ]; then
+    if [ "${PRONOTEIO_UPDATE_RESULT_WHEN_UP_TO_DATE:-0}" = "1" ] && [ -n "$skipped_rev" ]; then
+      write_result "$local_rev" "$old_version" "$skipped_rev" \
+        "$("$git_cmd" show "$skipped_rev:package.json" 2>/dev/null | sed -n 's/^ *"version" *: *"\([^"]*\)".*/\1/p' | head -n 1)" \
+        "rejected" "$seen"
+    elif [ "${PRONOTEIO_UPDATE_RESULT_WHEN_UP_TO_DATE:-0}" = "1" ]; then
       write_result "$local_rev" "$old_version" "$local_rev" "$old_version" "up_to_date" "$seen"
     fi
     return 0
@@ -195,12 +211,14 @@ main() {
   if [ -z "$health" ]; then
     log "${local_rev:0:7} -> ${remote_rev:0:7} ($old_version -> $new_version) restarted, health not checked (no URL)"
     write_result "$local_rev" "$old_version" "$remote_rev" "$new_version" "not_checked" ""
+    rm -f "$rejected_file"
     return 0
   fi
 
   if wait_for_version "$(expected)"; then
     log "${local_rev:0:7} -> ${remote_rev:0:7} ($old_version -> $new_version) ok"
     write_result "$local_rev" "$old_version" "$remote_rev" "$new_version" "ok" "$(expected)"
+    rm -f "$rejected_file"
     return 0
   fi
 
@@ -215,9 +233,12 @@ main() {
   restart
   last_seen=""
   if wait_for_version "$(expected)"; then
-    log "rollback to ${local_rev:0:7} ($old_version) ok"
+    # The old commit answers again: the new one is at fault, it is not merged again (see the head of the file).
+    echo "$remote_rev" >"$rejected_file"
+    log "rollback to ${local_rev:0:7} ($old_version) ok; ${remote_rev:0:7} will not be merged again (next commit, or rm var/update-rejected)"
     write_result "$local_rev" "$old_version" "$remote_rev" "$new_version" "rolled_back" "$(expected)"
   else
+    # Neither answers: the host rather than the commit may be at fault; the next run tries the new commit again.
     log "rollback to ${local_rev:0:7} ($old_version) FAILED (${last_seen:-no answer})"
     write_result "$local_rev" "$old_version" "$remote_rev" "$new_version" "rollback_failed" "${last_seen:-}"
   fi
