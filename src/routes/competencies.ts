@@ -33,6 +33,24 @@ export default async function competenciesRoutes(app: FastifyInstance): Promise<
     async (request) => teacher.competencyReferential(requireSession(request), request.query.service, request.query.period ?? ""),
   );
 
+  // 0.10.0, not validated: referential of a subject for a cycle (tab 200, Référentiels par matière), without service;
+  // without subject, the subjects of each cycle (or of the cycle given).
+  app.get<{ Querystring: { cycle?: string; subject?: string } }>(
+    "/competencies/referential/subjects",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          properties: {
+            cycle: { type: "string", maxLength: 100, default: "" },
+            subject: { type: "string", maxLength: 200, default: "" },
+          },
+        },
+      },
+    },
+    async (request) => teacher.subjectReferential(requireSession(request), request.query.cycle ?? "", request.query.subject ?? ""),
+  );
+
   // Not validated on a real server (skills tabs closed on the demo profile).
   app.post<{ Body: CompetencyWrite }>(
     "/competencies",

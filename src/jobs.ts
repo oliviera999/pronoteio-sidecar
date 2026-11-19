@@ -46,6 +46,8 @@ type JobResult = { url: string; status: number; body: unknown };
 type Job = {
   id: string;
   session: string;
+  /** 0.10.0: web headers of the creating request (X-Pronoteio-Web-Session, X-Pronoteio-Web), forwarded to each read. */
+  web?: Record<string, string>;
   status: "queued" | "running" | "done" | "failed";
   created: number;
   finished: number | null;
@@ -89,12 +91,12 @@ export const jobStats = () => {
   return { jobs: list.length, running: list.filter((job) => job.status === "running" || job.status === "queued").length };
 };
 
-const runOne = async (app: FastifyInstance, session: string, url: string): Promise<JobResult> => {
+const runOne = async (app: FastifyInstance, session: string, url: string, web: Record<string, string> = {}): Promise<JobResult> => {
   const inject = async (target: string) => {
     const response = await app.inject({
       method: "GET",
       url: target,
-      headers: { [INTERNAL_HEADER]: INTERNAL_TOKEN, "x-pronoteio-session": session, "x-pronoteio-job": "1" },
+      headers: { [INTERNAL_HEADER]: INTERNAL_TOKEN, "x-pronoteio-session": session, "x-pronoteio-job": "1", ...web },
     });
     let body: unknown = response.body;
     try {
@@ -138,7 +140,7 @@ const run = async (app: FastifyInstance, job: Job, urls: string[]): Promise<void
   job.status = "running";
   try {
     for (const url of urls) {
-      job.results.push(await runOne(app, job.session, url));
+      job.results.push(await runOne(app, job.session, url, job.web));
       job.done++;
     }
     job.status = "done";
@@ -183,7 +185,12 @@ export const registerJobs = (app: FastifyInstance): void => {
         throw new HttpError(429, "rate_limited", { retry_after: 30 }, { "retry-after": "30" });
       }
       const now = Date.now();
-      const job: Job = { id: randomUUID(), session, status: "queued", created: now, finished: null, expires: now + JOB_TTL_MS * 3,
+      const web: Record<string, string> = {};
+      for (const name of ["x-pronoteio-web-session", "x-pronoteio-web"]) {
+        const value = String(request.headers[name] ?? "");
+        if (value !== "") web[name] = value;
+      }
+      const job: Job = { id: randomUUID(), session, web, status: "queued", created: now, finished: null, expires: now + JOB_TTL_MS * 3,
         total: urls.length, done: 0, results: [], error: null };
       jobs.set(job.id, job);
       void run(app, job, urls);

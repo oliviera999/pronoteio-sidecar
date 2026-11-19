@@ -30,6 +30,7 @@ import {
   ratingsFromPage,
   resourceRefOf,
   type SessionReferentialItem,
+  ensureSkillsSpace,
 } from "./competencies.js";
 import { call, loadAllServices, pickPeriod, ref, resolveService, resourceOf, resourceType, serviceIdsOf, type Element } from "./grades.js";
 import { stableId } from "./ids.js";
@@ -246,6 +247,8 @@ export const buildCompetencyRequest = (
 
 /* non validé sur la démo : onglet 65 fermé au profil de démonstration, écritures ignorées */
 export const writeCompetency = async (session: SessionHandle, write: CompetencyWrite): Promise<CompetencyWriteResult> => {
+  // 0.10.0: on a mobile session lacking the skills tabs, the request is replayed on the web session before any call.
+  ensureSkillsSpace(session);
   const picked = await pickPeriod(session, write.period);
   const all = await loadAllServices(session, picked.period);
   const entry = resolveService(write.service, all);

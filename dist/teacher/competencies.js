@@ -21,6 +21,21 @@ import { localTimes } from "../normalise.js";
 import { legacySeconds } from "../time.js";
 import { call, describeService, loadAllServices, pickPeriod, ref, resolveService, resourceOf, resourceType, serviceIdsOf, } from "./grades.js";
 import { stableId, stableIds } from "./ids.js";
+import { isTabClosed } from "./functions.js";
+import { spaceOf, WebSessionRequired } from "../space.js";
+/**
+ * 0.10.0: skills read or written in the session that opens their tabs. On a mobile session lacking the skills tabs (65,
+ * 56), WebSessionRequired before any call (the request is replayed on the web session, see space.ts); elsewhere nothing.
+ */
+export const ensureSkillsSpace = (session) => {
+    isTabClosed(session, "competencyList");
+    isTabClosed(session, "competencyPage");
+};
+/** Tab and space of a refusal of the skills functions (0.10.0), added to available: false. */
+const deniedWhere = (session, onglet) => ({
+    ...(onglet !== null ? { onglet } : {}),
+    ...(spaceOf(session) ? { space: spaceOf(session) } : {}),
+});
 /** Largest number of assessments whose levels are read in one call. */
 export const MAX_ITEMS = 30;
 /** EGenreNiveauDAcquisition of the client, used when the school's list was not received at login. */
@@ -147,6 +162,7 @@ export const resourceRefOf = (service, type) => {
 export const competencyElement = (entry) => entry.competency ?? entry.grade ?? entry.service;
 /* non validé sur la démo : onglets 65 et 56 fermés au profil de démonstration */
 export const overview = async (session, periodId = "", classes = []) => {
+    ensureSkillsSpace(session);
     const picked = await pickPeriod(session, periodId);
     const parentsDelay = parentsDelayOf(session);
     const base = {
@@ -182,12 +198,14 @@ export const overview = async (session, periodId = "", classes = []) => {
             });
         }
         catch (error) {
-            if (isAccessDenied(error))
-                return { ...base, services, available: false, reason: "access_denied" };
+            if (isAccessDenied(error)) {
+                return { ...base, services, available: false, reason: "access_denied", ...deniedWhere(session, 65) };
+            }
             throw error;
         }
-        if (!list || Object.keys(list).length === 0)
-            return { ...base, services, available: false, reason: "access_denied" };
+        if (!list || Object.keys(list).length === 0) {
+            return { ...base, services, available: false, reason: "access_denied", ...deniedWhere(session, 65) };
+        }
         const subject = String(service.matiere?.V?.L ?? service.L ?? "");
         for (const evaluation of listOf(list.listeEvaluations)) {
             if (total >= MAX_ITEMS)
@@ -272,7 +290,7 @@ export const loadReferential = async (session, service, resourceRef, list) => {
         roots.push(...listOf(data?.listePiliers), ...listOf(data?.listeReferentiels));
     }
     catch (error) {
-        if (!(error instanceof ServerSideError) && !(error instanceof HttpError))
+        if (error instanceof WebSessionRequired || (!(error instanceof ServerSideError) && !(error instanceof HttpError)))
             throw error;
     }
     for (const evaluation of listOf(list?.listeEvaluations))
@@ -302,6 +320,7 @@ export const findReferentialItem = (wanted, items) => {
 };
 /** GET /competencies/referential: the referential of one service of the period. */
 export const referential = async (session, serviceId, periodId = "") => {
+    ensureSkillsSpace(session);
     const picked = await pickPeriod(session, periodId);
     const all = await loadAllServices(session, picked.period);
     const entry = resolveService(serviceId, all);
@@ -321,7 +340,8 @@ export const referential = async (session, serviceId, periodId = "") => {
     }
     catch (error) {
         if (isAccessDenied(error)) {
-            return { available: false, reason: "access_denied", validated: false, service: described, items: [] };
+            return { available: false, reason: "access_denied", ...deniedWhere(session, 65), validated: false, service: described,
+                items: [] };
         }
         throw error;
     }

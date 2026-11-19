@@ -73,6 +73,9 @@ const defaults = {
     studentFile: { name: "FicheEleve", onglet: 105 },
     competencyServicesList: { name: "ListeServices", onglet: 65 },
     competencyReferential: { name: "ListePiliers", onglet: 65 },
+    competencyCycles: { name: "ListePaliers", onglet: 200 },
+    competencySubjects: { name: "ListeTousPiliersDeCompetence", onglet: 200 },
+    competencySubjectReferential: { name: "CompetencesGrilles", onglet: 200 },
 };
 const load = () => {
     const file = process.env.PRONOTEIO_FUNCTIONS_FILE;
@@ -87,7 +90,7 @@ const load = () => {
 };
 export const functions = load();
 /** Whether the tab of a function is closed to the account (tabs received at login and lacking it). */
-export const isTabClosed = (session, key) => tabClosed(session, functions[key].onglet);
+export const isTabClosed = (session, key) => tabClosed(session, functions[key].onglet, functions[key].name);
 /** Refuses a write before any call when the tab of its function is closed to the account: 409 tab_closed:<function>. */
 export const assertTabOpen = (session, key) => {
     if (isTabClosed(session, key))

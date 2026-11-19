@@ -1,5 +1,36 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.10.0 — 2026-11-19 — Espace Professeurs web : seconde session pour les onglets absents de l'espace mobile
+
+Cas du 18/11/2026 : la connexion par Pawnote ouvre l'espace mobile (`mobile.professeur.html`, 38 onglets), sans
+compétences (55, 56, 65, 199, 200), bulletins (4, 13, 25, 27) ni relevé (12), que l'Espace Professeurs web ouvre
+(`professeur.html`, mode Domicile, 158 onglets) : `GET /competencies` répondait `access_denied`, les groupes de 6e
+évalués par compétences restaient invisibles. Contrat : `docs/pronoteio/espace-web.md` (dépôt `mood_prod`), client
+`local_pronoteio` 0.18.0. Rétrocompatible : un client qui n'annonce rien garde le comportement 0.9.0.
+
+- **Connexion web** : `POST /session/login` avec `space: "web"` et le mot de passe ; `tools/patch-pawnote.mjs` ajoute à
+  Pawnote `pronoteioLoginWeb` (copie de `loginCredentials` : page `professeur.html`, sans `bydlg` ni demande de jeton
+  mobile ; double authentification relayée en `pin_required`) ; navigateur de bureau (`webFetcher`). Le jeton mobile
+  n'est pas accepté (`401 web_token_refused`, sans appel à Pronote). Une session web par compte, gardée à côté de la
+  principale, jamais reconnectée (`401 web_session_expired`).
+- **Choix de la session par onglet** (`src/space.ts`) : pour un client qui l'annonce (`X-Pronoteio-Web: 1` ou
+  `X-Pronoteio-Web-Session`), un appel dont l'onglet manque à la session mobile s'arrête avant d'être envoyé ; la
+  requête entière est rejouée sur la session web, ou `409 web_session_required` (`onglet`, `function`). Fonctions qui
+  répondent sans leur onglet laissées sur la session mobile (`PRONOTEIO_MOBILE_WITHOUT_TAB`) ; `PRONOTEIO_WEB_ROUTING=off`.
+  Les services de l'onglet 65 restent un enrichissement de `GET /grades/overview` (jamais de session web demandée pour
+  eux). Plus de refus déduit de la seule liste d'onglets mobile (`PageBulletins`, contexte des bulletins).
+- `GET /session/info` : `space`, `login`, `webtabs`. Refus des compétences : `onglet`, `space`. Codes stables
+  `web_session_required`, `web_session_expired` ; `web_token_refused` → `login_failed`. Tâches (`POST /jobs`) : en-têtes
+  web transmis à chaque lecture.
+- **Référentiel par matière** (onglet 200, **non validé**) : `GET /competencies/referential/subjects?cycle=&subject=`
+  (`ListePaliers`, `ListeTousPiliersDeCompetence`, `CompetencesGrilles`), éléments signifiants et items dans l'ordre de
+  Pronote, identifiants stables par rang ; sans matière, matières par cycle ; forme inconnue : `format_unknown` et `shape`.
+- Tests : `test/web-space.test.ts` (38 et 158 onglets du 18/11, session web pour l'onglet 65, onglet 16 sur la session
+  mobile, client ancien, aperçu des notes sans session web, onglet absent des deux espaces, session web expirée, page
+  `professeur.html` sans `bydlg` et navigateur de bureau, aucun identifiant dans les journaux, référentiel de 14 éléments
+  et 74 items).
+- **À valider sur le vrai serveur** : connexion web (PIN demandé ou non pour cette source), forme de `CompetencesGrilles`.
+
 ## 0.9.0 — 2026-11-17 — horaires, débit, cache, session, santé, mise à jour, contrats
 
 Flux P (« sidecar plus robuste, plus rapide, observable »). Tout est rétrocompatible avec local_pronoteio 2026112100 :

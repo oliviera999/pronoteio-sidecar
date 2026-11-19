@@ -43,6 +43,23 @@ import {
   type MergedService,
 } from "./grades.js";
 import { stableId, stableIds } from "./ids.js";
+import { isTabClosed } from "./functions.js";
+import { spaceOf, WebSessionRequired } from "../space.js";
+
+/**
+ * 0.10.0: skills read or written in the session that opens their tabs. On a mobile session lacking the skills tabs (65,
+ * 56), WebSessionRequired before any call (the request is replayed on the web session, see space.ts); elsewhere nothing.
+ */
+export const ensureSkillsSpace = (session: SessionHandle): void => {
+  isTabClosed(session, "competencyList");
+  isTabClosed(session, "competencyPage");
+};
+
+/** Tab and space of a refusal of the skills functions (0.10.0), added to available: false. */
+const deniedWhere = (session: SessionHandle, onglet: number | null) => ({
+  ...(onglet !== null ? { onglet } : {}),
+  ...(spaceOf(session) ? { space: spaceOf(session) as string } : {}),
+});
 
 /** Largest number of assessments whose levels are read in one call. */
 export const MAX_ITEMS = 30;
@@ -191,6 +208,7 @@ export const competencyElement = (entry: MergedService): Element => entry.compet
 
 /* non validé sur la démo : onglets 65 et 56 fermés au profil de démonstration */
 export const overview = async (session: SessionHandle, periodId = "", classes: string[] = []): Promise<CompetencyOverview> => {
+  ensureSkillsSpace(session);
   const picked = await pickPeriod(session, periodId);
   const parentsDelay = parentsDelayOf(session);
   const base: CompetencyOverview = {
@@ -224,10 +242,14 @@ export const overview = async (session: SessionHandle, periodId = "", classes: s
         periode: ref(picked.period),
       });
     } catch (error) {
-      if (isAccessDenied(error)) return { ...base, services, available: false, reason: "access_denied" };
+      if (isAccessDenied(error)) {
+        return { ...base, services, available: false, reason: "access_denied", ...deniedWhere(session, 65) };
+      }
       throw error;
     }
-    if (!list || Object.keys(list).length === 0) return { ...base, services, available: false, reason: "access_denied" };
+    if (!list || Object.keys(list).length === 0) {
+      return { ...base, services, available: false, reason: "access_denied", ...deniedWhere(session, 65) };
+    }
     const subject = String(service.matiere?.V?.L ?? service.L ?? "");
     for (const evaluation of listOf<Element>(list.listeEvaluations)) {
       if (total >= MAX_ITEMS) break;
@@ -322,7 +344,7 @@ export const loadReferential = async (
     });
     roots.push(...listOf(data?.listePiliers), ...listOf(data?.listeReferentiels));
   } catch (error) {
-    if (!(error instanceof ServerSideError) && !(error instanceof HttpError)) throw error;
+    if (error instanceof WebSessionRequired || (!(error instanceof ServerSideError) && !(error instanceof HttpError))) throw error;
   }
   for (const evaluation of listOf<Element>(list?.listeEvaluations)) roots.push(...listOf(evaluation.listeCompetences));
   return referentialFrom(roots);
@@ -349,6 +371,7 @@ export const findReferentialItem = <T extends ReferentialItem>(wanted: string, i
 
 /** GET /competencies/referential: the referential of one service of the period. */
 export const referential = async (session: SessionHandle, serviceId: string, periodId = "") => {
+  ensureSkillsSpace(session);
   const picked = await pickPeriod(session, periodId);
   const all = await loadAllServices(session, picked.period);
   const entry = resolveService(serviceId, all);
@@ -367,7 +390,8 @@ export const referential = async (session: SessionHandle, serviceId: string, per
     });
   } catch (error) {
     if (isAccessDenied(error)) {
-      return { available: false, reason: "access_denied", validated: false, service: described, items: [] as ReferentialItem[] };
+      return { available: false, reason: "access_denied", ...deniedWhere(session, 65), validated: false, service: described,
+        items: [] as ReferentialItem[] };
     }
     throw error;
   }

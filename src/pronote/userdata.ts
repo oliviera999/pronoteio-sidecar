@@ -8,6 +8,7 @@ import { createSessionHandle, type SessionHandle } from "pawnote";
 import { listOf } from "./encoding.js";
 import { compatFetcher } from "./compat.js";
 import { decodePayload } from "./request.js";
+import { assertReachable } from "../space.js";
 
 /**
  * Class (genre 1) or group (genre 2) of the school. "id" is only valid in the session that sent it.
@@ -143,10 +144,16 @@ export const hasRight = (rights: Record<string, unknown>, group: string, name: s
   return null;
 };
 
-/** Whether the tab of a function is closed to the account: true only when the tabs were received and lack it. */
-export const tabClosed = (session: SessionHandle, onglet: number | null): boolean => {
+/**
+ * Whether the tab of a function is closed to the account: true only when the tabs were received and lack it. 0.10.0: a
+ * tab missing from the MOBILE session is not a refusal while the web space has not been tried: WebSessionRequired
+ * (space.ts) when the client can open a web session.
+ */
+export const tabClosed = (session: SessionHandle, onglet: number | null, fn = ""): boolean => {
   const tabs = userData(session).tabs;
-  return onglet !== null && Array.isArray(tabs) && !tabs.includes(onglet);
+  const closed = onglet !== null && Array.isArray(tabs) && !tabs.includes(onglet);
+  if (closed) assertReachable(session, tabs, onglet, fn);
+  return closed;
 };
 
 /** Replaces the login data of a session (tests, or a session handle created outside createCapturingHandle). */

@@ -14,6 +14,19 @@ export const compatFetcher = async (request) => {
     }
     return response;
 };
+/** Browser of the web Espace Professeurs (0.10.0): Pronote serves professeur.html to a desktop browser. */
+export const WEB_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
+/**
+ * Fetcher of a web Espace Professeurs session (0.10.0): Pawnote sends the user agent of the PRONOTE mobile application;
+ * the web space is asked as a desktop browser asks it.
+ */
+export const webFetcher = (base = compatFetcher) => async (request) => {
+    if (request.headers instanceof Headers)
+        request.headers.set("User-Agent", WEB_USER_AGENT);
+    else
+        request.headers = { ...(request.headers ?? {}), "User-Agent": WEB_USER_AGENT };
+    return base(request);
+};
 /** Base address of the instance ("https://host/pronote/") from any URL of its spaces. */
 export const pronoteBaseUrl = (url) => {
     const parsed = new URL(url);

@@ -26,6 +26,10 @@ const cases: [number, string, string, Record<string, unknown>?][] = [
   [400, "invalid_request", "validation_failed"],
   [400, "validation_failed:local.date", "validation_failed"],
   [401, "replayed_request", "duplicate_write"],
+  [409, "web_session_required", "web_session_required", { onglet: 56, function: "PageCompetencesParEvaluation" }],
+  [409, "web_session_required_after_write", "web_session_required", { onglet: 56, function: "SaisieEvaluations" }],
+  [401, "web_session_expired", "web_session_expired"],
+  [401, "web_token_refused", "login_failed"],
   [500, "boom", "internal"],
   [501, "not_implemented:x", "internal"],
 ];

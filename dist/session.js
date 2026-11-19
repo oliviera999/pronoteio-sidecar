@@ -9,6 +9,11 @@
  * - Session expired or closed by Pronote (the teacher connected elsewhere, when Pronote imposes it): reconnect with the
  *   token chain, once, under the login lock of the account (two requests during a reconnection make one login), then
  *   the request is replayed once (app.ts). A write is not replayed once its write call was sent.
+ *
+ * Web Espace Professeurs (0.10.0): an account may also hold a session of the web space (login with the password,
+ * "space": "web"), sent by Moodle in X-Pronoteio-Web-Session beside the main one. It is kept separately (one web
+ * session per account), never reconnected (no token chain for the web space: web_session_expired, Moodle logs in again),
+ * and used for the whole request once a call needed a tab the mobile session lacks (space.ts, app.ts).
  */
 import { randomUUID } from "node:crypto";
 import { ServerSideError, SessionExpiredError } from "pawnote";
@@ -17,22 +22,42 @@ import { HttpError } from "./errors.js";
 import { rememberUserData, userData } from "./pronote/userdata.js";
 import { stateStore } from "./state.js";
 import { serializeLogin } from "./tokenStore.js";
+import { currentContext } from "./context.js";
+import { setSpace } from "./space.js";
 const sessions = new Map();
 const byAccount = new Map();
-const sessionIdOf = (request) => String(request.headers["x-pronoteio-session"] ?? "");
-/** Opens a session; with an account, it replaces the account's previous session (one session per account). */
-export const createSession = (handle, account) => {
+/** Web session sent by Moodle beside the main one (0.10.0), "" when none. */
+export const webSessionIdOf = (request) => String(request.headers["x-pronoteio-web-session"] ?? "");
+/** Session of the request: the web one while the request runs on it (replay after WebSessionRequired), else the main one. */
+const sessionIdOf = (request) => currentContext()?.webActive ? webSessionIdOf(request) : String(request.headers["x-pronoteio-session"] ?? "");
+/** Key of the web session of an account in byAccount (the main session keeps the account key). */
+const webKey = (account) => `${account}|web`;
+/**
+ * Opens a session; with an account, it replaces the account's previous session of the same space (one session per
+ * account and space).
+ */
+export const createSession = (handle, account, options = {}) => {
     const id = randomUUID();
     const now = Date.now();
+    const space = options.space ?? "mobile";
     if (account) {
-        const previous = byAccount.get(account.key);
+        const key = space === "web" ? webKey(account.key) : account.key;
+        const previous = byAccount.get(key);
         if (previous)
             sessions.delete(previous);
-        byAccount.set(account.key, id);
+        byAccount.set(key, id);
     }
+    if (options.space)
+        setSpace(handle, options.space);
     sessions.set(id, { id, handle, expires: now + config.sessionTtl, created: now, lastUsed: now, account: account?.key ?? null,
-        login: account?.login ?? null, generation: 0, reconnects: 0, lastReconnect: null, state: "open" });
+        login: account?.login ?? null, generation: 0, reconnects: 0, lastReconnect: null, state: "open", space,
+        loginMode: options.loginMode ?? "token" });
     return id;
+};
+/** Entry of the web session sent with a request (X-Pronoteio-Web-Session), undefined when absent, unknown or expired. */
+export const webSessionEntry = (request) => {
+    const entry = sessions.get(webSessionIdOf(request));
+    return entry && entry.space === "web" && entry.expires >= Date.now() ? entry : undefined;
 };
 /** Open session of an account, to be reused by its next token login; null when none is alive. */
 export const sessionOfAccount = (account) => {
@@ -55,7 +80,7 @@ export const requireSession = (request) => {
     if (!entry || entry.expires < Date.now()) {
         if (entry)
             forget(entry);
-        throw new HttpError(401, "session_expired");
+        throw new HttpError(401, currentContext()?.webActive ? "web_session_expired" : "session_expired");
     }
     entry.expires = Date.now() + config.sessionTtl;
     entry.lastUsed = Date.now();
@@ -63,8 +88,9 @@ export const requireSession = (request) => {
 };
 const forget = (entry) => {
     sessions.delete(entry.id);
-    if (entry.account && byAccount.get(entry.account) === entry.id)
-        byAccount.delete(entry.account);
+    const key = entry.account && (entry.space === "web" ? webKey(entry.account) : entry.account);
+    if (key && byAccount.get(key) === entry.id)
+        byAccount.delete(key);
 };
 export const dropSession = (request) => {
     const entry = sessions.get(sessionIdOf(request));
@@ -94,7 +120,8 @@ export const setReconnector = (fn) => {
  * is kept (rate limiter, user data): the new session is copied into it.
  */
 export const reconnect = async (entry, reason, seen = entry.generation) => {
-    if (!reconnector || !entry.account || !entry.login)
+    // A web session has no token chain: it is never reconnected (Moodle logs in again on web_session_expired).
+    if (!reconnector || !entry.account || !entry.login || entry.space === "web")
         return false;
     const run = reconnector;
     return serializeLogin(entry.account, async () => {
@@ -103,6 +130,7 @@ export const reconnect = async (entry, reason, seen = entry.generation) => {
         entry.state = "reconnecting";
         try {
             const fresh = await run(entry);
+            setSpace(entry.handle, entry.space);
             const data = userData(fresh);
             Object.assign(entry.handle, fresh);
             rememberUserData(entry.handle, data);
@@ -156,6 +184,7 @@ export const sessionStats = (now = Date.now()) => {
         open: list.length,
         states: list.map((entry) => ({
             state: entry.state,
+            space: entry.space,
             ageSeconds: Math.round((now - entry.created) / 1000),
             idleSeconds: Math.round((now - entry.lastUsed) / 1000),
             reconnects: entry.reconnects,

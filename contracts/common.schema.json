@@ -30,6 +30,8 @@
         "forbidden",
         "validation_failed",
         "duplicate_write",
+        "web_session_required",
+        "web_session_expired",
         "internal"
       ]
     },
@@ -73,6 +75,18 @@
         },
         "pronoteversion": {
           "type": "string"
+        },
+        "onglet": {
+          "type": "integer",
+          "description": "0.10.0 : onglet absent de la session (web_session_required, access_denied)."
+        },
+        "space": {
+          "enum": ["mobile", "web"],
+          "description": "0.10.0 : espace où l'onglet manque (access_denied)."
+        },
+        "webtabs": {
+          "type": "array",
+          "items": { "type": "integer" }
         },
         "validated": {
           "type": "array",

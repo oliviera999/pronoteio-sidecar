@@ -158,6 +158,12 @@
                       "lost"
                     ]
                   },
+                  "space": {
+                    "enum": [
+                      "mobile",
+                      "web"
+                    ]
+                  },
                   "ageSeconds": {
                     "type": "integer"
                   },

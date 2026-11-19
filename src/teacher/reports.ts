@@ -12,7 +12,7 @@ import { ServerSideError, type SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
 import { answerData, callPronote } from "../pronote/request.js";
 import { listOf } from "../pronote/encoding.js";
-import { userData } from "../pronote/userdata.js";
+import { tabClosed, userData } from "../pronote/userdata.js";
 import { splitDisplayName, type Report, type ReportComment, type ReportContext, type ReportSubject } from "../normalise.js";
 import { requireFunction } from "./functions.js";
 import { loadPeriods, periodKey } from "./grades.js";
@@ -123,10 +123,12 @@ const reportTab = (): number | null => requireFunction("reportCard").onglet;
 export const reportContext = async (session: SessionHandle): Promise<ReportContext> => {
   const { tabs, resources } = userData(session);
   const tab = reportTab();
+  // 0.10.0: tab missing from the mobile session: the web session decides (space.ts), not the mobile list.
+  const closed = tabs === null || tab === null ? null : tabClosed(session, tab, requireFunction("reportCard").name);
   const { periods, current } = await loadPeriods(session);
   const periodIds = stableIds("period", periods, periodKey);
   return {
-    allowed: tabs === null || tab === null ? null : tabs.includes(tab),
+    allowed: closed === null ? null : !closed,
     classes: resources
       .filter((item) => item.genre === GENRE_CLASS)
       .map((item) => ({ id: stableId("class", item.label), name: item.label, principal: item.principal, taught: item.taught }))
@@ -140,8 +142,9 @@ const isAccessDenied = (error: unknown): boolean =>
 
 export const reports = async (session: SessionHandle, resourceId: string, periodId: string): Promise<Report[]> => {
   const fn = requireFunction("reportCard");
-  const { tabs, resources } = userData(session);
-  if (tabs !== null && fn.onglet !== null && !tabs.includes(fn.onglet)) throw new HttpError(403, "access_denied");
+  const { resources } = userData(session);
+  // 0.10.0: a tab missing from the mobile session asks for the web session (space.ts) before concluding to a refusal.
+  if (tabClosed(session, fn.onglet, fn.name)) throw new HttpError(403, "access_denied");
   if (kindOf(resourceId) !== "class") throw new HttpError(409, "resource_not_class");
 
   const classe = resolve("class", resourceId, resources.filter((item) => item.genre === GENRE_CLASS), (item) => item.label);

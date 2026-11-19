@@ -5,7 +5,8 @@ import { addressAllowed } from "./address.js";
 import { registerJobs } from "./jobs.js";
 import { config } from "./config.js";
 import { currentContext, PRIORITY, priorityOf, requestContext } from "./context.js";
-import { lostSessionReason, reconnect, sessionEntry, sessionLostError } from "./session.js";
+import { lostSessionReason, reconnect, sessionEntry, sessionLostError, webSessionEntry, webSessionIdOf } from "./session.js";
+import { announcesWeb, WebSessionRequired } from "./space.js";
 import { HttpError, toHttp } from "./errors.js";
 import { ERROR_CODES, errorBody } from "./errorCodes.js";
 import { stateStore } from "./state.js";
@@ -79,7 +80,7 @@ export const buildApp = async (options = {}) => {
         // Request bodies carry passwords and tokens: they are never logged.
         logger: options.logger ?? {
             level: config.logLevel,
-            redact: ["req.headers['x-pronoteio-signature']", "req.headers['x-pronoteio-session']"],
+            redact: ["req.headers['x-pronoteio-signature']", "req.headers['x-pronoteio-session']", "req.headers['x-pronoteio-web-session']"],
             // P8: no URL (its query may name a student), no header, no body in the logs.
             serializers: {
                 req: (request) => ({ method: request.method, route: request.routeOptions?.url }),
@@ -140,6 +141,8 @@ export const buildApp = async (options = {}) => {
             deadline: Date.now() + (job ? Math.max(queueWait, 120_000) : queueWait),
             calls: 0,
             route,
+            // 0.10.0: client able to open a web session (space.ts).
+            webCapable: announcesWeb(request.headers),
         }, done);
     });
     // Addresses allowed (P11): the Moodle server only, when PRONOTEIO_ALLOWED_IPS is set.
@@ -200,8 +203,33 @@ export const buildApp = async (options = {}) => {
     app.get("/errors", async () => ({ version: SIDECAR_VERSION, codes: ERROR_CODES }));
     // Lost Pronote session (expired, or closed because the account connected elsewhere): reconnect once with the token
     // chain and replay the request once (P5). A write whose write call was already sent is not replayed.
+    // 0.10.0: a call needing a tab the mobile session lacks (WebSessionRequired, thrown before it is sent) replays the
+    // whole request once on the web session given in X-Pronoteio-Web-Session; without it, 409 web_session_required.
     app.addHook("onRoute", (route) => {
         const handler = route.handler;
+        const onWeb = async function (request, reply, error) {
+            const context = currentContext();
+            if (!context || context.webActive || context.writeSent)
+                throw error;
+            if (webSessionIdOf(request) === "")
+                throw error;
+            if (!webSessionEntry(request))
+                throw new HttpError(401, "web_session_expired", { onglet: error.onglet, function: error.fn });
+            context.webActive = true;
+            request.log.info({ onglet: error.onglet }, "tab missing from the mobile session, request replayed on the web session");
+            try {
+                return verifiedResult(request, await handler.call(this, request, reply));
+            }
+            catch (replayError) {
+                const unverified = unverifiedResult(request, replayError);
+                if (unverified)
+                    return unverified;
+                // The web session has no token chain: Moodle logs in again on web_session_expired (the main session is kept).
+                if (lostSessionReason(replayError))
+                    throw new HttpError(401, "web_session_expired");
+                throw replayError;
+            }
+        };
         route.handler = async function (request, reply) {
             const entry = sessionEntry(request);
             const generation = entry?.generation ?? 0;
@@ -209,6 +237,8 @@ export const buildApp = async (options = {}) => {
                 return verifiedResult(request, await handler.call(this, request, reply));
             }
             catch (error) {
+                if (error instanceof WebSessionRequired)
+                    return onWeb.call(this, request, reply, error);
                 // P12: a write re-read with a difference ("*_not_saved"): a client of contract 2 gets verified: false.
                 const unverified = unverifiedResult(request, error);
                 if (unverified)
@@ -217,6 +247,9 @@ export const buildApp = async (options = {}) => {
                 if (!reason)
                     throw error;
                 const context = currentContext();
+                // The web session has no token chain: Moodle logs in again on web_session_expired.
+                if (context?.webActive)
+                    throw new HttpError(401, "web_session_expired");
                 if (!entry || context?.writeSent || context?.replayed)
                     throw sessionLostError(reason);
                 if (!(await reconnect(entry, reason, generation)))

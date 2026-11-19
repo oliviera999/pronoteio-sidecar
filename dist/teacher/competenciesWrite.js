@@ -3,7 +3,7 @@ import { listOf, pronoteDate, pronoteNumber } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
 import { normalise } from "../normalise.js";
 import { epochToWall, legacySeconds } from "../time.js";
-import { competencyElement, DEFAULT_LEVELS, findReferentialItem, isAccessDenied, itemFromList, levelsOf, loadReferential, parentsDelayOf, ratingsFromPage, resourceRefOf, } from "./competencies.js";
+import { competencyElement, DEFAULT_LEVELS, findReferentialItem, isAccessDenied, itemFromList, levelsOf, loadReferential, parentsDelayOf, ratingsFromPage, resourceRefOf, ensureSkillsSpace, } from "./competencies.js";
 import { call, loadAllServices, pickPeriod, ref, resolveService, resourceOf, resourceType, serviceIdsOf } from "./grades.js";
 import { stableId } from "./ids.js";
 import { rosterEntries } from "./roster.js";
@@ -155,6 +155,8 @@ export const buildCompetencyRequest = (session, service, resource, period, exist
 };
 /* non validé sur la démo : onglet 65 fermé au profil de démonstration, écritures ignorées */
 export const writeCompetency = async (session, write) => {
+    // 0.10.0: on a mobile session lacking the skills tabs, the request is replayed on the web session before any call.
+    ensureSkillsSpace(session);
     const picked = await pickPeriod(session, write.period);
     const all = await loadAllServices(session, picked.period);
     const entry = resolveService(write.service, all);

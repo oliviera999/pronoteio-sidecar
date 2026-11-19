@@ -22,6 +22,10 @@ export type RequestContext = {
   replayed?: boolean;
   /** Simulation (dryRun): no write call may be sent (P12). */
   dryRun?: boolean;
+  /** 0.10.0: the client can open a web session (X-Pronoteio-Web: 1 or X-Pronoteio-Web-Session), see space.ts. */
+  webCapable?: boolean;
+  /** 0.10.0: the request runs on the web session (replayed after a WebSessionRequired). */
+  webActive?: boolean;
 };
 
 /** Pronote functions that write (SaisiePublicMessage only reads the recipients of a message). */
@@ -32,7 +36,8 @@ export const requestContext = new AsyncLocalStorage<RequestContext>();
 export const currentContext = (): RequestContext | undefined => requestContext.getStore();
 
 /** Bulk routes: several Pronote calls per request, served after the unit reads. */
-const BULK_ROUTES = new Set(["/students/files", "/grades/overview", "/notebook", "/assessments", "/jobs", "/jobs/:id"]);
+const BULK_ROUTES = new Set(["/students/files", "/grades/overview", "/notebook", "/assessments", "/jobs", "/jobs/:id",
+  "/competencies/referential/subjects"]);
 
 /** Priority of a request from its method and route. */
 export const priorityOf = (method: string, route: string, query: Record<string, unknown> = {}): Priority => {
