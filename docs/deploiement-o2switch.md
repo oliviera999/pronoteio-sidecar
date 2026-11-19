@@ -51,6 +51,11 @@ est l'estimation du délai du proxy.
   suivant refait `npm ci`, redémarre et vérifie (`resumed`), sans retour arrière ; une seule tentative par commit
   (`resume_failed` : intervention à la main, voir ci-dessous).
 - Arrêt du script après la fusion : ligne `aborted after merge (step: …, command: …)` et résultat `aborted`.
+- Commit revenu en arrière (`rolled_back`) : noté dans `var/update-rejected` et plus fusionné (sinon fusion,
+  redémarrage et retour arrière toutes les 5 minutes) ; le bouton répond `rejected`. Le commit suivant sur `main` est
+  fusionné normalement. Pour retenter le même commit : `rm var/update-rejected` (ou
+  `PRONOTEIO_UPDATE_RETRY_REJECTED=1`). Après `rollback_failed` (aucune version ne répond, l'hôte plutôt que le
+  commit), rien n'est noté : le passage suivant retente.
 - Activation de l'environnement Node de cPanel (`~/nodevenv/…/bin/activate`) faite hors `set -u` ; si elle échoue, son
   `bin/` est mis en tête du `PATH` (`activate failed: PATH fallback` dans le journal).
 - Fin de mise à jour à la main : `source ~/nodevenv/<dossier>/22/bin/activate`, `npm ci --omit=dev` (lance le
