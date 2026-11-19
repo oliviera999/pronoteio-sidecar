@@ -9,6 +9,7 @@
  */
 import { ServerSideError, type SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
+import { WebSessionRequired } from "../space.js";
 import { answerData, callPronote } from "../pronote/request.js";
 import { GRADE_STATUS, gradeValue, listOf, parsePronoteDate, pronoteDate, pronoteNumber, type GradeStatus } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
@@ -93,7 +94,13 @@ export const loadServices = async (session: SessionHandle, period: Element | nul
  * NOT VALIDATED on a real server (skills tabs closed on the demo profile). A closed tab or a refusal gives [].
  */
 export const loadCompetencyServices = async (session: SessionHandle, period: Element | null): Promise<Element[]> => {
-  if (isTabClosed(session, "competencyServicesList")) return [];
+  try {
+    // 0.10.0: on a mobile session lacking tab 65, an enrichment only (grades overview): no web session asked for it.
+    if (isTabClosed(session, "competencyServicesList")) return [];
+  } catch (error) {
+    if (error instanceof WebSessionRequired) return [];
+    throw error;
+  }
   const me = session.user.resources[0];
   try {
     const data = await call(session, "competencyServicesList", {
@@ -102,7 +109,7 @@ export const loadCompetencyServices = async (session: SessionHandle, period: Ele
     });
     return listOf<Element>(data?.services ?? data?.listeServices);
   } catch (error) {
-    if (error instanceof ServerSideError || (error instanceof HttpError && error.status === 501)) return [];
+    if (error instanceof ServerSideError || error instanceof WebSessionRequired || (error instanceof HttpError && error.status === 501)) return [];
     throw error;
   }
 };

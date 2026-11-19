@@ -12,6 +12,8 @@ import { ServerSideError, SessionExpiredError } from "pawnote";
 import { listOf } from "./encoding.js";
 import { checkFormat } from "./formats.js";
 import { throttle } from "./limiter.js";
+import { assertReachable } from "../space.js";
+import { userData } from "./userdata.js";
 const atLeast = (version, wanted) => {
     for (let i = 0; i < 3; i++) {
         const part = version[i] ?? 0;
@@ -93,6 +95,9 @@ export const decodePayload = (session, secure) => {
  * Throws SessionExpiredError / ServerSideError like Pawnote does.
  */
 export const callPronote = async (session, call) => {
+    // 0.10.0: a tab missing from the mobile session stops the call before it is sent (web session, see space.ts).
+    const onglet = call.signature?.onglet;
+    assertReachable(session, userData(session).tabs, typeof onglet === "number" ? onglet : null, call.name);
     // Turn in the rate limiter queue first (priority of the request, P2), then the Pawnote queue (order numbers).
     await throttle(session, call.name);
     return session.queue.push(async () => {

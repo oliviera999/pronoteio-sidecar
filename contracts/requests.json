@@ -300,6 +300,26 @@
     },
     {
       "method": "GET",
+      "url": "/competencies/referential/subjects",
+      "querystring": {
+        "type": "object",
+        "properties": {
+          "cycle": {
+            "type": "string",
+            "maxLength": 100,
+            "default": ""
+          },
+          "subject": {
+            "type": "string",
+            "maxLength": 200,
+            "default": ""
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
       "url": "/errors",
       "signed": false
     },
@@ -1793,6 +1813,14 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 30
+          },
+          "space": {
+            "type": "string",
+            "enum": [
+              "mobile",
+              "web"
+            ],
+            "default": "mobile"
           }
         },
         "oneOf": [

@@ -23,15 +23,36 @@
         },
         "reused": {
           "const": true
+        },
+        "space": {
+          "enum": [
+            "mobile",
+            "web"
+          ],
+          "description": "0.10.0 : espace de la session ouverte."
+        },
+        "login": {
+          "enum": [
+            "token",
+            "credentials"
+          ],
+          "description": "0.10.0 : mode de connexion."
+        },
+        "tabs": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "0.10.0 : onglets de la session (listeOnglets)."
         }
       },
       "required": [
         "sessionid",
-        "token",
         "displayname",
         "version"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "« token » (jeton à usage unique, à conserver) est toujours renvoyé pour l'espace mobile ; une session de l'Espace Professeurs web (space: web, 0.10.0) n'en donne pas."
     }
   }
 }

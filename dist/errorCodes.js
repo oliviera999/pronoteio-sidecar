@@ -30,10 +30,17 @@ export const ERROR_CODES = [
         action: "Corriger les champs listés dans fields.", members: ["fields"] },
     { code: "duplicate_write", status: 401, message: "Requête signée déjà reçue et traitée.",
         action: "Ne pas renvoyer une écriture ; une lecture peut être renvoyée avec une nouvelle signature.", members: [] },
+    { code: "web_session_required", status: 409,
+        message: "Cette fonction demande un onglet absent de la session mobile : il faut une session de l'Espace Professeurs web.",
+        action: "Ouvrir la session web (POST /session/login avec space: web) puis renvoyer la requête avec X-Pronoteio-Web-Session.",
+        members: ["onglet", "function"] },
+    { code: "web_session_expired", status: 401, message: "La session de l'Espace Professeurs web a expiré.",
+        action: "Rouvrir la session web (POST /session/login avec space: web) puis renvoyer la requête.", members: [] },
     { code: "internal", status: 500, message: "Erreur interne du sidecar.", action: "Réessayer ; consulter /health si elle persiste.", members: [] },
 ];
 const BY_CODE = new Map(ERROR_CODES.map((item) => [item.code, item]));
-const LOGIN = new Set(["bad_credentials", "pin_required", "bad_pin", "security_setup_required", "double_auth_required", "login_failed"]);
+const LOGIN = new Set(["bad_credentials", "pin_required", "bad_pin", "security_setup_required", "double_auth_required", "login_failed",
+    "web_token_refused"]);
 const FORBIDDEN = new Set([
     "access_denied", "write_mode_simulate", "grade_write_disabled", "service_not_in_period", "not_main_teacher", "list_not_mine",
     "assessment_locked", "assessment_without_comments", "comments_closed", "messaging_disabled", "recipient_refuses",
@@ -53,6 +60,8 @@ export const stableCode = (status, error, method = "GET") => {
         return base;
     if (base === "replayed_request")
         return "duplicate_write";
+    if (base === "web_session_required_after_write")
+        return "web_session_required";
     if (LOGIN.has(base))
         return "login_failed";
     if (base.startsWith("pronote_format_changed"))

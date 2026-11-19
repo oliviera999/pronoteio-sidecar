@@ -10,7 +10,8 @@ export const isWriteFunction = (name) => /^(Saisie|Programmer)/.test(name) && na
 export const requestContext = new AsyncLocalStorage();
 export const currentContext = () => requestContext.getStore();
 /** Bulk routes: several Pronote calls per request, served after the unit reads. */
-const BULK_ROUTES = new Set(["/students/files", "/grades/overview", "/notebook", "/assessments", "/jobs", "/jobs/:id"]);
+const BULK_ROUTES = new Set(["/students/files", "/grades/overview", "/notebook", "/assessments", "/jobs", "/jobs/:id",
+    "/competencies/referential/subjects"]);
 /** Priority of a request from its method and route. */
 export const priorityOf = (method, route, query = {}) => {
     if (method !== "GET" && method !== "HEAD")

@@ -355,6 +355,11 @@ export type SessionInfo = {
   pronoteversion?: string;
   validated?: boolean;
   classes: { id: string; name: string; type: "class" | "group"; taught: boolean; principal: boolean }[];
+  /** 0.10.0: space of the session (mobile: Pawnote login; web: Espace Professeurs) and how it was opened. */
+  space?: "mobile" | "web";
+  login?: "token" | "credentials";
+  /** 0.10.0: tabs of the web session sent in X-Pronoteio-Web-Session. */
+  webtabs?: number[];
 };
 
 /** Comparable form of a label: lower case, no accents, single spaces. */

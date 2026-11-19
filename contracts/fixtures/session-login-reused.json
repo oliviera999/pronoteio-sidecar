@@ -1,7 +1,9 @@
 {
-  "sessionid": "771d187b-855f-4529-ad88-a416c41bb818",
+  "sessionid": "529b9641-b410-4880-9ac2-df2f3e83dbef",
   "token": "jeton-fictif",
   "displayname": "Prof",
   "version": "2026.2.8",
-  "reused": true
+  "reused": true,
+  "space": "mobile",
+  "login": "token"
 }

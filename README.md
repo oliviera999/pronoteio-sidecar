@@ -41,6 +41,9 @@ Toutes sont décrites dans [.env.example](.env.example). Principales :
 | `PRONOTEIO_VALIDATED_VERSIONS`, `PRONOTEIO_ALLOW_UNVALIDATED_WRITES` | 2026.2.8, false | Versions de Pronote validées. |
 | `PRONOTEIO_PUBLIC_URL` | — | URL publique (vérifications de la mise à jour). |
 | `PRONOTEIO_LOG_FILE`, `PRONOTEIO_STATE_FILE`, `PRONOTEIO_LOCK_FILE`, `PRONOTEIO_TOKEN_STORE` | voir .env.example | Fichiers écrits (aucune donnée d'élève). |
+| `PRONOTEIO_WEB_ROUTING` | on | 0.10.0 : `off` désactive le passage par l'Espace Professeurs web (comportement 0.9.0). |
+| `PRONOTEIO_MOBILE_WITHOUT_TAB` | ListePeriodes,PageTrombinoscope,listeQCM | 0.10.0 : fonctions laissées sur la session mobile bien que leur onglet n'y soit pas listé. |
+| `PRONOTEIO_REFERENTIAL_GENRE` | 1 | 0.10.0 : `genreReferentiel` de `CompetencesGrilles` pour « par matière » (non validé). |
 
 ## Routes
 
@@ -58,6 +61,21 @@ de réponse principaux dans [contracts/routes](contracts/routes). Nouveautés 0.
 | `POST /admin/update` (signée) `{}` | → `{"running":false,"old":{"commit":"…","version":"0.8.0"},"new":{"commit":"…","version":"0.9.0"},"result":"ok","health":"0.9.0@…"}` |
 | Toute écriture `…"dryrun":true` | résolution et validation complètes, `after` = ce qui serait écrit, aucun appel d'écriture |
 | Toute écriture, champ `local` | `{"assessment":{"title":"DS","local":{"date":"2026-11-12 08:00"}}}` : préféré à l'horodatage |
+
+### Espace Professeurs web (0.10.0)
+
+Une connexion par Pawnote ouvre l'**espace mobile** de Pronote (`mobile.professeur.html`) : 38 onglets le 18/11/2026,
+sans compétences (55, 56, 65, 199, 200), bulletins (4, 13, 25, 27) ni relevé (12), que l'Espace Professeurs web
+(`professeur.html`, mode Domicile) ouvre. Détail et contrat : `docs/pronoteio/espace-web.md` du dépôt `mood_prod`.
+
+| Route ou en-tête | Exemple |
+| --- | --- |
+| `POST /session/login` `{"url":"…","username":"…","deviceuuid":"…","password":"…","space":"web"}` | → `{"sessionid":"…","space":"web","login":"credentials","tabs":[…158…],"displayname":"…","version":"2026.2.8"}` (pas de jeton). Avec `token` au lieu de `password` : `401 web_token_refused`, sans appel à Pronote (le jeton mobile n'est pas consommé). PIN : `pin_required`, `bad_pin` comme pour l'espace mobile. |
+| En-têtes `X-Pronoteio-Web: 1`, `X-Pronoteio-Web-Session: <id>` | Client capable d'ouvrir la session web (local_pronoteio 0.18.0). Une fonction dont l'onglet manque à la session mobile s'arrête **avant d'être envoyée** : la requête entière est rejouée sur la session web si elle est donnée, sinon `409 {"error":"web_session_required","onglet":65,"function":"ListeEvaluations"}`. Sans ces en-têtes, comportement 0.9.0. |
+| `401 web_session_expired` | Session web inconnue ou expirée (jamais reconnectée : pas de chaîne de jetons) ; la session principale est gardée. |
+| `GET /session/info` | + `"space":"mobile"`, `"login":"token"`, `"webtabs":[…]` (session web envoyée). |
+| `GET /competencies/referential/subjects?cycle=Cycle%203&subject=SCIENCES%20ET%20TECHNOLOGIE` | Référentiel d'une matière (onglet 200, `ListePaliers`, `ListeTousPiliersDeCompetence`, `CompetencesGrilles`, **non validé**) : `elements[]` (`id` `rs:…`, `name`, `domains[]`, `reportElement`, `items[]` (`id` `ri:…`, `name`, `evaluable`, `levels`)) dans l'ordre de Pronote ; sans matière : `subjects[]` (`cycle`, `name`, `elements`, `items`, `classes`). Forme inconnue : `available:false`, `reason:"format_unknown"`, `shape`. |
+| Refus des compétences | `available:false`, `reason:"access_denied"`, + `onglet`, `space`. |
 
 En-têtes de réponse : `X-Cache` (hit/miss), `Retry-After` (429), `X-Pronoteio-Pronote-Version`,
 `X-Pronoteio-Pronote-Validated`, `X-Pronoteio-Duplicate` (seconde livraison servie). En-tête de requête facultatif
@@ -82,6 +100,8 @@ de donnée Pronote). Le tableau est aussi servi par `GET /errors`.
 | `forbidden` | 403/409 | Droits, onglet fermé, mode simulation, saisie verrouillée, signature, adresse | Changer de réglage | |
 | `validation_failed` | 400 | Champ manquant ou mal formé | Corriger `fields` | `fields` |
 | `duplicate_write` | 401 | Requête signée déjà reçue | Ne pas renvoyer une écriture | |
+| `web_session_required` | 409 | Onglet absent de la session mobile (0.10.0) | Ouvrir la session web, renvoyer avec `X-Pronoteio-Web-Session` | `onglet`, `function` |
+| `web_session_expired` | 401 | Session de l'Espace Professeurs web expirée (0.10.0) | Rouvrir la session web, renvoyer | |
 | `internal` | 500 | Erreur interne | Réessayer, voir `/health` | |
 
 ## Données personnelles (RGPD)

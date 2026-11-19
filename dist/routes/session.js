@@ -1,18 +1,20 @@
+import * as pawnote from "pawnote";
 import { AccountKind, finishLoginManually, loginCredentials, loginToken, presence, SecurityError, securityCheckPIN, securitySave, } from "pawnote";
 import { readCache } from "../cache.js";
 import { config } from "../config.js";
 import { HttpError } from "../errors.js";
-import { pronoteBaseUrl } from "../pronote/compat.js";
+import { pronoteBaseUrl, webFetcher } from "../pronote/compat.js";
 import { createCapturingHandle, userData } from "../pronote/userdata.js";
 import { isPrimary } from "../lock.js";
 import { isValidated, pronoteVersion } from "../pronote/formats.js";
 import { stateStore } from "../state.js";
-import { createSession, dropSession, requireSession, sessionOfAccount, setPresenceSender, setReconnector } from "../session.js";
+import { createSession, dropSession, requireSession, sessionEntry, sessionOfAccount, setPresenceSender, setReconnector, webSessionEntry, } from "../session.js";
 import { limiterOf } from "../pronote/limiter.js";
 import { PRIORITY } from "../context.js";
 import { accountKey, chainedTokenLogin, serializeLogin, TokenStore } from "../tokenStore.js";
 import { functions } from "../teacher/functions.js";
 import { stableId } from "../teacher/ids.js";
+const loginWeb = pawnote.pronoteioLoginWeb;
 /** Chain of the single-use tokens (see tokenStore.ts); null when PRONOTEIO_TOKEN_STORE=off. */
 const tokenStore = config.tokenStoreFile === null ? null : new TokenStore(config.tokenStoreFile, config.secret, Date.now, config.secrets.slice(1));
 /** Name shown in the teacher's Pronote "known devices" list (limited to 30 characters by Pronote). */
@@ -94,6 +96,42 @@ setPresenceSender(async (handle) => {
     await limiterOf(handle).acquire(1, PRIORITY.bulk);
     await presence(handle);
 });
+/**
+ * Login of the web Espace Professeurs (0.10.0): professeur.html in "Domicile" mode, with the password only. The mobile
+ * token is not accepted by this space (and a refused try would consume it): web_token_refused, without any call to
+ * Pronote. A double authentication asks the PIN as for the mobile space (pin_required, bad_pin). The session is kept
+ * beside the main one (one web session per account), never reconnected. The password is neither logged nor returned.
+ */
+const webLogin = async (body) => {
+    const { url, username, deviceuuid, password, pin, devicename } = body;
+    if (password === undefined)
+        throw new HttpError(401, "web_token_refused");
+    if (!loginWeb)
+        throw new HttpError(501, "not_implemented:web_space");
+    assertPrimary();
+    const handle = createCapturingHandle(webFetcher());
+    const base = { url: pronoteBaseUrl(url), username, kind: AccountKind.TEACHER, deviceUUID: deviceuuid };
+    const account = accountKey(base.url, username, deviceuuid);
+    const sessionid = await serializeLogin(`${account}|web`, async () => {
+        try {
+            await loginWeb(handle, { ...base, password });
+        }
+        catch (error) {
+            if (!(error instanceof SecurityError))
+                throw error;
+            await completeSecurity(handle, error, pin, devicename ?? DEFAULT_DEVICE_NAME);
+        }
+        return createSession(handle, { key: account, login: { url: base.url, username, deviceuuid } }, { space: "web", loginMode: "credentials" });
+    });
+    return {
+        sessionid,
+        displayname: handle.user.name,
+        version: handle.instance.version.join("."),
+        space: "web",
+        login: "credentials",
+        tabs: userData(handle).tabs ?? [],
+    };
+};
 export default async function sessionRoutes(app) {
     app.post("/session/login", {
         schema: {
@@ -108,12 +146,15 @@ export default async function sessionRoutes(app) {
                     token: { type: "string", minLength: 1 },
                     pin: { type: "string", pattern: "^[0-9]{4,8}$" },
                     devicename: { type: "string", minLength: 1, maxLength: 30 },
+                    space: { type: "string", enum: ["mobile", "web"], default: "mobile" },
                 },
                 oneOf: [{ required: ["password"] }, { required: ["token"] }],
             },
         },
     }, async (request) => {
-        const { url, username, deviceuuid, password, token, pin, devicename } = request.body;
+        const { url, username, deviceuuid, password, token, pin, devicename, space } = request.body;
+        if (space === "web")
+            return webLogin(request.body);
         assertPrimary();
         const handle = createCapturingHandle();
         const base = { url: pronoteBaseUrl(url), username, kind: AccountKind.TEACHER, deviceUUID: deviceuuid };
@@ -140,7 +181,7 @@ export default async function sessionRoutes(app) {
             }
             const refresh = await doLogin();
             // Registered inside the lock: a concurrent login of the same account then reuses it.
-            return { reused: null, refresh, sessionid: createSession(handle, { key: account, login }) };
+            return { reused: null, refresh, sessionid: createSession(handle, { key: account, login }, { space: "mobile", loginMode: password !== undefined ? "credentials" : "token" }) };
         });
         if (outcome.reused) {
             return {
@@ -149,6 +190,8 @@ export default async function sessionRoutes(app) {
                 displayname: outcome.reused.handle.user.name,
                 version: outcome.reused.handle.instance.version.join("."),
                 reused: true,
+                space: "mobile",
+                login: outcome.reused.loginMode,
             };
         }
         const refresh = outcome.refresh;
@@ -177,10 +220,25 @@ export default async function sessionRoutes(app) {
             token: refresh.token,
             displayname: handle.user.name,
             version: handle.instance.version.join("."),
+            space: "mobile",
+            login: password !== undefined ? "credentials" : "token",
         };
     });
-    /** Information on the open session (version, tabs, rights, functions, write mode), for the health check. */
-    app.get("/session/info", async (request) => sessionInfo(requireSession(request)));
+    /**
+     * Information on the open session (version, tabs, rights, functions, write mode), for the health check. 0.10.0: space
+     * and login mode of the session, tabs of the web session sent in X-Pronoteio-Web-Session (webtabs).
+     */
+    app.get("/session/info", async (request) => {
+        const info = sessionInfo(requireSession(request));
+        const entry = sessionEntry(request);
+        const web = webSessionEntry(request);
+        return {
+            ...info,
+            space: entry?.space ?? "mobile",
+            login: entry?.loginMode ?? "token",
+            ...(web ? { webtabs: userData(web.handle).tabs ?? [] } : {}),
+        };
+    });
     app.post("/session/logout", async (request) => {
         readCache.dropSession(String(request.headers["x-pronoteio-session"] ?? ""));
         dropSession(request);

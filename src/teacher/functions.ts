@@ -131,6 +131,13 @@ export type FunctionKey =
   | "competencyServicesList"
   /** Domains and items of the skills referential of a service (ListePiliers, tab 65). */
   | "competencyReferential"
+  /* ---- Referentials per subject (0.10.0, tab 200, not validated: closed on the demo, missing from the mobile space) ---- */
+  /** Cycles of the referentials (ListePaliers, tab 200). */
+  | "competencyCycles"
+  /** Piliers (subjects) of the referentials (ListeTousPiliersDeCompetence, tab 200). */
+  | "competencySubjects"
+  /** Grid of a subject for a cycle: significant elements and items (CompetencesGrilles, tab 200). */
+  | "competencySubjectReferential"
   /* ---- Student files (0.3.0): only the students of the classes taught, checked by Moodle ---- */
   /** File of one student: identity, image rights, guardians, health (FicheEleve, tab 105; not validated). */
   | "studentFile";
@@ -195,6 +202,9 @@ const defaults: Record<FunctionKey, TeacherFunction> = {
   studentFile: { name: "FicheEleve", onglet: 105 },
   competencyServicesList: { name: "ListeServices", onglet: 65 },
   competencyReferential: { name: "ListePiliers", onglet: 65 },
+  competencyCycles: { name: "ListePaliers", onglet: 200 },
+  competencySubjects: { name: "ListeTousPiliersDeCompetence", onglet: 200 },
+  competencySubjectReferential: { name: "CompetencesGrilles", onglet: 200 },
 };
 
 const load = (): Record<FunctionKey, TeacherFunction> => {
@@ -211,7 +221,8 @@ const load = (): Record<FunctionKey, TeacherFunction> => {
 export const functions = load();
 
 /** Whether the tab of a function is closed to the account (tabs received at login and lacking it). */
-export const isTabClosed = (session: SessionHandle, key: FunctionKey): boolean => tabClosed(session, functions[key].onglet);
+export const isTabClosed = (session: SessionHandle, key: FunctionKey): boolean =>
+  tabClosed(session, functions[key].onglet, functions[key].name);
 
 /** Refuses a write before any call when the tab of its function is closed to the account: 409 tab_closed:<function>. */
 export const assertTabOpen = (session: SessionHandle, key: FunctionKey): void => {

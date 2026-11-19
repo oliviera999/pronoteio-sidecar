@@ -67,12 +67,12 @@ export const jobStats = () => {
     const list = [...jobs.values()];
     return { jobs: list.length, running: list.filter((job) => job.status === "running" || job.status === "queued").length };
 };
-const runOne = async (app, session, url) => {
+const runOne = async (app, session, url, web = {}) => {
     const inject = async (target) => {
         const response = await app.inject({
             method: "GET",
             url: target,
-            headers: { [INTERNAL_HEADER]: INTERNAL_TOKEN, "x-pronoteio-session": session, "x-pronoteio-job": "1" },
+            headers: { [INTERNAL_HEADER]: INTERNAL_TOKEN, "x-pronoteio-session": session, "x-pronoteio-job": "1", ...web },
         });
         let body = response.body;
         try {
@@ -118,7 +118,7 @@ const run = async (app, job, urls) => {
     job.status = "running";
     try {
         for (const url of urls) {
-            job.results.push(await runOne(app, job.session, url));
+            job.results.push(await runOne(app, job.session, url, job.web));
             job.done++;
         }
         job.status = "done";
@@ -160,7 +160,13 @@ export const registerJobs = (app) => {
             throw new HttpError(429, "rate_limited", { retry_after: 30 }, { "retry-after": "30" });
         }
         const now = Date.now();
-        const job = { id: randomUUID(), session, status: "queued", created: now, finished: null, expires: now + JOB_TTL_MS * 3,
+        const web = {};
+        for (const name of ["x-pronoteio-web-session", "x-pronoteio-web"]) {
+            const value = String(request.headers[name] ?? "");
+            if (value !== "")
+                web[name] = value;
+        }
+        const job = { id: randomUUID(), session, web, status: "queued", created: now, finished: null, expires: now + JOB_TTL_MS * 3,
             total: urls.length, done: 0, results: [], error: null };
         jobs.set(job.id, job);
         void run(app, job, urls);
