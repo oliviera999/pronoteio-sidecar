@@ -1,5 +1,28 @@
 # Journal des versions — pronoteio-sidecar
 
+## Non publié — mise à jour automatique : plus d'arrêt silencieux (`tools/cpanel-update.sh`)
+
+Cas du 19/11/2026 : la 0.10.0 change `package.json` ; le script fusionne, puis `source ~/nodevenv/…/bin/activate`
+sous `set -u` : l'activation de CloudLinux lit `CL_VIRTUAL_ENV` et `BKP_PS1` sans valeur par défaut, bash s'arrête
+(« unbound variable »). Ni `npm ci`, ni redémarrage, ni journal, ni `var/update-result.json` ; au passage suivant,
+HEAD = origin, le script se croit à jour : le sidecar reste sur la 0.9.0. Fin faite à la main le 19/11.
+
+- **Activation hors `set -u`** ; si elle échoue, `bin/` de l'environnement en tête du `PATH`
+  (`activate failed (<code>): PATH fallback`).
+- **Rattrapage** : à jour mais `/health/public` répond une autre version ou un autre commit que `package.json` @ HEAD →
+  `npm ci`, redémarrage, vérification ; `<commit> half-finished update: resumed`, résultat `resumed` ou
+  `resume_failed`. Pas de retour arrière. Une tentative par commit (pas de redémarrage toutes les 5 minutes).
+- **Trace de toute sortie précoce** : piège `EXIT` ; arrêt après la fusion sans résultat → `aborted after merge
+  (step: …, command: …, exit …)` et résultat `aborted` (renvoyé par `GET`/`POST /admin/update`). Le verrou de repli
+  (`mkdir`, hôte sans `flock`) est libéré à toute sortie.
+- Cron documenté avec `>>$HOME/logs/pronoteio-sidecar-cron.log 2>&1` (en-tête du script, README, déploiement).
+- Le cron exécute l'ancienne copie du script une dernière fois, pour la fusion de ce correctif : elle ne change ni
+  `package.json` ni `package-lock.json`, elle passe donc sans `install_dependencies`. Les fusions suivantes (dont la
+  prochaine release, version montée) passent par le nouveau script.
+- Tests (`test/update.test.ts`) : faux `curl` qui imite Passenger (code chargé au dernier redémarrage) ; activation qui
+  lit des variables non définies, activation qui échoue, mise à jour à moitié faite (rattrapée ; rien quand le bon
+  commit répond ; `resume_failed` une seule fois), arrêt après la fusion (`aborted`, puis `resumed`).
+
 ## 0.10.0 — 2026-11-19 — Espace Professeurs web : seconde session pour les onglets absents de l'espace mobile
 
 Cas du 18/11/2026 : la connexion par Pawnote ouvre l'espace mobile (`mobile.professeur.html`, 38 onglets), sans

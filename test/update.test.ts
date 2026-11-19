@@ -17,8 +17,9 @@ const git = (cwd: string, ...args: string[]) => {
 };
 
 /**
- * Bare "origin", the application (a clone with the real script) and a fake curl that answers /health/public like the
- * restarted sidecar: version of package.json and commit of HEAD, or nothing when that version is "broken".
+ * Bare "origin", the application (a clone with the real script) and a fake curl that answers /health/public like
+ * Passenger: the version of package.json and the commit of HEAD as they were at the last start (first call, or first
+ * call after tmp/restart.txt was touched; FAKE_FROZEN: restarts ignored), or nothing when that version is "broken".
  */
 const setup = () => {
   const root = mkdtempSync(join(tmpdir(), "sidecar-update-"));
@@ -40,9 +41,13 @@ const setup = () => {
   const curl = join(bin, "curl");
   writeFileSync(curl, `#!/bin/bash
 [ -n "\${FAKE_DELAY:-}" ] && sleep "$FAKE_DELAY"
-version=$(sed -n 's/^ *"version" *: *"\\([^"]*\\)".*/\\1/p' "$FAKE_APP/package.json")
+state="$FAKE_APP/fake-running"
+if [ ! -f "$state" ] || { [ -z "\${FAKE_FROZEN:-}" ] && [ "$FAKE_APP/tmp/restart.txt" -nt "$state" ]; }; then
+  version=$(sed -n 's/^ *"version" *: *"\\([^"]*\\)".*/\\1/p' "$FAKE_APP/package.json")
+  echo "$version $(git -C "$FAKE_APP" rev-parse --short=7 HEAD)" > "$state"
+fi
+read -r version commit < "$state"
 [ "$version" = "\${FAKE_BROKEN:-none}" ] && exit 22
-commit=$(git -C "$FAKE_APP" rev-parse --short=7 HEAD)
 echo "{\\"ok\\":true,\\"version\\":\\"$version\\",\\"commit\\":\\"$commit\\"}"
 `);
   chmodSync(curl, 0o755);
@@ -55,8 +60,21 @@ echo "{\\"ok\\":true,\\"version\\":\\"$version\\",\\"commit\\":\\"$commit\\"}"
     git(work, "push", "--quiet", "origin", "HEAD:main");
     return git(work, "rev-parse", "HEAD");
   };
+  // cPanel node virtual environment: ~/nodevenv/<app path>/<node version>/bin/activate (and its npm, for the PATH).
+  const venv = (activate: string) => {
+    const dir = join(root, "nodevenv", "app", "22", "bin");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "activate"), activate.replaceAll("$VENV_BIN", dir));
+    writeFileSync(join(dir, "npm"), "#!/bin/bash\necho \"venv npm $*\" >> \"$FAKE_APP/npm.log\"\n");
+    chmodSync(join(dir, "npm"), 0o755);
+  };
+  /** The code of origin merged in the application without the script: what a run stopped after the merge leaves. */
+  const mergeOnly = () => {
+    git(app, "fetch", "--quiet", "origin", "main");
+    git(app, "merge", "--ff-only", "--quiet", "origin/main");
+  };
   const env = (extra: Record<string, string> = {}) => ({
-    ...process.env,
+    ...Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== "CL_VIRTUAL_ENV" && k !== "BKP_PS1")),
     HOME: root,
     CURL: curl,
     NPM: npm,
@@ -70,7 +88,9 @@ echo "{\\"ok\\":true,\\"version\\":\\"$version\\",\\"commit\\":\\"$commit\\"}"
   const run = (extra: Record<string, string> = {}) =>
     spawnSync("/bin/bash", [join(app, "tools", "cpanel-update.sh"), "https://sidecar.example"], { env: env(extra), encoding: "utf8" });
   const result = () => JSON.parse(readFileSync(join(app, "var", "update-result.json"), "utf8"));
-  return { root, app, publish, run, env, result, log: () => readFileSync(join(root, "update.log"), "utf8") };
+  const log = () => (existsSync(join(root, "update.log")) ? readFileSync(join(root, "update.log"), "utf8") : "");
+  const npmCalls = () => (existsSync(join(app, "npm.log")) ? readFileSync(join(app, "npm.log"), "utf8") : "");
+  return { root, app, publish, run, env, result, log, npmCalls, venv, mergeOnly };
 };
 
 test("simulated update: new commit merged, restarted, new version checked, logged", () => {
@@ -152,4 +172,113 @@ test("POST /admin/update runs the script and answers old and new versions; one a
   delete process.env.PRONOTEIO_UPDATE_RESULT;
   await app.close();
   rmSync(root, { recursive: true });
+});
+
+// CloudLinux activation (19/11/2026): it reads CL_VIRTUAL_ENV and BKP_PS1 without a default value. Under set -u, bash
+// stopped right there, after the merge: no npm ci, no restart, no log, no result.
+const cloudLinuxActivate = `if [ -n "$CL_VIRTUAL_ENV" ]; then :; fi
+_OLD_PS1="$BKP_PS1"
+export PATH="$VENV_BIN:$PATH"
+echo activated >> "$FAKE_APP/activate.log"
+`;
+
+test("an update that changes package.json goes to the end with an activation that reads unset variables", () => {
+  const t = setup();
+  t.venv(cloudLinuxActivate);
+  const before = git(t.app, "rev-parse", "HEAD");
+  const target = t.publish("0.9.0");
+  const run = t.run();
+  assert.equal(run.status, 0, run.stdout + run.stderr);
+  assert.doesNotMatch(run.stderr, /unbound variable/);
+  assert.ok(existsSync(join(t.app, "activate.log")), "activation sourced");
+  assert.match(t.npmCalls(), /npm ci --omit=dev/);
+  assert.ok(existsSync(join(t.app, "tmp", "restart.txt")));
+  assert.equal(t.result().result, "ok");
+  assert.match(t.log(), new RegExp(`${before.slice(0, 7)} -> ${target.slice(0, 7)} \\(0\\.8\\.0 -> 0\\.9\\.0\\) ok`));
+  assert.doesNotMatch(t.log(), /activate failed/);
+  rmSync(t.root, { recursive: true });
+});
+
+test("an activation that fails: the venv bin/ is put first in the PATH, the update goes on", () => {
+  const t = setup();
+  t.venv("return 1\n");
+  t.publish("0.9.0");
+  // No NPM: npm is looked up in the PATH, where only the fallback puts the venv one first.
+  const run = t.run({ NPM: "" });
+  assert.equal(run.status, 0, run.stdout + run.stderr);
+  assert.match(t.npmCalls(), /venv npm ci --omit=dev/);
+  assert.match(t.log(), /activate failed \(1\): PATH fallback/);
+  assert.equal(t.result().result, "ok");
+  rmSync(t.root, { recursive: true });
+});
+
+test("half-finished update (merged, not restarted): dependencies again, restart, result resumed", () => {
+  const t = setup();
+  const before = git(t.app, "rev-parse", "HEAD");
+  assert.equal(t.run().status, 0); // the process runs 0.8.0
+  const target = t.publish("0.9.0");
+  t.mergeOnly();
+  const run = t.run();
+  assert.equal(run.status, 0, run.stdout + run.stderr);
+  assert.match(t.npmCalls(), /npm ci --omit=dev/);
+  assert.ok(existsSync(join(t.app, "tmp", "restart.txt")));
+  const result = t.result();
+  assert.equal(result.result, "resumed");
+  assert.equal(result.old.version, "0.8.0");
+  assert.equal(result.old.commit, before.slice(0, 7));
+  assert.equal(result.new.version, "0.9.0");
+  assert.equal(result.new.commit, target);
+  assert.equal(result.health, `0.9.0@${target.slice(0, 7)}`);
+  assert.match(t.log(), new RegExp(`${target.slice(0, 7)} half-finished update: resumed`));
+  assert.equal(git(t.app, "rev-parse", "HEAD"), target, "no rollback");
+  rmSync(t.root, { recursive: true });
+});
+
+test("up to date and the right commit answers: nothing (no npm, no restart, no result, no log)", () => {
+  const t = setup();
+  const run = t.run();
+  assert.equal(run.status, 0, run.stdout + run.stderr);
+  assert.equal(t.npmCalls(), "");
+  assert.ok(!existsSync(join(t.app, "tmp", "restart.txt")));
+  assert.ok(!existsSync(join(t.app, "var", "update-result.json")));
+  assert.equal(t.log(), "");
+  rmSync(t.root, { recursive: true });
+});
+
+test("a resume that does not take: resume_failed, then no restart at every run", () => {
+  const t = setup();
+  assert.equal(t.run().status, 0);
+  t.publish("0.9.0");
+  t.mergeOnly();
+  const run = t.run({ FAKE_FROZEN: "1" });
+  assert.equal(run.status, 2, run.stdout + run.stderr);
+  assert.equal(t.result().result, "resume_failed");
+  assert.match(t.log(), /half-finished update: resume FAILED/);
+  const calls = t.npmCalls();
+  assert.equal(t.run({ FAKE_FROZEN: "1" }).status, 0);
+  assert.equal(t.npmCalls(), calls, "not tried again for the same commit");
+  rmSync(t.root, { recursive: true });
+});
+
+test("the script stops after the merge: result aborted and a log line, then resumed by the next run", () => {
+  const t = setup();
+  assert.equal(t.run().status, 0);
+  t.venv("exit 3\n");
+  const target = t.publish("0.9.0");
+  const run = t.run();
+  assert.equal(run.status, 3, run.stdout + run.stderr);
+  assert.equal(git(t.app, "rev-parse", "HEAD"), target, "merged");
+  assert.ok(!existsSync(join(t.app, "tmp", "restart.txt")), "stopped before the restart");
+  const result = t.result();
+  assert.equal(result.result, "aborted");
+  assert.equal(result.new.commit, target);
+  assert.equal(result.new.version, "0.9.0");
+  // The command is the one that stopped bash (here the activation, which called exit).
+  assert.match(t.log(), /aborted after merge \(step: install_dependencies, command: source "\$\{venv\}bin\/activate", exit 3\)/);
+  // The activation is fixed: the next run sees the old version answering and finishes the update.
+  t.venv(cloudLinuxActivate);
+  const next = t.run();
+  assert.equal(next.status, 0, next.stdout + next.stderr);
+  assert.equal(t.result().result, "resumed");
+  rmSync(t.root, { recursive: true });
 });
