@@ -1,5 +1,14 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.11.0 — dates des périodes dans le contexte des notes
+
+- `GET /grades/context` : chaque période porte `start` et `end` (premier et dernier jours, dates « murales »
+  `2026-09-01`), lus dans les périodes des paramètres de l'instance (`session.instance.periods` de pawnote), rapprochées
+  par identifiant puis par libellé ; absents quand Pronote ne les donne pas. `local_pronoteio` 0.19.0 s'en sert pour
+  proposer la période du service qui contient la date de l'évaluation (tiroir « Destination Pronote » de push.php,
+  plans `fromitem` du connecteur) ; sans elles, la période en cours. Rétrocompatible.
+- Test : `test/grades.test.ts` (`periodDates`).
+
 ## Non publié — mise à jour automatique : plus d'arrêt silencieux (`tools/cpanel-update.sh`)
 
 Cas du 19/11/2026 : la 0.10.0 change `package.json` ; le script fusionne, puis `source ~/nodevenv/…/bin/activate`
