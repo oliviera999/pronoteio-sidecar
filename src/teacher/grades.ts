@@ -198,6 +198,22 @@ export const servicesByPeriod = (periodServices: { periodId: string; services: E
   return [...byKey.values()];
 };
 
+/** Wall-clock day of a wall Date ("2026-09-01"). */
+const wallDay = (date: Date): string =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+/**
+ * First and last days of a period (0.11.0), from the periods of the instance parameters, matched by id then by name;
+ * nothing when Pronote does not give them (local_pronoteio then falls back to the current period).
+ */
+export const periodDates = (session: SessionHandle, period: Element): { start?: string; end?: string } => {
+  const known = (session.instance as { periods?: { id: string; name: string; startDate?: Date; endDate?: Date }[] })?.periods ?? [];
+  const found = known.find((item) => item.id === String(period.N ?? "")) ?? known.find((item) => item.name === String(period.L ?? ""));
+  const valid = (date: unknown): date is Date => date instanceof Date && !Number.isNaN(date.getTime());
+  if (!found || !valid(found.startDate) || !valid(found.endDate)) return {};
+  return { start: wallDay(found.startDate), end: wallDay(found.endDate) };
+};
+
 export const context = async (session: SessionHandle): Promise<GradeContext> => {
   const { periods, current } = await loadPeriods(session);
   const periodIds = stableIds("period", periods, periodKey);
@@ -218,6 +234,7 @@ export const context = async (session: SessionHandle): Promise<GradeContext> => 
       id: periodIds[index],
       name: String(period.L ?? ""),
       current: period === current,
+      ...periodDates(session, period),
     })),
     services: services.map((service, index): Service => {
       const subject = String(service.matiere?.V?.L ?? service.L ?? "");

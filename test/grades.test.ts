@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { HttpError } from "../src/errors.js";
 import type { Assessment } from "../src/normalise.js";
 import { splitDisplayName } from "../src/normalise.js";
-import { assessmentIdFor, servicesByPeriod, validate } from "../src/teacher/grades.js";
+import { assessmentIdFor, periodDates, servicesByPeriod, validate } from "../src/teacher/grades.js";
 import { functions, requireFunction } from "../src/teacher/functions.js";
 
 const assessment: Assessment = {
@@ -86,4 +86,23 @@ test("assessment ids depend on the day and the title only", () => {
   const morning = assessmentIdFor(new Date(2026, 8, 17, 8, 0), " Contrôle 1 ");
   assert.equal(morning, "d:17/09/2026|Contrôle 1");
   assert.equal(assessmentIdFor(new Date(2026, 8, 17, 18, 30), "Contrôle 1"), morning);
+});
+
+test("periods of the grade context carry their first and last days when the instance gives them (0.11.0)", () => {
+  const session = {
+    instance: {
+      periods: [
+        { id: "1", name: "Trimestre 1", kind: 1, startDate: new Date(2026, 8, 1), endDate: new Date(2026, 10, 30) },
+        { id: "9", name: "Trimestre 2", kind: 1, startDate: new Date(2027, 0, 4), endDate: new Date(2027, 2, 31) },
+        { id: "5", name: "Semestre 1", kind: 2, startDate: new Date("invalid"), endDate: new Date(2027, 0, 31) },
+      ],
+    },
+  } as never;
+  assert.deepEqual(periodDates(session, { N: "1", L: "Trimestre 1" } as never), { start: "2026-09-01", end: "2026-11-30" });
+  // Matched by name when the ids differ.
+  assert.deepEqual(periodDates(session, { N: "x", L: "Trimestre 2" } as never), { start: "2027-01-04", end: "2027-03-31" });
+  // Invalid date or unknown period: nothing (local_pronoteio falls back to the current period).
+  assert.deepEqual(periodDates(session, { N: "5", L: "Semestre 1" } as never), {});
+  assert.deepEqual(periodDates(session, { N: "7", L: "Année" } as never), {});
+  assert.deepEqual(periodDates({} as never, { N: "1", L: "Trimestre 1" } as never), {});
 });

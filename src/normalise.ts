@@ -95,7 +95,11 @@ export type Assessment = {
   comment: string;
 };
 
-export type Period = { id: string; name: string; current: boolean };
+/**
+ * Period of the grade context. Since 0.11.0, "start" and "end" give its first and last day as wall-clock dates
+ * ("2026-09-01"), read in the instance parameters (absent when Pronote does not give them).
+ */
+export type Period = { id: string; name: string; current: boolean; start?: string; end?: string };
 
 /** Tab a service comes from: grade entry (tab 23) and/or skills assessments (tab 65). */
 export type ServiceKind = "grades" | "competencies";
