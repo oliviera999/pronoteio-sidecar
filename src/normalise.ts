@@ -735,7 +735,16 @@ export type MeetingSession = {
   wishes: MeetingWish[];
   unavailability: { slotStart: number | null; slotMinutes: number | null; session: number[]; mine: number[] };
   planningVisible: boolean;
-  planning: { start: number; end: number | null; with: string; student: string; room: string; happened: boolean | null; visio: boolean }[];
+  planning: {
+    start: number;
+    end: number | null;
+    with: string;
+    student: string;
+    room: string;
+    happened: boolean | null;
+    visio: boolean;
+    local?: LocalTimes;
+  }[];
   /** 0.9.0: wall-clock times of the timestamp fields, see LocalTimes. */
   local?: LocalTimes;
 };

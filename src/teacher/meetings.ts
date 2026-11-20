@@ -74,6 +74,8 @@ export const sessionsFromAnswer = (data: Record<string, any>): { raw: Record<str
       unavailability: { slotStart: null, slotMinutes: null, session: [], mine: [] },
       planningVisible: raw?.visiblePlanning === true,
       planning: [],
+      // 0.11.1: without it, Moodle took the session for one of a sidecar older than 0.9.0 (sidecartimelegacy).
+      local: localTimes({ date: wallOf(raw?.date) }),
     },
   }));
 };
@@ -118,6 +120,7 @@ export const withDetails = (session: MeetingSession, details: Record<string, any
       room: label(row?.salle),
       happened: typeof row?.aEuLieu === "boolean" ? row.aEuLieu : null,
       visio: row?.visio === true,
+      local: localTimes({ start: wallOf(row?.date ?? row?.debut), end: wallOf(row?.fin) }),
     })),
   };
 };

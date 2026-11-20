@@ -96,14 +96,21 @@ setPresenceSender(async (handle) => {
     await limiterOf(handle).acquire(1, PRIORITY.bulk);
     await presence(handle);
 });
+/** Navigator identifier (identifiantNav) Pronote gave the web session, null when absent or not a short string. */
+export const navigatorOf = (handle) => {
+    const value = handle.instance?.navigatorIdentifier;
+    return typeof value === "string" && /^[\x21-\x7e]{1,200}$/.test(value) ? value : null;
+};
 /**
  * Login of the web Espace Professeurs (0.10.0): professeur.html in "Domicile" mode, with the password only. The mobile
  * token is not accepted by this space (and a refused try would consume it): web_token_refused, without any call to
  * Pronote. A double authentication asks the PIN as for the mobile space (pin_required, bad_pin). The session is kept
  * beside the main one (one web session per account), never reconnected. The password is neither logged nor returned.
+ * 0.11.1: the navigator identifier of the previous web login is sent again (see LoginBody.navigator) and the new one
+ * returned.
  */
 const webLogin = async (body) => {
-    const { url, username, deviceuuid, password, pin, devicename } = body;
+    const { url, username, deviceuuid, password, pin, devicename, navigator } = body;
     if (password === undefined)
         throw new HttpError(401, "web_token_refused");
     if (!loginWeb)
@@ -114,7 +121,7 @@ const webLogin = async (body) => {
     const account = accountKey(base.url, username, deviceuuid);
     const sessionid = await serializeLogin(`${account}|web`, async () => {
         try {
-            await loginWeb(handle, { ...base, password });
+            await loginWeb(handle, { ...base, password, ...(navigator ? { navigatorIdentifier: navigator } : {}) });
         }
         catch (error) {
             if (!(error instanceof SecurityError))
@@ -130,6 +137,8 @@ const webLogin = async (body) => {
         space: "web",
         login: "credentials",
         tabs: userData(handle).tabs ?? [],
+        // To send back at the next web login (0.11.1): the device trusted after the PIN is this browser identifier.
+        navigator: navigatorOf(handle),
     };
 };
 export default async function sessionRoutes(app) {
@@ -147,6 +156,7 @@ export default async function sessionRoutes(app) {
                     pin: { type: "string", pattern: "^[0-9]{4,8}$" },
                     devicename: { type: "string", minLength: 1, maxLength: 30 },
                     space: { type: "string", enum: ["mobile", "web"], default: "mobile" },
+                    navigator: { type: "string", pattern: "^[\\x21-\\x7e]{1,200}$" },
                 },
                 oneOf: [{ required: ["password"] }, { required: ["token"] }],
             },

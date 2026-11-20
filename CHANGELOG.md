@@ -1,5 +1,24 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.11.1 — appareil de confiance du web, classes des cours, heures des rencontres
+
+- **Connexion web** (`POST /session/login`, `space: "web"`) : nouveau champ facultatif `navigator`, renvoyé dans la
+  réponse. C'est l'identifiant de navigateur (`identifiantNav`) que Pronote donne à la session web : l'Espace
+  Professeurs web reconnaît un appareil de confiance par lui, et non par `deviceuuid` comme l'application mobile.
+  Sans lui, chaque connexion web venait d'un nouveau navigateur et la double authentification demandait le code PIN à
+  chaque fois (`pin_required`), même après un enregistrement de l'appareil. `local_pronoteio` 0.19.1 le conserve et le
+  renvoie. Non vérifié sur un vrai serveur Pronote.
+
+- **Emploi du temps** (`GET /timetable`) : un cours d'une classe entière arrivait sans groupe (`groups: []`), pawnote
+  ne gardant que les groupes (genre 2) d'un cours. `tools/patch-pawnote.mjs` y ajoute les classes (genre 1) et les
+  parties de classe (genre 57), dans l'ordre de la réponse, comme `src/teacher/timetable.ts`. Cas du 20/11/2026 : les
+  absences du cours d'enseignement scientifique de T06 et T11 (`get_pronote_attendance`) ne trouvaient aucun cours.
+- **Rencontres** (`GET /meetings`) : la session et les lignes du planning portent `local` (heures murales). Sans lui,
+  Moodle croyait parler à un sidecar antérieur à 0.9.0 (avertissement `sidecartimelegacy`).
+- `tools/cpanel-update.sh` : `npm ci` aussi quand `tools/patch-pawnote.mjs` change (le correctif de pawnote est
+  appliqué par le `postinstall`).
+- Tests : `test/timetable-classes.test.ts`, `test/meetings.test.ts`, `test/web-space.test.ts` (`navigatorOf`).
+
 ## 0.11.0 — dates des périodes dans le contexte des notes
 
 - `GET /grades/context` : chaque période porte `start` et `end` (premier et dernier jours, dates « murales »

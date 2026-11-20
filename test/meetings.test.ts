@@ -14,6 +14,8 @@ test("meeting sessions: SessionRencontres then RencontresParentsProfs give dates
   assert.equal(row.session.id, "mt:Rencontres parents-professeurs 3e|12/12/2026");
   assert.equal(row.session.start, "17:00");
   assert.equal(row.session.end, "20:30");
+  // 0.11.1: wall-clock date sent, so Moodle no longer takes the sidecar for one older than 0.9.0.
+  assert.deepEqual(Object.keys(row.session.local ?? {}), ["date"]);
   const session = withDetails(row.session, data.details, null);
   assert.equal(session.canEnterWishes, true);
   assert.equal(session.canEnterUnavailability, true);
