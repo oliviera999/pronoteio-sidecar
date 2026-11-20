@@ -281,6 +281,11 @@ test("general comments: no kind for a main teacher, read from the report cards b
   const second = await reportComments(fake, "c:T06", "p:Trimestre 1", { offset: 20, limit: 20 });
   assert.deepEqual([second.general.page?.offset, second.students.length, second.students[10].student], [20, 11, "ELEVE31 Prénom"]);
   assert.equal(fake.calls.filter((call) => call.name === "PageBulletins").length, 31, "one report card per student, none twice");
+  // A client that asks no page (local_pronoteio before 0.22.0) gets the answer of before: no report card is read.
+  const old = session({ ListeServices: servicesOf(false), ListeAppreciations: () => ({ liste: typed([]) }), PageBulletins: bulletin });
+  const legacy = await reportComments(old, "c:T06", "p:Trimestre 1");
+  assert.deepEqual([legacy.available, legacy.general.available, legacy.general.reason, legacy.general.source], [false, false, "no_kind", undefined]);
+  assert.equal(old.calls.some((call) => call.name === "PageBulletins"), false);
   // The four request variants were tried once before the report cards, not again for the second page.
   assert.equal(fake.calls.filter((call) => call.name === "ListeAppreciations").length, 4);
 });
@@ -293,7 +298,7 @@ test("general comments: an account that is not main teacher gets no report card 
   assert.equal(fake.calls.some((call) => call.name === "PageBulletins" || call.name === "ListeAppreciations"), false);
   // The report cards refused: the first cause is kept, the answer says the general comments are not available.
   const refused = await reportComments(session({ ListeServices: servicesOf(true), PageApprBulletin: () => ({ listeLignes: typed([]) }),
-    ListeAppreciations: () => ({ liste: typed([]) }) }), "c:T06", "p:Trimestre 1");
+    ListeAppreciations: () => ({ liste: typed([]) }) }), "c:T06", "p:Trimestre 1", { limit: 10 });
   assert.deepEqual([refused.available, refused.general.available, refused.general.reason], [true, false, "no_kind"]);
 });
 

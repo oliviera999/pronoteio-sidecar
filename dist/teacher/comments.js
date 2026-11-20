@@ -298,7 +298,10 @@ export const reportComments = async (session, resourceId, periodId, page = {}) =
     }
     let { general, byKind } = await readGeneral(session, resource, picked.period);
     // 0.14.0: no kind for a main teacher: the general comments of the report cards, saying so (never a silent fallback).
-    if (!general.available && general.reason !== "not_principal" && resource.principal && kind === "class") {
+    // Only for a client that asks a page of students (local_pronoteio 0.22.0): an older client, which reads the answer as
+    // the whole class, keeps the answer of 0.13.0 (this service is updated before Moodle).
+    const paged = page.student !== undefined || page.offset !== undefined || page.limit !== undefined;
+    if (paged && !general.available && general.reason !== "not_principal" && resource.principal && kind === "class") {
         ({ general, byKind } = await generalFromReports(session, resourceId, periodId, page, general));
     }
     result.general = general;

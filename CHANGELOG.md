@@ -48,7 +48,8 @@ valeurs générés. Chaque lecture reste `validated: false`.
   (`ressource + periode`, `+ listeRessources`, sans paramètre, `classe + periode`), la première dont la liste n'est pas
   vide est gardée (`general.variant`) ; « aucune rubrique » est gardé dix minutes. Repli pour un professeur principal :
   `PageBulletins` de chaque élève, par pages (`student`, `offset`, `limit`), `general.source: "reportcards"`,
-  `general.page` ; `general.reason` garde la cause première.
+  `general.page` ; `general.reason` garde la cause première. Le repli ne s'applique qu'à un client qui demande une
+  page d'élèves (`local_pronoteio` 0.22.0) : un client plus ancien garde la réponse d'avant.
 - **Écriture des appréciations générales** (`POST /reports/comments`) : rubrique résolue comme en lecture
   (`generalKindFor`) ; `generalKind` pour choisir ; `409 general_kind_ambiguous`, `404 general_kind_not_found`
   (`candidates`), `404 no_kind` (avant : `general_rubric_not_found`). Réponse : `generalKind`.
