@@ -78,13 +78,16 @@ test("identity alone: class, groups and options of a terminale with two speciali
   assert.equal(file.class, "T06");
   assert.deepEqual(file.groups, ["T-SPE SVT 2", "T-SPE PC 1", "T-OPT MATHS COMP", "TLVA ANG 3", "[T06AP ORIENT]"]);
   assert.deepEqual(file.groupDetails, [
-    { label: "T-SPE SVT 2", kind: "speciality" },
-    { label: "T-SPE PC 1", kind: "speciality" },
-    { label: "T-OPT MATHS COMP", kind: "option" },
-    { label: "TLVA ANG 3", kind: "language" },
-    { label: "[T06AP ORIENT]", kind: "group" },
+    { label: "T-SPE SVT 2", kind: "speciality", source: "file" },
+    { label: "T-SPE PC 1", kind: "speciality", source: "file" },
+    { label: "T-OPT MATHS COMP", kind: "option", source: "file" },
+    { label: "TLVA ANG 3", kind: "language", source: "file" },
+    { label: "[T06AP ORIENT]", kind: "group", source: "file" },
+    // 0.14.0: the subjects of the pedagogical team that name a speciality, a language or an option.
+    { label: "SC. VIE & TERRE SPE", kind: "speciality", source: "team" },
+    { label: "PHYSIQUE-CHIMIE SPE", kind: "speciality", source: "team" },
   ]);
-  assert.deepEqual(file.options, ["T-SPE SVT 2", "T-SPE PC 1", "T-OPT MATHS COMP", "TLVA ANG 3"]);
+  assert.deepEqual(file.options, ["T-SPE SVT 2", "T-SPE PC 1", "T-OPT MATHS COMP", "TLVA ANG 3", "SC. VIE & TERRE SPE", "PHYSIQUE-CHIMIE SPE"]);
   assert.equal(file.adult, true, "a student of age");
   assert.equal(file.birthplace, "Rabat");
   assert.equal(file.sex, "F");
@@ -134,7 +137,7 @@ test("guardians: order, parental authority, letters, phones with their prefix", 
   assert.deepEqual(father, { name: "M. BENALI Karim", relation: "Père", legal: true, phones: ["+212 600000011", "+212 500000012"],
     email: "parent1.fictif@example.org", address: "12 rue des Fictifs 20100 Casablanca",
     preferences: ["autoriseCourrier", "autoriseSMS", "autoriseEmail"], order: 1, authority: true, mail: true, sms: true, emailAllowed: true,
-    phoneDetails: [{ type: "mobile", number: "+212 600000011" }, { type: "home", number: "+212 500000012" }] });
+    phoneDetails: [{ type: "mobile", number: "+212 600000011" }, { type: "home", number: "+212 500000012" }], responsibility: "", classDelegate: null, boardMember: null, emergency: null, emailReason: "" });
   assert.equal(mother.order, 2);
   assert.equal(mother.mail, false, "does not receive the letters");
   assert.equal(mother.emailAllowed, false);
@@ -273,17 +276,20 @@ test("check of the main teacher view: a status and a shape per function, never a
     ListeMemosEleves: () => ({ listeMemos: { _T: 24, V: [{ commentaire: "Mémo secret", publie: true }] } }),
   });
   rememberUserData(fake, { resources: [classT06], tabs: [13, 19, 27, 64, 78, 105, 23] });
-  const result = await ppCheck(fake, "c:T06");
+  // 0.14.0: the functions of the view are the "core" group; the photo is downloaded by a fake (no picture here).
+  const result = await ppCheck(fake, "c:T06", { groups: ["core"], downloader: async () => null });
   assert.equal(result.students, 3);
-  const by = new Map(result.checks.map((check) => [check.key, check]));
-  assert.deepEqual([...by.keys()], ["reportCard", "transcript", "classResults", "commentKinds", "generalCommentsPage", "studentLifeRecap",
-    "studentNotebook", "studentMemos", "studentFile"]);
+  assert.deepEqual(result.groups, ["core"]);
+  // The first line of each key (the kinds and the memos have one line per request variant).
+  const by = new Map([...result.checks].reverse().map((check) => [check.key, check]));
+  assert.deepEqual([...new Set(result.checks.map((check) => check.key))], ["reportCard", "transcript", "classResults", "commentKinds",
+    "generalCommentsPage", "studentLifeRecap", "studentNotebook", "studentMemos", "studentFile", "studentFileMembers", "studentPhoto"]);
   assert.deepEqual([by.get("reportCard")?.status, by.get("reportCard")?.function, by.get("reportCard")?.onglet], ["ok", "PageBulletins", 13]);
   // Tab 12 is not in the session: the refusal is a closed tab; the call was still tried (the tab list is not exhaustive).
   assert.equal(by.get("transcript")?.status, "tab_closed");
   assert.equal(fake.calls.some((call) => call.name === "PageReleve"), true);
   assert.equal(by.get("classResults")?.status, "format_unknown");
-  assert.deepEqual(by.get("classResults")?.shape, ["tableau: list", "tableau[]: object", "tableau[].nom: string"]);
+  assert.deepEqual(by.get("classResults")?.shape, ["tableau: list[1]", "tableau[]: object", "tableau[].nom: string"]);
   assert.equal(by.get("commentKinds")?.status, "ok");
   assert.equal(by.get("generalCommentsPage")?.status, "ok");
   assert.equal(by.get("studentLifeRecap")?.status, "ok");
@@ -300,5 +306,5 @@ test("check of the main teacher view: a status and a shape per function, never a
   // Through the route, for a group: the functions of a class are not applicable.
   const empty = fakeSession({ ListeEleves: () => ({ listeEleves: { _T: 24, V: [] } }) });
   rememberUserData(empty, { resources: [classT06], tabs: [105] });
-  assert.deepEqual(await ppCheck(empty, "c:T06"), { students: 0, checks: [] });
+  assert.deepEqual(await ppCheck(empty, "c:T06"), { students: 0, groups: ["core", "life", "reports", "misc"], checks: [] });
 });

@@ -21,7 +21,7 @@ import { spaceOf } from "../space.js";
 import { domainCodeOf, isAccessDenied } from "./competencies.js";
 import { functions, isTabClosed } from "./functions.js";
 import { call, ref } from "./grades.js";
-import { shapeOf } from "./students.js";
+import { shapeOf } from "./shape.js";
 /** Largest number of subjects whose grid is read for a listing (one call each). */
 export const MAX_SUBJECTS = 40;
 /** genreReferentiel of CompetencesGrilles for "par matière" (client enumeration, NOT VALIDATED). */

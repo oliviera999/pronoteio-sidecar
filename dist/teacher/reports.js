@@ -22,8 +22,8 @@ import { callFunction, functions, requireFunction } from "./functions.js";
 import { loadPeriods, periodKey } from "./grades.js";
 import { kindOf, resolve, stableId, stableIds } from "./ids.js";
 import { rosterEntries } from "./roster.js";
-import { shapeOf } from "./students.js";
-import { dateOf, dayString, deniedWhere, isPlain, member, pageOf, readEach, textOf, unwrap } from "./tolerant.js";
+import { shapeOf } from "./shape.js";
+import { dateOf, dayString, deniedWhere, isPlain, member, numberOf, pageOf, readEach, textOf, unwrap } from "./tolerant.js";
 /** Genres of Pronote entities. */
 const GENRE_CLASS = 1;
 const GENRE_STUDENT = 4;
@@ -262,13 +262,9 @@ const cellValue = (cell) => {
         return raw;
     return member(raw, ["moyenne", "MoyenneEleve", "note", "valeur"]);
 };
-/**
- * Results of a class from a ResultatsClasses answer ("data" member), null when the shape is not understood. The answer
- * was never captured: a table is looked for, with a list of columns (subjects, their teachers and class averages) and
- * a list of lines (one per student: general average, rank, one cell per column, in the order of the columns or named
- * by their subject).
- */
-export const resultsFromAnswer = (data, students) => {
+const NO_FOOT = { median: null, groupAverage: null, heading: "", detail: "" };
+/** Table supposed before the first real answer (0.12.0): a list of columns and a list of lines. Kept as a second reading. */
+const tableFromAnswer = (data, students) => {
     const columns = listOf(member(data, COLUMN_LISTS));
     const lines = listOf(member(data, LINE_LISTS)).filter((line) => isPlain(line));
     if (columns.length === 0 || lines.length === 0)
@@ -279,6 +275,7 @@ export const resultsFromAnswer = (data, students) => {
         classAverage: reportNumber(member(column, ["MoyenneClasse", "moyenne"])),
         min: reportNumber(member(column, ["MoyenneInf", "MoyenneMin", "min"])),
         max: reportNumber(member(column, ["MoyenneSup", "MoyenneMax", "max"])),
+        ...NO_FOOT,
     }));
     if (subjects.every((item) => item.subject === ""))
         return null;
@@ -297,13 +294,15 @@ export const resultsFromAnswer = (data, students) => {
         const averages = subjects.map((subject, index) => {
             const named = cells.find((cell) => isPlain(unwrap(cell)) && (subjectLabel(unwrap(cell)) || textOf(member(unwrap(cell), ["matiere", "service"]))) === subject.subject);
             const value = cellValue(named ?? cells[index]);
-            return { subject: subject.subject, value: reportNumber(value), status: reportStatus(value) };
+            return { subject: subject.subject, column: index, value: reportNumber(value), status: reportStatus(value) };
         });
         rows.push({
             studentid: entry?.id ?? stableId("student", label),
             label,
             average: reportNumber(member(line, ["moyenneGenerale", "MoyenneEleve", "moyenne"])),
             rank: reportNumber(member(line, ["rang", "RangEleve"])),
+            lateness: null,
+            absenceHalfDays: null,
             averages,
         });
     }
@@ -311,7 +310,107 @@ export const resultsFromAnswer = (data, students) => {
         return null;
     return { subjects: subjects.filter((item) => item.subject !== ""), students: rows.map((row) => ({ ...row, averages: row.averages.filter((cell) => cell.subject !== "") })) };
 };
-/** Results of a class for a period, every subject (ResultatsClasses, tab 64). NOT VALIDATED: answer shape unknown. */
+/** Text of a title of column: Pronote writes some of them in HTML ("<div class=…>MATHS</div>", "&nbsp;"). */
+export const titleText = (value) => textOf(value).replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"').replace(/&#0?39;/g, "'").replace(/\s+/g, " ").trim();
+/** Members that may hold the titles of the columns: the name the client reads first, then candidates. */
+const TITLE_LISTS = ["titresColonnes", "listeColonnes", "colonnes", "services", "listeServices", "titres"];
+const positive = (value) => {
+    const number = numberOf(value);
+    return number !== null && number > 0 ? number : null;
+};
+/**
+ * Grid of a real ResultatsClasses answer (first real check of 20/11/2026, read with the web client that displays it:
+ * interfacepageresultatsclasses.js and donneesliste_resultatsclasse.js, PRONOTE 2026.2):
+ * - resultats[]: one line per student and period (nom, rang, moyenneGenerale, nbRetard, demiJourneesAbs, ressource,
+ *   lignePere, notesEleve[]). The line whose lignePere is 0 is the line of the student for the period asked; the others
+ *   (only when the period is the year) are its sub-periods, attached to it. notesEleve[] follows the order of the
+ *   columns: { ColMoy: { moyenne }, ColPos, ColAbs };
+ * - titresColonnes[]: titles of the columns ({ ColMoy: { titre1, titre2, titre3, hint, estPere }, ColPos, ColAbs }). This
+ *   member was cut out of the shape seen on 20/11 (60 lines): when it is missing, the columns stay unnamed;
+ * - moyennes[]: foot of each column (moyenneService, noteMediane, noteHaute, noteBasse, moyenneGroupeService);
+ * - moyenneGeneraleClasse, moyenneHauteClasse, moyenneBasseClasse, moyenneMedianeClasse.
+ * numeroNational, dateNaissance, dernierEtablissement, redoublant, sexe and the support plans of a line are never read.
+ */
+const gridFromAnswer = (data, students) => {
+    const rawRows = member(data, ["resultats"]);
+    if (rawRows === undefined)
+        return null;
+    const rows = listOf(rawRows).map(unwrap).filter(isPlain);
+    const titles = listOf(member(data, TITLE_LISTS)).map(unwrap);
+    const foot = listOf(member(data, ["moyennes"])).map(unwrap);
+    const cellsOf = (row) => listOf(member(row, ["notesEleve"])).map(unwrap);
+    const width = Math.max(titles.length, foot.length, ...rows.map((row) => cellsOf(row).length), 0);
+    const subjects = [];
+    for (let index = 0; index < width; index++) {
+        const title = titles[index];
+        const column = (unwrap(member(title, ["ColMoy"])) ?? title);
+        const lines = [titleText(member(column, ["titre2"])), titleText(member(column, ["titre3"])), titleText(member(column, ["titre1"]))];
+        const subject = lines[0] || titleText(member(column, ["hint"])) || (isPlain(column) ? subjectLabel(column) : "");
+        subjects.push({
+            subject,
+            heading: lines[2],
+            detail: lines[1] === subject ? "" : lines[1],
+            teachers: [...new Set(teachersOf(title))],
+            classAverage: reportNumber(member(foot[index], ["moyenneService"])),
+            min: reportNumber(member(foot[index], ["noteBasse"])),
+            max: reportNumber(member(foot[index], ["noteHaute"])),
+            median: reportNumber(member(foot[index], ["noteMediane"])),
+            groupAverage: reportNumber(member(foot[index], ["moyenneGroupeService"])),
+        });
+    }
+    const byLabel = new Map();
+    for (const entry of students)
+        byLabel.set(entry.label, byLabel.has(entry.label) ? null : entry);
+    // Lines of one student share "ressource"; without it, each line stands for itself.
+    const groups = new Map();
+    rows.forEach((row, index) => {
+        const key = row.ressource === undefined || row.ressource === null ? `#${index}` : `r${String(textOf(row.ressource) || index)}`;
+        groups.set(key, [...(groups.get(key) ?? []), row]);
+    });
+    const result = [];
+    for (const lines of groups.values()) {
+        const main = lines.find((line) => line.lignePere === 0) ?? lines[0];
+        const label = textOf(member(main, ["nom"])) || textOf(main.L);
+        if (label === "")
+            continue;
+        const entry = byLabel.get(label) ?? null;
+        const cells = cellsOf(main);
+        const periods = lines.filter((line) => line !== main).map((line) => ({ period: textOf(member(line, ["periode"])),
+            average: reportNumber(member(line, ["moyenneGenerale"])), rank: positive(member(line, ["rang"])) }));
+        result.push({
+            studentid: entry?.id ?? stableId("student", label),
+            label,
+            average: reportNumber(member(main, ["moyenneGenerale"])),
+            rank: positive(member(main, ["rang"])),
+            lateness: numberOf(member(main, ["nbRetard"])),
+            absenceHalfDays: numberOf(member(main, ["demiJourneesAbs"])),
+            averages: subjects.map((subject, index) => {
+                const cell = cells[index];
+                const value = member(unwrap(member(cell, ["ColMoy"])) ?? cell, ["moyenne", "MoyenneEleve", "note", "valeur"]);
+                return { subject: subject.subject, column: index, value: reportNumber(value), status: reportStatus(value) };
+            }),
+            ...(periods.length > 0 ? { periods } : {}),
+        });
+    }
+    const general = { average: reportNumber(member(data, ["moyenneGeneraleClasse"])), min: reportNumber(member(data, ["moyenneBasseClasse"])),
+        max: reportNumber(member(data, ["moyenneHauteClasse"])), median: reportNumber(member(data, ["moyenneMedianeClasse"])) };
+    return {
+        subjects,
+        students: result,
+        ...(Object.values(general).some((value) => value !== null) ? { general } : {}),
+        ...(width > 0 && subjects.every((item) => item.subject === "") ? { columnsUnnamed: true } : {}),
+    };
+};
+/**
+ * Results of a class from a ResultatsClasses answer ("data" member), null when the shape is not understood: the real
+ * grid first (gridFromAnswer), then the table supposed in 0.12.0.
+ */
+export const resultsFromAnswer = (data, students) => gridFromAnswer(data, students) ?? tableFromAnswer(data, students);
+/**
+ * Results of a class for a period, every subject (ResultatsClasses, tab 64). Decoded from the real shape of 20/11/2026
+ * and from the web client; the titles of the columns and the values were never seen: validated: false.
+ */
 export const classResults = async (session, resourceId, periodId) => {
     if (kindOf(resourceId) !== "class")
         throw new HttpError(409, "resource_not_class");
@@ -345,6 +444,7 @@ export const classResults = async (session, resourceId, periodId) => {
     const read = resultsFromAnswer(data, await rosterEntries(session, resourceId));
     if (read === null)
         return { ...base, reason: "format_unknown", shape: shapeOf(data) };
-    return { ...base, available: true, ...read };
+    // Columns without title: the cells are returned by position, with the whole shape to find where the titles are.
+    return { ...base, available: true, ...read, ...(read.columnsUnnamed ? { shape: shapeOf(data) } : {}) };
 };
 //# sourceMappingURL=reports.js.map

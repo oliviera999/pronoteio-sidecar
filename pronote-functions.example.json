@@ -158,5 +158,85 @@
   "studentMemos": {
     "name": "ListeMemosEleves",
     "onglet": 105
+  },
+  "lifeAbsenceDetail": {
+    "name": "DetailAbsences",
+    "onglet": 113
+  },
+  "lifePunishments": {
+    "name": "ListePunitions",
+    "onglet": 192
+  },
+  "lifeFollowUp": {
+    "name": "PageSuivisAbsenceRetard",
+    "onglet": 74
+  },
+  "lifeGrid": {
+    "name": "AbsencesGrille",
+    "onglet": 155
+  },
+  "lifeAbsencesRecap": {
+    "name": "RecapAbsencesEleves",
+    "onglet": 138
+  },
+  "lifeCallSheetRecap": {
+    "name": "RecapFeuilleAppel",
+    "onglet": 139
+  },
+  "lifePunishmentsRecap": {
+    "name": "RecapPunitions",
+    "onglet": 140
+  },
+  "lifeIncidents": {
+    "name": "Incidents",
+    "onglet": 135
+  },
+  "regimesList": {
+    "name": "ListeRegimesEleve",
+    "onglet": 138
+  },
+  "transcriptCommentsPage": {
+    "name": "PageApprBulletin",
+    "onglet": 30
+  },
+  "studentComments": {
+    "name": "PageAppreciationsBulletinParEleve",
+    "onglet": 246
+  },
+  "pastReportStudents": {
+    "name": "ListeElevesBIA",
+    "onglet": 227
+  },
+  "pastReports": {
+    "name": "BulletinBIA",
+    "onglet": 227
+  },
+  "schoolingRecap": {
+    "name": "RecapitulatifScolarite",
+    "onglet": 161
+  },
+  "schoolRecord": {
+    "name": "LivretScolaire",
+    "onglet": 83
+  },
+  "studentFolders": {
+    "name": "PageDossiers",
+    "onglet": 20
+  },
+  "multiYear": {
+    "name": "PageSuiviPluriannuel",
+    "onglet": 44
+  },
+  "classPhotos": {
+    "name": "PageTrombinoscope",
+    "onglet": 77
+  },
+  "supportPlanDetails": {
+    "name": "DetailsPIEleve",
+    "onglet": 105
+  },
+  "teacherOpinions": {
+    "name": "ListeAvisProfesseurs",
+    "onglet": 260
   }
 }

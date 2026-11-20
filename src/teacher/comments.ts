@@ -10,7 +10,7 @@
  * 0.12.0: every kind of general comment that is not a rubric is read (see readGeneral), the answer says why none came
  * back ("general"), and a main teacher without service in the class still gets them (service: null).
  */
-import type { SessionHandle } from "pawnote";
+import { ServerSideError, type SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
 import { listOf } from "../pronote/encoding.js";
 import { userData, type SchoolResource } from "../pronote/userdata.js";
@@ -18,8 +18,9 @@ import type { GeneralComments, ReportComments } from "../normalise.js";
 import { isAccessDenied } from "./competencies.js";
 import { call, loadServices, pickPeriod, ref, resourceOf, serviceKey, type Element } from "./grades.js";
 import { kindOf, resolve, stableIds } from "./ids.js";
-import { shapeOf } from "./students.js";
-import { boolOf, member } from "./tolerant.js";
+import { shapeOf } from "./shape.js";
+import { reportsPage } from "./reports.js";
+import { boolOf, member, type StudentPage } from "./tolerant.js";
 
 const GENRE_CLASS = 1;
 const GENRE_GROUP = 2;
@@ -76,13 +77,89 @@ const hasLines = (data: unknown): boolean => member(data, LINE_LISTS) !== undefi
  * with children, e.g. "Conseil de classe", "Vie scolaire" on the demo server), with the Pronote element.
  */
 export const kindsFromAnswer = (data: Record<string, any>): { element: Element; name: string; rubric: boolean }[] =>
-  listOf<Element>(member(data, ["listeAppreciations", "ListeAppreciations"]))
+  // 0.14.0, first real check: the member is "liste" (as the web client reads it: actionSurRequeteListeAppreciations).
+  listOf<Element>(member(data, ["liste", "listeAppreciations", "ListeAppreciations"]))
     .filter((item) => item && typeof item === "object")
     .map((item) => ({
       element: item,
       name: String(item.L ?? "").trim(),
       rubric: boolOf(member(item, ["estUneRubrique", "estRubrique", "estPere", "rubrique"])) === true,
     }));
+
+/**
+ * Requests tried for the kinds of general comments, in order. The web client fills ListeAppreciations from the page
+ * (objetrequetelistes.js: ressource = the class, listeRessources, periode); the request without parameter answered an
+ * EMPTY list on the real server (20/11/2026). "classe" is the name of the page request, tried last.
+ */
+export const kindRequests = (resource: SchoolResource, period: Element): { variant: string; data: Record<string, unknown> }[] => {
+  const classe = { N: resource.id, G: resource.genre, L: resource.label };
+  const periode = { N: period.N, G: period.G ?? GENRE_PERIOD, L: period.L };
+  return [
+    { variant: "ressource+periode", data: { ressource: classe, periode } },
+    { variant: "ressource+listeRessources+periode", data: { ressource: classe, listeRessources: [classe], periode } },
+    { variant: "none", data: {} },
+    { variant: "classe+periode", data: { classe, periode } },
+  ];
+};
+
+export type KindsRead = {
+  kinds: ReturnType<typeof kindsFromAnswer>;
+  /** Request that gave the kinds ("" when none did). */
+  variant: string;
+  /** Why no kind came back: "" when some did, else access_denied, format_unknown or no_kind (empty list everywhere). */
+  reason: string;
+  shape?: string[];
+};
+
+/**
+ * Kinds of general comments of a class and period: the first request whose list is not empty. A refusal of every
+ * request is access_denied; an answer without any known list is format_unknown (with its shape).
+ */
+export const readKinds = async (session: SessionHandle, resource: SchoolResource, period: Element): Promise<KindsRead> => {
+  // A class and period without any kind are not asked again for ten minutes: the general comments are then read from
+  // the report cards by pages, and each page would send the four requests again.
+  const memo = noKinds.get(session) ?? new Map<string, { expires: number; read: KindsRead }>();
+  noKinds.set(session, memo);
+  const key = `${resource.id}|${period.N}`;
+  const known = memo.get(key);
+  if (known && known.expires > Date.now()) return known.read;
+  const read = await askKinds(session, resource, period);
+  if (read.kinds.length === 0 && read.reason !== "access_denied") memo.set(key, { expires: Date.now() + NO_KINDS_TTL_MS, read });
+  return read;
+};
+
+const NO_KINDS_TTL_MS = 10 * 60_000;
+const noKinds = new WeakMap<SessionHandle, Map<string, { expires: number; read: KindsRead }>>();
+
+/** Forgets the classes and periods known to have no kind of general comment (tests). */
+export const resetKindsMemo = (session: SessionHandle): void => {
+  noKinds.delete(session);
+};
+
+const askKinds = async (session: SessionHandle, resource: SchoolResource, period: Element): Promise<KindsRead> => {
+  let denied = 0;
+  let unknown: string[] | null = null;
+  const requests = kindRequests(resource, period);
+  for (const request of requests) {
+    let answer: Record<string, any>;
+    try {
+      answer = await call(session, "commentKinds", request.data);
+    } catch (error) {
+      if (!isAccessDenied(error)) throw error;
+      denied++;
+      continue;
+    }
+    if (!answer || Object.keys(answer).length === 0) {
+      denied++;
+      continue;
+    }
+    const kinds = kindsFromAnswer(answer);
+    if (kinds.length > 0) return { kinds, variant: request.variant, reason: "" };
+    if (member(answer, ["liste", "listeAppreciations", "ListeAppreciations"]) === undefined) unknown = unknown ?? shapeOf(answer);
+  }
+  if (denied === requests.length) return { kinds: [], variant: "", reason: "access_denied" };
+  return unknown ? { kinds: [], variant: "", reason: "format_unknown", shape: unknown } : { kinds: [], variant: "", reason: "no_kind" };
+};
 
 /** Largest number of kinds of general comments read (one Pronote call each). */
 export const MAX_GENERAL_KINDS = 8;
@@ -102,19 +179,10 @@ const readGeneral = async (session: SessionHandle, resource: SchoolResource, per
   const none = (reason: string, extra: Partial<GeneralComments> = {}): GeneralRead =>
     ({ general: { available: false, reason, kind: "", kinds: [], ...extra }, byKind: [] });
   if (!resource.principal || resource.genre !== GENRE_CLASS) return none("not_principal");
-  let answer: Record<string, any>;
-  try {
-    answer = await call(session, "commentKinds", {});
-  } catch (error) {
-    if (isAccessDenied(error)) return none("access_denied");
-    throw error;
-  }
-  const kinds = kindsFromAnswer(answer);
+  const found = await readKinds(session, resource, period);
+  const kinds = found.kinds;
   const listed = kinds.map(({ name, rubric }) => ({ name, rubric }));
-  if (kinds.length === 0) {
-    const empty = !answer || Object.keys(answer).length === 0;
-    return none(empty ? "access_denied" : "format_unknown", empty ? {} : { shape: shapeOf(answer) });
-  }
+  if (kinds.length === 0) return none(found.reason, found.shape ? { shape: found.shape } : {});
   const readable = kinds.filter((kind) => !kind.rubric && kind.name !== "").slice(0, MAX_GENERAL_KINDS);
   if (readable.length === 0) return none("no_kind", { kinds: listed });
   const byKind: GeneralRead["byKind"] = [];
@@ -147,11 +215,64 @@ const readGeneral = async (session: SessionHandle, resource: SchoolResource, per
   if (byKind.length === 0) {
     return none(unknown ? "format_unknown" : denied > 0 ? "access_denied" : "no_kind", { kinds: listed, ...(unknown ? { shape: unknown } : {}) });
   }
-  return { general: { available: true, reason: "", kind: mainKind(byKind.map((item) => item.kind)), kinds: listed }, byKind };
+  return { general: { available: true, reason: "", kind: mainKind(byKind.map((item) => item.kind)), kinds: listed, source: "kinds",
+    variant: found.variant }, byKind };
+};
+
+/** Label of a kind of comment of a report card foot, when Pronote gives it no title. */
+const FOOT_KINDS: Record<string, string> = { general: "Appréciation générale", council: "Conseil de classe", comment: "Commentaire",
+  cpe: "CPE", other: "Autre" };
+
+/**
+ * General comments read from the report cards (0.14.0): the foot of PageBulletins carries them (ObjetListeAppreciations),
+ * and that page answers on the real server while the kinds of tab 27 come back empty. One report card per student, by
+ * pages, partial when the queue towards Pronote is full. "first" is why the kinds gave nothing: it stays the reason.
+ */
+const generalFromReports = async (
+  session: SessionHandle,
+  resourceId: string,
+  periodId: string,
+  page: StudentPage,
+  first: GeneralComments,
+): Promise<GeneralRead> => {
+  let read: Awaited<ReturnType<typeof reportsPage>>;
+  try {
+    read = await reportsPage(session, resourceId, periodId, page, "reportcard");
+  } catch (error) {
+    // The list of students or the report cards refused: the first cause stays the answer.
+    if (!(error instanceof ServerSideError)) throw error;
+    return { general: first, byKind: [] };
+  }
+  if (!read.available) return { general: first, byKind: [] };
+  const byKind = new Map<string, Map<string, string | null>>();
+  let main = "";
+  for (const report of read.items) {
+    const student = [report.lastname, report.firstname].filter(Boolean).join(" ");
+    for (const comment of report.comments) {
+      const kind = comment.title || FOOT_KINDS[comment.kind] || comment.kind;
+      if (comment.kind === "general" && main === "") main = kind;
+      const lines = byKind.get(kind) ?? new Map<string, string | null>();
+      if (!lines.has(student)) lines.set(student, comment.text);
+      byKind.set(kind, lines);
+    }
+  }
+  const kinds = [...byKind.entries()].map(([kind, lines]) => ({ kind, lines }));
+  return {
+    general: { available: true, reason: first.reason, kind: main || mainKind(kinds.map((item) => item.kind)), kinds: first.kinds,
+      ...(first.shape ? { shape: first.shape } : {}), source: "reportcards",
+      page: { total: read.total, offset: read.offset, read: read.read, remaining: read.remaining, partial: read.partial,
+        retry_after: read.retry_after } },
+    byKind: kinds,
+  };
 };
 
 /* non validé sur la démo : onglets 25 et 27 fermés au profil de démonstration */
-export const reportComments = async (session: SessionHandle, resourceId: string, periodId: string): Promise<ReportComments> => {
+export const reportComments = async (
+  session: SessionHandle,
+  resourceId: string,
+  periodId: string,
+  page: StudentPage = {},
+): Promise<ReportComments> => {
   const kind = kindOf(resourceId);
   if (kind !== "class" && kind !== "group") throw new HttpError(409, "resource_without_pronote_id");
   const genre = kind === "class" ? GENRE_CLASS : GENRE_GROUP;
@@ -198,7 +319,11 @@ export const reportComments = async (session: SessionHandle, resourceId: string,
       lines = read.students;
     }
   }
-  const { general, byKind } = await readGeneral(session, resource, picked.period);
+  let { general, byKind } = await readGeneral(session, resource, picked.period);
+  // 0.14.0: no kind for a main teacher: the general comments of the report cards, saying so (never a silent fallback).
+  if (!general.available && general.reason !== "not_principal" && resource.principal && kind === "class") {
+    ({ general, byKind } = await generalFromReports(session, resourceId, periodId, page, general));
+  }
   result.general = general;
   if (serviceDenied && !general.available) {
     // Neither the comments of a service nor the general ones: the refusal is relayed (as before 0.12.0).

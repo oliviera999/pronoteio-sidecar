@@ -11,6 +11,7 @@
  */
 import { readFileSync } from "node:fs";
 import type { SessionHandle } from "pawnote";
+import { isWriteFunction } from "../context.js";
 import { HttpError } from "../errors.js";
 import { answerData, callPronote } from "../pronote/request.js";
 import { tabClosed } from "../pronote/userdata.js";
@@ -160,7 +161,49 @@ export type FunctionKey =
   /** Correspondence notebook of one student: observations, encouragements, other events (tab 78; a read). */
   | "studentNotebook"
   /** Memos and "valorisations" of one student (ListeMemosEleves, tab 105). */
-  | "studentMemos";
+  | "studentMemos"
+  /* ---- 0.14.0: functions of the web session probed by GET /pp/check, and sources of the dated school life. Requests
+   * read from the web client (PRONOTE 2026.2, demo server), answers never seen: nothing is decoded as validated. ---- */
+  /** Absences of one student over dates, one genre per call (DetailAbsences, tab 113: { eleve, dateDebut, dateFin, genreAbsence }). */
+  | "lifeAbsenceDetail"
+  /** Punishments of one student (ListePunitions, tab 192: { eleve }). */
+  | "lifePunishments"
+  /** Follow-up of the absences and late arrivals of one student (PageSuivisAbsenceRetard, tab 74). */
+  | "lifeFollowUp"
+  /** Grid of the absences of one student (AbsencesGrille, tab 155: { eleve, domaine, genreAbsence }). */
+  | "lifeGrid"
+  /** Summary of the absences of classes (RecapAbsencesEleves, tab 138: { classes, regimes, criteres, domaine }). */
+  | "lifeAbsencesRecap"
+  /** Summary of the call sheets of classes (RecapFeuilleAppel, tab 139). */
+  | "lifeCallSheetRecap"
+  /** Summary of the punishments of classes (RecapPunitions, tab 140). */
+  | "lifePunishmentsRecap"
+  /** Incidents of classes (Incidents, tab 135: { classes }). */
+  | "lifeIncidents"
+  /** Regimes, grants and time slots offered by the school life summaries (ListeRegimesEleve, tab 138; no student). */
+  | "regimesList"
+  /** Transcript comments grid of a service (PageApprBulletin signed with tab 30). */
+  | "transcriptCommentsPage"
+  /** Report card comments of one student, every subject (PageAppreciationsBulletinParEleve, tab 246). */
+  | "studentComments"
+  /** Students with report cards of previous years (ListeElevesBIA, tab 227). */
+  | "pastReportStudents"
+  /** Report cards of previous years (BulletinBIA, tab 227). */
+  | "pastReports"
+  /** Summary of the schooling of classes (RecapitulatifScolarite, tab 161: { classes, periode }). */
+  | "schoolingRecap"
+  /** School record of a class or student (LivretScolaire, tab 83: { Classe, AvecDonneesClasse, Eleve }). */
+  | "schoolRecord"
+  /** Folders of one student (PageDossiers, tab 20). */
+  | "studentFolders"
+  /** Multi-year follow-up of one student (PageSuiviPluriannuel, tab 44: { eleve }). */
+  | "multiYear"
+  /** Photo board of a class (PageTrombinoscope, tab 77: { classe, periode } → ListeRessources[].existePhoto). */
+  | "classPhotos"
+  /** Detail of the support plans of one student (DetailsPIEleve, tab 105; probed for its shape only). */
+  | "supportPlanDetails"
+  /** Opinions of the teachers (ListeAvisProfesseurs, tab 260). */
+  | "teacherOpinions";
 
 /**
  * Values read from the PRONOTE 2026.2 teacher client (tabs: 23 grade entry, 105 student list, 113 call sheet,
@@ -231,7 +274,30 @@ const defaults: Record<FunctionKey, TeacherFunction> = {
   studentLifeRecap: { name: "RecapitulatifVSEleve", onglet: 19 },
   studentNotebook: { name: "PageSaisieCarnetCorrespondance", onglet: 78 },
   studentMemos: { name: "ListeMemosEleves", onglet: 105 },
+  lifeAbsenceDetail: { name: "DetailAbsences", onglet: 113 },
+  lifePunishments: { name: "ListePunitions", onglet: 192 },
+  lifeFollowUp: { name: "PageSuivisAbsenceRetard", onglet: 74 },
+  lifeGrid: { name: "AbsencesGrille", onglet: 155 },
+  lifeAbsencesRecap: { name: "RecapAbsencesEleves", onglet: 138 },
+  lifeCallSheetRecap: { name: "RecapFeuilleAppel", onglet: 139 },
+  lifePunishmentsRecap: { name: "RecapPunitions", onglet: 140 },
+  lifeIncidents: { name: "Incidents", onglet: 135 },
+  regimesList: { name: "ListeRegimesEleve", onglet: 138 },
+  transcriptCommentsPage: { name: "PageApprBulletin", onglet: 30 },
+  studentComments: { name: "PageAppreciationsBulletinParEleve", onglet: 246 },
+  pastReportStudents: { name: "ListeElevesBIA", onglet: 227 },
+  pastReports: { name: "BulletinBIA", onglet: 227 },
+  schoolingRecap: { name: "RecapitulatifScolarite", onglet: 161 },
+  schoolRecord: { name: "LivretScolaire", onglet: 83 },
+  studentFolders: { name: "PageDossiers", onglet: 20 },
+  multiYear: { name: "PageSuiviPluriannuel", onglet: 44 },
+  classPhotos: { name: "PageTrombinoscope", onglet: 77 },
+  supportPlanDetails: { name: "DetailsPIEleve", onglet: 105 },
+  teacherOpinions: { name: "ListeAvisProfesseurs", onglet: 260 },
 };
+
+/** Keys of the configured functions (GET /pp/check?function=…). */
+export const FUNCTION_KEYS = Object.keys(defaults) as FunctionKey[];
 
 const load = (): Record<FunctionKey, TeacherFunction> => {
   const file = process.env.PRONOTEIO_FUNCTIONS_FILE;
@@ -262,6 +328,22 @@ export const assertTabOpen = (session: SessionHandle, key: FunctionKey): void =>
 export const callFunction = async (session: SessionHandle, key: FunctionKey, data?: Record<string, unknown>): Promise<Record<string, any>> => {
   const fn = requireFunction(key);
   const answer = await callPronote(session, { name: fn.name, data, signature: fn.onglet !== null ? { onglet: fn.onglet } : undefined });
+  return answerData(session, answer);
+};
+
+/**
+ * Sends a READ function with another tab than the configured one (variants of GET /pp/check, memos read from the tab
+ * of the page that shows them). A function that writes is refused before any call.
+ */
+export const callFunctionAt = async (
+  session: SessionHandle,
+  key: FunctionKey,
+  onglet: number | null,
+  data?: Record<string, unknown>,
+): Promise<Record<string, any>> => {
+  const fn = requireFunction(key);
+  if (isWriteFunction(fn.name)) throw new HttpError(500, "internal", { reason: "read_call_of_a_write_function" });
+  const answer = await callPronote(session, { name: fn.name, data, signature: onglet !== null ? { onglet } : undefined });
   return answerData(session, answer);
 };
 

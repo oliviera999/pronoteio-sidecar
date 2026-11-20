@@ -6,8 +6,10 @@ import { RateLimitedError } from "../src/errors.js";
 import { seconds } from "../src/normalise.js";
 import { limiterOf } from "../src/pronote/limiter.js";
 import { rememberUserData } from "../src/pronote/userdata.js";
-import { classLife, eventsFromCallSheet, eventsFromNotebook, eventsFromRecap, halfDaysBetween, lessonConcerns, mergeEvents,
-  observationKind, resetWeekCache, totalsOf, type LifeInclude } from "../src/teacher/classlife.js";
+import { classLife, decodeRecap, eventsFromCallSheet, eventsFromNotebook, eventsFromRecap, eventsFromSummary, halfDaysBetween, lessonConcerns,
+  mergeEvents, observationKind, officialFor, officialFromRecap, officialKind, regimeSeen, resetWeekCache, totalsOf,
+  type LifeInclude } from "../src/teacher/classlife.js";
+import { studentFiles } from "../src/teacher/students.js";
 import { fakeSession, type FakeCall } from "./fake-session.js";
 import { buildApp, createSession, get } from "./helpers/app.js";
 
@@ -140,7 +142,7 @@ test("a page of students: summary and notebook merged, the same observation kept
   assert.equal(result.items.length, 3);
   assert.deepEqual(result.read, entries.slice(0, 3).map((entry) => entry.id));
   assert.deepEqual(Object.keys(result.sources), ["recap", "carnet"]);
-  assert.deepEqual(result.sources.recap, { available: true, reason: "", scope: "all", function: "RecapitulatifVSEleve", onglet: 19 });
+  assert.deepEqual(result.sources.recap, { available: true, reason: "", scope: "all", function: "RecapitulatifVSEleve", onglet: 19, detail: true });
   const first = result.items[0];
   assert.equal(first.lastname, "ELEVE01");
   assert.equal(first.key.length, 16);
@@ -208,7 +210,8 @@ const callSheet = (data: Record<string, any> | undefined) => {
   const date = String(data?.Date?.V ?? "").replace(/^(\d+)\/(\d+)\/(\d+) (\d+):.*$/, (_all, d, m, y, h) => `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y} ${String(h).padStart(2, "0")}`);
   const student = students[(week - 1) % students.length];
   const items: Record<string, any>[] = [];
-  if (id.endsWith("a")) items.push({ N: `13#${id}`, G: 13, justifie: week % 2 === 0, reglee: false, DateDebut: { _T: 7, V: `${date}:00:00` },
+  if (id.endsWith("a")) items.push({ N: `13#${id}`, G: 13, justifie: week % 2 === 0, reglee: false, regime: { _T: 24, V: { L: "DP 4 jours" } },
+    DateDebut: { _T: 7, V: `${date}:00:00` },
     DateFin: { _T: 7, V: `${date}:55:00` }, listeMotifs: { _T: 24, V: [{ L: "Maladie" }] } });
   if (id.endsWith("b")) items.push({ N: `14#${id}`, G: 14, Duree: 5, DateDebut: { _T: 7, V: `${date}:00:00` }, DateFin: { _T: 7, V: `${date}:00:00` } });
   if (id.endsWith("c")) items.push({ N: `46#${id}`, G: 46, observation: { _T: 24, V: { N: "45#enc" } }, commentaire: "Bonne séance",
@@ -234,7 +237,7 @@ test("a whole school year from the call sheets when the summary does not answer:
     // 43 weeks from the first Monday (07/09/2026) to 30/06/2027; the lesson of the other class is never read.
     const weeks = 43;
     assert.deepEqual(result.sources.callsheets, { available: true, reason: "", scope: "own_lessons", function: "PageSaisieAbsences", onglet: 113,
-      lessons: weeks * 3 - 1, skipped: 0 });
+      lessons: weeks * 3 - 1, skipped: 0, detail: true });
     assert.equal(fake.calls.filter((call) => call.name === "PageEmploiDuTemps").length, weeks);
     assert.equal(fake.calls.filter((call) => call.name === "PageSaisieAbsences").length, weeks * 3 - 1);
     assert.equal(fake.calls.filter((call) => call.name === "RecapitulatifVSEleve").length, 1, "one refusal is enough");
@@ -335,7 +338,7 @@ test("no source answers: unavailable with the reason; an unknown shape is descri
   const unknown = await classLife(odd, "c:T06", FROM, TO, { sources: ["recap"], page: { limit: 2 } });
   assert.equal(unknown.available, false);
   assert.equal(unknown.reason, "format_unknown");
-  assert.deepEqual(unknown.sources.recap?.shape, ["recapitulatif: object", "recapitulatif.lignes: list", "recapitulatif.lignes[]: object",
+  assert.deepEqual(unknown.sources.recap?.shape, ["recapitulatif: object", "recapitulatif.lignes: list[1]", "recapitulatif.lignes[]: object",
     "recapitulatif.lignes[].texte: string"]);
   assert.equal(JSON.stringify(unknown).includes("secrète"), false);
   assert.equal(odd.calls.filter((call) => call.name === "RecapitulatifVSEleve").length, 1);
@@ -360,4 +363,135 @@ test("GET /classlife: parameters checked, a page through the route", async () =>
   const cached = await get(app, `${base}&include=absences,lateness,observations&limit=2`, id);
   assert.equal(cached.headers["x-cache"], "hit");
   await app.close();
+});
+
+/* ---- 0.14.0: the real shape of the summary (first real check of 20/11/2026) ---- */
+
+const typedList = <T>(items: T[]) => ({ _T: 24, V: items });
+
+/**
+ * RecapitulatifVSEleve as the real server answers it: numbers by type (listeTotal) and by subject (listeMatiere), no
+ * date. Built from the shape of 20/11/2026 and from the web client that shows it; generated values.
+ */
+const officialRecap = (absences: number) => ({
+  listeMatiere: typedList(["MATHEMATIQUES", "PHILOSOPHIE", "ANGLAIS LV1", "EPS"].map((subject, index) => ({ L: subject, N: `m${index}`,
+    colonnes: typedList([{ L: "Absences", valeur: index + 1, genreEvenementVS: 7 }, { L: "Heures de cours manquées", valeur: 0.125, estUneDuree: true, genreEvenementVS: 7 },
+      { L: "Retards", valeur: index, genreEvenementVS: 8 }]) }))),
+  listeTotal: typedList([{ G: 0, L: "Absences", valeur: absences, nbDJAbsence: absences + 2 }, { G: 1, L: "Retards", valeur: 3 },
+    { G: 3, L: "Punitions", valeur: 1 }]),
+});
+
+test("the real summary: official totals by type and by subject, without any dated event", () => {
+  const official = officialFromRecap(officialRecap(5))!;
+  assert.deepEqual(official.counts, [
+    { kind: "absence", label: "Absences", count: 5, minutes: null, halfDays: 7 },
+    { kind: "lateness", label: "Retards", count: 3, minutes: null, halfDays: null },
+    { kind: "punishment", label: "Punitions", count: 1, minutes: null, halfDays: null },
+  ]);
+  assert.deepEqual(official.summary, { absences: 5, absenceHalfDays: 7, lateness: 3, exclusions: null, punishments: 1, observations: null,
+    infirmary: null, exemptions: null });
+  assert.equal(official.bySubject.length, 4);
+  // A duration is a fraction of a day in the web client: 0.125 day is 3 hours.
+  assert.deepEqual(official.bySubject[1], { subject: "PHILOSOPHIE", counts: [
+    { kind: "absence", label: "Absences", count: 2, minutes: null, halfDays: null },
+    { kind: "other", label: "Heures de cours manquées", count: null, minutes: 180, halfDays: null },
+    { kind: "lateness", label: "Retards", count: 1, minutes: null, halfDays: null }] });
+  assert.deepEqual(decodeRecap(officialRecap(5))?.events, []);
+  assert.equal(decodeRecap(officialRecap(5))?.detail, false);
+  // A student with nothing: the lists are there, empty; no list at all is another shape.
+  const nothing = officialFromRecap({ listeMatiere: typedList([]), listeTotal: typedList([]) })!;
+  assert.deepEqual([nothing.counts, nothing.bySubject, nothing.summary.absences], [[], [], null]);
+  assert.equal(officialFromRecap({ autre: [] }), null);
+  assert.equal(decodeRecap({ autre: [] }), null);
+  // The kind of a line: its label, else its genre (school life genres, or genres of the student folder).
+  assert.deepEqual(["Passages à l'infirmerie", "Exclusions de cours", "Dispenses", "Observations", "Absences aux repas", "Sanctions", "Incidents"].map((label) => officialKind(label)),
+    ["infirmary", "exclusion", "exemption", "observation", "other", "sanction", "incident"]);
+  assert.deepEqual([officialKind("", { G: 14 }), officialKind("", { G: 9 }), officialKind("", { genreEvenementVS: 8 }), officialKind("", { genreObservation: 2 }),
+    officialKind("", { G: 999 })], ["lateness", "infirmary", "lateness", "observation", "other"]);
+  // Only the kinds asked leave: a line of another kind is not even named.
+  const reduced = officialFor(official, ["absences"]);
+  assert.deepEqual(reduced.counts.map((line) => line.label), ["Absences"]);
+  assert.deepEqual([reduced.summary.lateness, reduced.summary.punishments, reduced.bySubject[0].counts.map((line) => line.label)], [null, null, ["Absences"]]);
+});
+
+test("official totals of every subject beside the detail of the lessons of the account: each says what it covers", async () => {
+  mock.timers.enable({ apis: ["Date"], now: new Date(2027, 5, 30, 18).getTime() });
+  try {
+    const fake = session({ RecapitulatifVSEleve: (data) => (data?.eleve?.L === students[2].L ? { listeMatiere: typedList([]), listeTotal: typedList([]) } : officialRecap(5)),
+      PageEmploiDuTemps: timetable, PageSaisieAbsences: callSheet,
+      FicheEleve: () => ({ Identite: { _T: 24, V: { nom: "X" } }, Scolarite: { _T: 24, V: { classe: { _T: 24, V: { L: "T06" } } } } }) });
+    resetWeekCache(fake);
+    limiterOf(fake, { ratePerMinute: 0, burst: 1000, minSpacingMs: 0, maxWaitMs: 20_000 });
+    const result = await classLife(fake, "c:T06", FROM, TO, { page: { offset: 0, limit: 3 } });
+    assert.equal(result.available, true);
+    // The summary answers (numbers, every subject); the dated detail still comes from the lessons of the account.
+    assert.deepEqual(result.sources.recap, { available: true, reason: "", scope: "all", function: "RecapitulatifVSEleve", onglet: 19, detail: false });
+    assert.deepEqual([result.sources.callsheets?.available, result.sources.callsheets?.scope, result.sources.callsheets?.detail], [true, "own_lessons", true]);
+    assert.equal(result.totalsScope, "own_lessons");
+    const [first, , third] = result.items;
+    // Pronote counts 5 absences in every subject; the call sheets of the account saw 2.
+    assert.deepEqual([first.official?.summary.absences, first.official?.summary.absenceHalfDays, first.totals.absences], [5, 7, 2]);
+    assert.deepEqual(first.official?.counts.map((line) => line.kind), ["absence", "lateness"], "punishments were not asked");
+    assert.ok(first.events.every((event) => event.source === "callsheets"));
+    assert.deepEqual([third.official?.counts, third.official?.summary.absences], [[], null], "a student without anything");
+    // The regime named by an absence of a call sheet fills the file that does not carry it.
+    assert.equal(regimeSeen(fake, "e:ELEVE01 Prénom"), "DP 4 jours");
+    const file = (await studentFiles(fake, "c:T06", [], "e:ELEVE01 Prénom")).items[0];
+    assert.deepEqual([file.regime, file.regimeSource, file.regimeReason], ["DP 4 jours", "callsheets", ""]);
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("dated summary on request: a known list is read for every subject, an unknown shape is described, a refusal is not asked again", async () => {
+  const absences = (data: any) => ({ totalCoursManques: 1, listeAbsences: typedList([
+    { estUnDeploiement: true, L: "Matière" },
+    { DateDebut: { _T: 7, V: data?.genreAbsence === 14 ? "06/10/2026 08:00:00" : "05/10/2026 08:00:00" }, DateFin: { _T: 7, V: "05/10/2026 09:55:00" },
+      justifie: false, reglee: true, Duree: 10, listeMotifs: typedList([{ L: "Motif secret" }]), listeMatieres: typedList([{ L: "MATHEMATIQUES" }]),
+      Professeur: { _T: 24, V: { L: "M. PROF" } } }]) });
+  const fake = session({ RecapitulatifVSEleve: () => officialRecap(5), DetailAbsences: absences,
+    PageSuivisAbsenceRetard: () => ({ suivis: { lignes: [{ texte: "Suivi secret" }] } }) });
+  resetWeekCache(fake);
+  const result = await classLife(fake, "c:T06", FROM, TO, { sources: ["recap", "summary"], include: ["absences", "lateness", "punishments"],
+    page: { offset: 0, limit: 2 } });
+  assert.equal(result.totalsScope, "all");
+  assert.equal(result.sources.callsheets, undefined);
+  assert.equal(fake.calls.some((call) => call.name === "PageEmploiDuTemps"), false, "no call sheet is read");
+  const summary = result.sources.summary!;
+  assert.deepEqual([summary.available, summary.scope, summary.detail], [true, "all", true]);
+  assert.deepEqual(summary.parts?.map((part) => [part.function, part.onglet, part.available, part.reason]), [["DetailAbsences", 113, true, ""],
+    ["ListePunitions", 192, false, "access_denied"], ["PageSuivisAbsenceRetard", 74, false, "format_unknown"]]);
+  assert.deepEqual(summary.parts?.[2].shape, ["suivis: object", "suivis.lignes: list[1]", "suivis.lignes[]: object", "suivis.lignes[].texte: string"]);
+  // One call per genre asked, without the teacher: every subject.
+  const sent = fake.calls.filter((call) => call.name === "DetailAbsences");
+  assert.deepEqual(sent.slice(0, 2).map((call) => [call.data?.genreAbsence, call.data?.professeur, call.data?.dateDebut?._T]), [[13, undefined, 7], [14, undefined, 7]]);
+  const events = result.items[0].events;
+  assert.deepEqual(events.map((event) => [event.kind, event.source, event.local.start, event.subject, event.author, event.justified]),
+    [["absence", "summary", "2026-10-05 08:00", "MATHEMATIQUES", "M. PROF", false], ["lateness", "summary", "2026-10-06 08:00", "MATHEMATIQUES", "M. PROF", false]]);
+  assert.deepEqual([events[0].reasons, events[1].minutes], [[], 10], "reasons only with include=motives");
+  assert.deepEqual([result.items[0].totals.absences, result.items[0].official?.summary.absences], [1, 5]);
+  // The functions refused or not understood are asked once for the session, not for every student nor every page.
+  await classLife(fake, "c:T06", FROM, TO, { sources: ["summary"], include: ["absences", "punishments"], page: { offset: 2, limit: 2 } });
+  assert.deepEqual([fake.calls.filter((call) => call.name === "PageSuivisAbsenceRetard").length, fake.calls.filter((call) => call.name === "ListePunitions").length], [1, 1]);
+  assert.equal(JSON.stringify(result).includes("secret"), false);
+
+  // No known list anywhere: the source says so; the official totals are still there, and nothing dated is claimed.
+  const unknown = session({ RecapitulatifVSEleve: () => officialRecap(2), DetailAbsences: () => ({ autre: 1 }) });
+  resetWeekCache(unknown);
+  const none = await classLife(unknown, "c:T06", FROM, TO, { sources: ["recap", "summary"], page: { offset: 0, limit: 1 } });
+  assert.deepEqual([none.available, none.totalsScope, none.sources.summary?.available, none.sources.summary?.reason], [true, "none", false, "format_unknown"]);
+  assert.deepEqual([none.items[0].events, none.items[0].official?.summary.absences], [[], 2]);
+  assert.equal(eventsFromSummary({ autre: 1 }, 13), null);
+  assert.deepEqual(eventsFromSummary({ listePunitions: typedList([{ date: { _T: 7, V: "05/10/2026 08:00:00" }, nature: { _T: 24, V: { L: "Retenue" } } }]) }, 41)?.map((event) => [event.kind, event.subkind]),
+    [["punishment", "Retenue"]]);
+});
+
+test("a call sheet names the regime of a student: kept apart, never in an event", () => {
+  const seen: [string, string][] = [];
+  const sheet = { ListeEleves: typedList([{ N: students[0].N, L: students[0].L, ListeAbsences: typedList([{ G: 13, regime: { _T: 24, V: { L: "Externe" } },
+    DateDebut: { _T: 7, V: "05/10/2026 08:00:00" }, DateFin: { _T: 7, V: "05/10/2026 08:55:00" } }]) }]) };
+  const events = eventsFromCallSheet(sheet, entries, { start: new Date(2026, 9, 5, 8), end: new Date(2026, 9, 5, 8, 55), subject: "X" },
+    (student, regime) => seen.push([student, regime]));
+  assert.deepEqual(seen, [["e:ELEVE01 Prénom", "Externe"]]);
+  assert.equal(JSON.stringify([...events.values()]).includes("Externe"), false);
 });

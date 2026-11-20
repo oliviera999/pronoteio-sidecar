@@ -28,13 +28,23 @@
       "groupDetails": [
         {
           "label": "T-SPE SVT 2",
-          "kind": "speciality"
+          "kind": "speciality",
+          "source": "file"
         },
         {
           "label": "T-EMC 3",
-          "kind": "group"
+          "kind": "group",
+          "source": "file"
+        },
+        {
+          "label": "Latin",
+          "kind": "option",
+          "source": "file"
         }
       ],
+      "groupsReason": "",
+      "regimeSource": "file",
+      "regimeReason": "",
       "imageRights": "refused",
       "guardians": [
         {
@@ -59,7 +69,12 @@
               "type": "mobile",
               "number": "0600000001"
             }
-          ]
+          ],
+          "responsibility": "",
+          "classDelegate": null,
+          "boardMember": null,
+          "emergency": null,
+          "emailReason": ""
         },
         {
           "name": "DURAND Marie",
@@ -81,7 +96,12 @@
               "type": "home",
               "number": "0500000002"
             }
-          ]
+          ],
+          "responsibility": "",
+          "classDelegate": null,
+          "boardMember": null,
+          "emergency": null,
+          "emailReason": "not_in_file"
         }
       ],
       "photo": {
@@ -105,6 +125,9 @@
       "birthplace": "",
       "adult": null,
       "groupDetails": [],
+      "groupsReason": "no_source",
+      "regimeSource": "",
+      "regimeReason": "not_in_file",
       "imageRights": "unknown",
       "guardians": [],
       "photo": {

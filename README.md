@@ -103,7 +103,41 @@ renvoient `total`, et, quand la file vers Pronote est pleine, les élèves déj�
 | `GET /classlife?resource=c%3AT06&from=…&to=…&include=absences,lateness,observations&limit=10` | Vie scolaire par élève : `totals` (absences, demi-journées, non justifiées, heures manquées, retards, exclusions, punitions, infirmerie, dispenses, observations par type) et `events[]` datés. `include` : `absences`, `lateness`, `exclusions`, `punishments`, `observations`, `infirmary`, `exemptions`, `motives`. `sources` : `recap` (récapitulatif de l'élève, toutes matières), `carnet` (carnet de correspondance), `callsheets` (feuilles d'appel des cours du compte, `scope:"own_lessons"`, en repli quand `recap` ne répond pas). Année entière permise (400 jours). |
 | `GET /students/files?…&include=contact,school,memos` | + adresse et portable de l'élève, délégué, engagements, AESH, tuteurs, professeurs principaux, équipe pédagogique, mémos ; toujours : `birthplace`, `adult`, `groupDetails[]` ; responsables : `order`, `authority`, `mail`, `phoneDetails[]` ; santé : `planDetails[]`, `allergies[]` ; `unmappedGuardianKeys`. |
 | `GET /students/photos?resource=c%3AT06&offset=0&limit=10` | Photos d'une page d'élèves (10 au plus, ou `student=`) : `items:[{student, label, available, reason, mime, size, base64}]`. Jamais en cache ni dans une tâche. |
-| `GET /pp/check?resource=c%3AT06` | Une lecture de chaque fonction du lot sur le premier élève : `checks:[{key, function, onglet, status, detail, shape[]}]`, **aucune valeur**. Sert à valider ou corriger les décodeurs au premier essai réel. |
+| `GET /pp/check?resource=c%3AT06` | Une lecture de chaque fonction du lot sur le premier élève : `checks:[{key, function, onglet, variant, group, status, detail, shape[]}]`, **aucune valeur**. Sert à valider ou corriger les décodeurs. 0.14.0 : `groups=core,life,reports,misc` (groupes de sondes), `function=<clé>` (une fonction, toutes ses variantes, forme entière par pages : `shapeoffset`, `shapelimit` ≤ 300, `shapeTotal`, `shapeMore`). |
+
+#### 0.14.0 : corrections d'après le premier contrôle réel (20/11/2026)
+
+Formes réelles relevées par `GET /pp/check` sur une classe de 31 élèves, lues avec le client web qui les affiche
+(PRONOTE 2026.2). Rien n'est encore validé sur des valeurs réelles (`validated:false` partout).
+
+- `GET /reports/results` : grille réelle de `ResultatsClasses` (`resultats[]`, `titresColonnes[]`, `moyennes[]`).
+  `subjects[]` + `median`, `groupAverage`, `heading`, `detail` ; `students[]` + `lateness`, `absenceHalfDays`,
+  `averages[].column`, `periods[]` (année) ; `general` (moyennes de la classe). Colonnes sans titre :
+  `columnsUnnamed:true`, `subject:""` et `shape` (jamais un libellé deviné). Numéro national, date de naissance,
+  dernier établissement et redoublement ne sont jamais lus.
+- `GET /classlife` : `RecapitulatifVSEleve` donne des **totaux**, pas un détail daté : `items[].official`
+  (`counts[]`, `bySubject[]`, `summary`), année scolaire, toutes matières. `totalsScope` (`all`, `own_lessons`, `none`)
+  dit ce que couvrent `events` et `totals` ; `sources.*.detail`. Source `summary` (sur demande) : détail daté toutes
+  matières par `DetailAbsences` (sans `professeur`), `ListePunitions`, `PageSuivisAbsenceRetard`, un état par fonction
+  (`parts[]`), jamais vues répondre.
+- `GET /reports/comments` : rubriques lues dans `liste` ; quatre variantes de requête essayées (`general.variant`) ;
+  sans rubrique pour un professeur principal, appréciations générales lues dans les bulletins, par pages
+  (`general.source:"reportcards"`, `general.page`, `offset`, `limit`) ; `general.reason` garde la cause première.
+- `POST /reports/comments` : même résolution de rubrique que la lecture ; `generalKind` pour choisir ;
+  `409 general_kind_ambiguous` et `404 general_kind_not_found` avec `candidates`, `404 no_kind`.
+- `GET /students/files` : responsables (`responsibility`, `classDelegate`, `boardMember`, `emergency`, `emailReason` ;
+  profession et situation jamais renvoyées) ; `groupDetails[].source` (`file`, `team`, `rosters`, `reportcard`),
+  `groupsReason`, `regimeSource`, `regimeReason`, `memosReason` ; `include=groups` (listes d'élèves des groupes du
+  niveau, gardées dix minutes, puis groupes des services du bulletin) ; mémos demandés avec `eleve` puis `Eleve` sur
+  les onglets 105, 113 et 78.
+- `GET /students/photos` : `reason:"download_refused"` quand le trombinoscope (`PageTrombinoscope`, 77) dit qu'une
+  photo existe et que le téléchargement ne rend pas d'image ; `no_photo` sinon.
+- Formes (`shape`) : membres des cinq premiers éléments d'une liste réunis, premier élément qui remplit un membre vide,
+  classe de longueur des listes (`list[0]`, `list[1]`, `list[2+]`), types multiples (`object|null`).
+- Fonctions ajoutées (sondées, `PRONOTEIO_FUNCTIONS_FILE`) : `lifeAbsenceDetail`, `lifePunishments`, `lifeFollowUp`,
+  `lifeGrid`, `lifeAbsencesRecap`, `lifeCallSheetRecap`, `lifePunishmentsRecap`, `lifeIncidents`, `regimesList`,
+  `transcriptCommentsPage`, `studentComments`, `pastReportStudents`, `pastReports`, `schoolingRecap`, `schoolRecord`,
+  `studentFolders`, `multiYear`, `classPhotos`, `supportPlanDetails`, `teacherOpinions`.
 
 Vie scolaire, à savoir : `totals` est calculé sur `events` (ils se recoupent toujours) ; les demi-journées d'une
 absence sont celles que Pronote donne, sinon une estimation d'après ses heures (coupure à 13 h, dimanches exclus) ;

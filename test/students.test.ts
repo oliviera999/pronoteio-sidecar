@@ -41,7 +41,10 @@ test("identity only: no image rights, guardians, health nor photo", async () => 
   assert.deepEqual(lea.groups, ["T-SPE SVT 2", "T-EMC 3"]);
   // 0.12.0: the specialities, languages and options among the groups are options too (kind guessed from the label).
   assert.deepEqual(lea.options, ["Latin", "T-SPE SVT 2"]);
-  assert.deepEqual(lea.groupDetails, [{ label: "T-SPE SVT 2", kind: "speciality" }, { label: "T-EMC 3", kind: "group" }]);
+  // 0.14.0: each entry says where it comes from; an option the file lists is one of them.
+  assert.deepEqual(lea.groupDetails, [{ label: "T-SPE SVT 2", kind: "speciality", source: "file" }, { label: "T-EMC 3", kind: "group", source: "file" },
+    { label: "Latin", kind: "option", source: "file" }]);
+  assert.deepEqual([lea.groupsReason, lea.regimeSource, lea.regimeReason], ["", "file", ""]);
   assert.equal(lea.regime, "Demi-pensionnaire");
   for (const key of ["imageRights", "guardians", "health", "photo", "contact", "school", "memos"]) assert.equal(key in lea, false, key);
   const json = JSON.stringify(result);
@@ -62,7 +65,8 @@ test("image rights, guardians, health and photo only on request", async () => {
   assert.equal(lea.guardians?.length, 2);
   assert.deepEqual(lea.guardians?.[0], { name: "MARTIN Paul", relation: "Père", legal: true, phones: ["0600000001"],
     email: "parent.fictif@example.org", address: "1 rue Fictive 20000 Casablanca", preferences: ["accepteSMS"],
-    order: 1, authority: null, mail: null, sms: true, emailAllowed: null, phoneDetails: [{ type: "mobile", number: "0600000001" }] });
+    order: 1, authority: null, mail: null, sms: true, emailAllowed: null, phoneDetails: [{ type: "mobile", number: "0600000001" }],
+    responsibility: "", classDelegate: null, boardMember: null, emergency: null, emailReason: "" });
   assert.equal(lea.guardians?.[1].order, 2);
   assert.deepEqual(lea.guardians?.[1].phoneDetails, [{ type: "home", number: "0500000002" }]);
   assert.equal(lea.guardians?.[1].legal, false);
@@ -232,8 +236,9 @@ test("check of a wrapped file: field names and shape of the answer, never a valu
   }
 });
 
-test("shape: lists by their first element, bounded length", () => {
-  assert.deepEqual(shapeOf({ a: [{ b: 1 }, { c: 2 }], d: null }), ["a: list", "a[]: object", "a[].b: number", "d: null"]);
+test("shape: lists by their first elements, bounded length", () => {
+  // 0.14.0: the class of length of a list, and the members of its first elements together.
+  assert.deepEqual(shapeOf({ a: [{ b: 1 }, { c: 2 }], d: null }), ["a: list[2+]", "a[]: object", "a[].b: number", "a[].c: number", "d: null"]);
   const big = Object.fromEntries(Array.from({ length: 400 }, (_, i) => [`k${i}`, i]));
   assert.equal(shapeOf(big).length, MAX_SHAPE);
 });

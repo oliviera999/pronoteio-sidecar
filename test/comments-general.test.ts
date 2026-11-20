@@ -52,7 +52,8 @@ test("every kind that is not a rubric is read, whatever its name", async () => {
   const result = await reportComments(fake, "c:T06", "p:Trimestre 1");
   assert.equal(result.available, true);
   assert.deepEqual(result.general, { available: true, reason: "", kind: "Appréciation générale", kinds: [
-    { name: "Conseil de classe", rubric: true }, { name: "Appréciation générale", rubric: false }, { name: "Appréciation CPE", rubric: false }] });
+    { name: "Conseil de classe", rubric: true }, { name: "Appréciation générale", rubric: false }, { name: "Appréciation CPE", rubric: false }],
+    source: "kinds", variant: "ressource+periode" });
   assert.deepEqual(result.students, [
     { student: "ELEVE Un", comment: "Bon trimestre", general: "Trimestre satisfaisant",
       generals: [{ kind: "Appréciation générale", text: "Trimestre satisfaisant" }, { kind: "Appréciation CPE", text: "Assidue" }] },
@@ -107,12 +108,12 @@ test("nothing is silent any more: refusal, no kind, unknown shape", async () => 
 
   const unknownKinds = await reportComments(session(true, { ListeAppreciations: () => ({ rubriques: [{ nom: "Secret" }] }) }), "c:T06", "p:Trimestre 1");
   assert.equal(unknownKinds.general.reason, "format_unknown");
-  assert.deepEqual(unknownKinds.general.shape, ["rubriques: list", "rubriques[]: object", "rubriques[].nom: string"]);
+  assert.deepEqual(unknownKinds.general.shape, ["rubriques: list[1]", "rubriques[]: object", "rubriques[].nom: string"]);
   assert.equal(JSON.stringify(unknownKinds.general).includes("Secret"), false);
 
   const unknownPage = await reportComments(session(true, { PageAppreciationsGenerales: () => ({ grille: { eleves: [] } }) }), "c:T06", "p:Trimestre 1");
   assert.equal(unknownPage.general.reason, "format_unknown");
-  assert.deepEqual(unknownPage.general.shape, ["grille: object", "grille.eleves: list"]);
+  assert.deepEqual(unknownPage.general.shape, ["grille: object", "grille.eleves: list[0]"]);
 
   // Neither the service page nor the general comments: the refusal is relayed.
   const nothing = await reportComments(session(true, { PageApprBulletin: () => denied, ListeAppreciations: () => denied }), "c:T06", "p:Trimestre 1");

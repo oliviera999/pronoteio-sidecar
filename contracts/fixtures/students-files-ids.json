@@ -28,13 +28,23 @@
       "groupDetails": [
         {
           "label": "T-SPE SVT 2",
-          "kind": "speciality"
+          "kind": "speciality",
+          "source": "file"
         },
         {
           "label": "T-EMC 3",
-          "kind": "group"
+          "kind": "group",
+          "source": "file"
+        },
+        {
+          "label": "Latin",
+          "kind": "option",
+          "source": "file"
         }
-      ]
+      ],
+      "groupsReason": "",
+      "regimeSource": "file",
+      "regimeReason": ""
     },
     {
       "id": "e:PETIT Hugo",
@@ -52,7 +62,10 @@
       "regime": "",
       "birthplace": "",
       "adult": null,
-      "groupDetails": []
+      "groupDetails": [],
+      "groupsReason": "no_source",
+      "regimeSource": "",
+      "regimeReason": "not_in_file"
     }
   ],
   "unmappedKeys": [

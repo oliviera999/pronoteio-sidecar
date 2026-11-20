@@ -3,7 +3,7 @@ import { listOf } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
 import { normalise } from "../normalise.js";
 import { isAccessDenied, } from "./competencies.js";
-import { maxLengthOf } from "./comments.js";
+import { maxLengthOf, readKinds } from "./comments.js";
 import { call, loadServices, pickPeriod, ref, resourceOf } from "./grades.js";
 import { kindOf, resolve } from "./ids.js";
 import { sendWrite } from "./write.js";
@@ -62,6 +62,31 @@ export const generalCells = (page) => {
     }
     return { cells, closed };
 };
+/**
+ * Kind of general comment to write (0.14.0): the same kinds as the read (comments.ts readKinds, every request variant,
+ * member "liste"), rubrics left out. Until 0.13.0 the kind was looked for by the label "globale" or the genre 0, and
+ * failed on a school that names it otherwise. With "wanted": the kind of that name (accents and case ignored). Without:
+ * the only kind, else the only one named global or general, else 409 general_kind_ambiguous with the candidates.
+ * No kind: 404 no_kind.
+ */
+export const generalKindFor = (kinds, wanted = "") => {
+    const usable = kinds.filter((item) => !item.rubric && item.name !== "");
+    if (usable.length === 0)
+        throw new HttpError(404, "no_kind");
+    const candidates = usable.map((item) => item.name);
+    if (wanted !== "") {
+        const found = usable.filter((item) => normalise(item.name) === normalise(wanted));
+        if (found.length !== 1)
+            throw new HttpError(404, "general_kind_not_found", { candidates });
+        return found[0].element;
+    }
+    if (usable.length === 1)
+        return usable[0].element;
+    const main = usable.filter((item) => /global|general/.test(normalise(item.name)));
+    if (main.length === 1)
+        return main[0].element;
+    throw new HttpError(409, "general_kind_ambiguous", { candidates });
+};
 /** SaisieAppreciation JSON for one cell. */
 export const commentRequest = (classe, period, service, cell, textValue, kind) => ({
     classe: { N: classe.N, G: classe.G },
@@ -103,10 +128,10 @@ export const writeComments = async (session, write) => {
             subject = subjectCells(await call(session, "commentsPage", { ressource: classe, periode: { N: picked.period.N, G: GENRE_PERIOD }, service: { N: service.N } }));
         }
         if (needsGeneral) {
-            const kinds = listOf((await call(session, "commentKinds", {})).listeAppreciations);
-            rubric = kinds.find((item) => /globale/i.test(String(item.L ?? ""))) ?? kinds.find((item) => item.G === 0) ?? null;
-            if (!rubric)
-                throw new HttpError(404, "general_rubric_not_found");
+            const found = await readKinds(session, resource, picked.period);
+            if (found.kinds.length === 0 && found.reason === "access_denied")
+                throw new HttpError(403, "access_denied");
+            rubric = generalKindFor(found.kinds, write.generalKind ?? "");
             general = generalCells(await call(session, "generalCommentsPage", {
                 classe: { N: resource.id, G: GENRE_CLASS },
                 periode: { N: picked.period.N, G: GENRE_PERIOD },
@@ -138,7 +163,8 @@ export const writeComments = async (session, write) => {
         requests.push(commentRequest(classe, picked.period, service, cell, item.text, item.kind));
         targets.push({ cell, item, key: item.kind === "general" ? "generalCommentSave" : "commentSave" });
     }
-    const base = { class: { id: write.class, name: resource.label }, period: { id: picked.periodId, name: String(picked.period.L ?? "") }, maxLength, before, after, requests, validated: false };
+    const base = { class: { id: write.class, name: resource.label }, period: { id: picked.periodId, name: String(picked.period.L ?? "") }, maxLength, before, after, requests, validated: false,
+        generalKind: rubric ? String(rubric.L ?? "") : "" };
     if (write.dryRun)
         return { ...base, written: false, dryRun: true };
     for (const [index, target] of targets.entries()) {
