@@ -44,6 +44,7 @@ import {
 } from "./grades.js";
 import { stableId, stableIds } from "./ids.js";
 import { isTabClosed } from "./functions.js";
+import { currentContext } from "../context.js";
 import { spaceOf, WebSessionRequired } from "../space.js";
 
 /**
@@ -95,10 +96,47 @@ const text = (value: unknown): string => {
 };
 
 /** Levels given in one assessment (PageCompetencesParEvaluation answer, "data" member). */
+/** Member names of an object (never its values), sorted, for the access log of an answer not understood. */
+const memberNames = (value: unknown): string =>
+  value && typeof value === "object" ? Object.keys(value).filter((key) => /^[\w$]{1,40}$/.test(key)).sort().slice(0, 20).join(",") : "";
+
+/** Students listed beside the levels (listeEleves…), by id: the label of a level row may only give the id. */
+export const studentNamesOf = (data: Record<string, any> | null | undefined): Map<string, string> => {
+  const names = new Map<string, string>();
+  for (const list of [data?.listeEleves, data?.ListeEleves, data?.eleves, data?.listeRessources]) {
+    for (const item of listOf<any>(list)) {
+      const label = String(item?.L ?? item?.Libelle ?? "").trim();
+      if (typeof item?.N === "string" && label) names.set(item.N, label);
+    }
+  }
+  return names;
+};
+
+/**
+ * Label of the student of a level row (0.11.5): L, then eleve/Eleve (wrapped or not), libelle, nom + prénom, then the
+ * students listed beside (by id). Case of 20/11/2026: the web space answered rows without L nor eleve.V.L, every level
+ * came without a student. When nothing is found, the member names of the row go to the access log (never values).
+ */
+export const studentLabelOf = (student: any, names: Map<string, string>, data?: Record<string, any>): string => {
+  const wrapped = (value: any) => (value && typeof value === "object" && "V" in value ? value.V : value);
+  const eleve = wrapped(student?.eleve) ?? wrapped(student?.Eleve);
+  const direct = [student?.L, eleve?.L, student?.libelle, student?.Libelle, eleve?.Libelle,
+    [student?.nom ?? student?.Nom, student?.prenom ?? student?.Prenom].filter(Boolean).join(" ")]
+    .map((value) => String(value ?? "").trim())
+    .find(Boolean);
+  const label = direct ?? names.get(String(student?.N ?? "")) ?? names.get(String(eleve?.N ?? "")) ?? "";
+  if (!label) {
+    const context = currentContext();
+    if (context && !context.shape) context.shape = `student:${memberNames(student)};eleve:${memberNames(eleve)};page:${memberNames(data)}`;
+  }
+  return label;
+};
+
 export const ratingsFromPage = (data: Record<string, any>, skillIds: Map<string, string>): CompetencyRating[] => {
   const result: CompetencyRating[] = [];
+  const names = studentNamesOf(data);
   for (const student of listOf<any>(data?.ListeElevesCompetences)) {
-    const label = String(student?.L ?? student?.eleve?.V?.L ?? "").trim();
+    const label = studentLabelOf(student, names, data);
     for (const item of listOf<any>(student?.ListeCompetences)) {
       const level = item?.NiveauDAcquisition?.V ?? item?.NiveauDAcquisition;
       const code = level && typeof level === "object" ? Number((level as { G?: unknown }).G) : Number(level);

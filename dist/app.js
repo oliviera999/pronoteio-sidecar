@@ -118,6 +118,7 @@ export const buildApp = async (options = {}) => {
             ...(reply.getHeader("x-cache") ? { cache: String(reply.getHeader("x-cache")) } : {}),
             ...(context ? { calls: context.calls, priority: context.priority } : {}),
             ...(reply.getHeader("x-pronoteio-duplicate") ? { duplicate: true } : {}),
+            ...(context?.shape ? { shape: context.shape } : {}),
         });
     });
     const table = [];

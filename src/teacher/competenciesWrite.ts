@@ -28,6 +28,8 @@ import {
   loadReferential,
   parentsDelayOf,
   ratingsFromPage,
+  studentLabelOf,
+  studentNamesOf,
   resourceRefOf,
   type SessionReferentialItem,
   ensureSkillsSpace,
@@ -103,9 +105,15 @@ const number = (value: number) => ({ _T: TYPE_NUMBER, V: pronoteNumber(value) })
 
 /** Students of an assessment page (ListeElevesCompetences) or of the roster, by label. */
 const studentsOf = (page: Record<string, any> | null, roster: { pronoteId: string; label: string }[]): { N: string; L: string }[] => {
+  const names = studentNamesOf(page);
   const fromPage = listOf<any>(page?.ListeElevesCompetences)
     .filter((item) => typeof item?.N === "string")
-    .map((item) => ({ N: String(item.N), L: String(item?.L ?? item?.eleve?.V?.L ?? "").trim() }));
+    .map((item) => ({ N: String(item.N), L: studentLabelOf(item, names, page ?? undefined) }));
+  // 0.11.5: rows without a label are completed from the roster of the same session (same ids), else left out.
+  if (fromPage.some((item) => item.L === "")) {
+    const byId = new Map(roster.map((item) => [item.pronoteId, item.label]));
+    for (const item of fromPage) if (item.L === "") item.L = byId.get(item.N) ?? "";
+  }
   return fromPage.length ? fromPage : roster.map((item) => ({ N: item.pronoteId, L: item.label }));
 };
 
