@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { rememberUserData } from "../src/pronote/userdata.js";
-import { groupKind, guardianRead, phoneNumber, planType, studentFiles, teamOf } from "../src/teacher/students.js";
+import { fileOf, groupKind, guardianRead, phoneNumber, planType, studentFiles, teamOf, type Include } from "../src/teacher/students.js";
 import { MAX_PHOTOS, studentPhotos, type Downloaded } from "../src/teacher/photos.js";
 import { ppCheck } from "../src/teacher/ppcheck.js";
 import { fakeSession, type FakeCall } from "./fake-session.js";
@@ -45,13 +45,39 @@ test("the fixture holds every member name seen in production, and none is left u
   assert.equal(JSON.stringify(result).includes('"x"'), false, "never the value of an unmapped member");
 });
 
+/*
+ * 0.12.1, first real read (20/11/2026): listeRessources of FicheEleve lists the GUARDIANS of the student, not his
+ * classes and groups. Their names came out in "groups" and "groupDetails", even without the "guardians" part.
+ */
+test("listeRessources holds the guardians: nothing of it is read, their names never leave without the guardians part", async () => {
+  const names = (full.Scolarite.V.listeRessources.V as { L: string }[]).map((item) => item.L);
+  assert.deepEqual(names, ["M. BENALI Karim", "Mme BENALI Salma"]);
+  for (const include of [[], ["imagerights", "photo", "contact", "school", "health"]] as Include[][]) {
+    const result = await studentFiles(session(), "c:T06", include, "e:BENALI Yasmine");
+    const json = JSON.stringify(result);
+    for (const name of names) assert.equal(json.includes(name), false, `${name} with include=${include.join(",")}`);
+    assert.equal(result.unmappedKeys.includes("listeRessources"), false, "a known member");
+  }
+  // With the guardians part, the names come from listeResponsables, in "guardians" only.
+  const withGuardians = (await studentFiles(session(), "c:T06", ["guardians"], "e:BENALI Yasmine")).items[0];
+  assert.equal(withGuardians.guardians?.[0].name, "M. BENALI Karim");
+  for (const name of names) {
+    assert.equal(withGuardians.groups.includes(name), false);
+    assert.equal(withGuardians.groupDetails.some((item) => item.label === name), false);
+    assert.equal(withGuardians.options.includes(name), false);
+  }
+  // A file whose only "group" member is listeRessources has no group at all.
+  const { file } = fileOf({ pronoteId: "4#e9", label: "ROCHE Inès", id: "e:ROCHE Inès" },
+    { Eleve: { N: "4#e9", L: "ROCHE Inès", listeRessources: { _T: 24, V: [{ L: "Mme ROCHE Anne", N: "5#r9", G: 2 }] } } }, []);
+  assert.deepEqual([file.groups, file.options, file.groupDetails], [[], [], []]);
+});
+
 test("identity alone: class, groups and options of a terminale with two specialities and an option; nothing else leaves", async () => {
   const result = await studentFiles(session(), "c:T06", [], "e:BENALI Yasmine");
   const file = result.items[0];
   assert.equal(file.class, "T06");
   assert.deepEqual(file.groups, ["T-SPE SVT 2", "T-SPE PC 1", "T-OPT MATHS COMP", "TLVA ANG 3", "[T06AP ORIENT]"]);
   assert.deepEqual(file.groupDetails, [
-    { label: "T06", kind: "class" },
     { label: "T-SPE SVT 2", kind: "speciality" },
     { label: "T-SPE PC 1", kind: "speciality" },
     { label: "T-OPT MATHS COMP", kind: "option" },

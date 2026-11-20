@@ -315,17 +315,14 @@ export const fileOf = (entry, data, include) => {
     const lastname = text(pick(identity, ["Nom", "nom"], used)) || lastnameLabel;
     const firstname = text(pick(identity, ["Prenoms", "prenoms", "Prenom", "prenom"], used)) || firstnames.join(" ");
     const birth = parsePronoteDate(text(pick(identity, ["DateNaissance", "dateDeNaissance", "dateNaiss", "naissance"], used)));
-    // Classes and groups of the student (listeRessources: G 1 class, G 2 group), then the lists of older shapes.
-    const resources = listOf(pick(identity, ["listeRessources"], used))
-        .map((item) => ({ label: text(item), genre: unwrap(item)?.G }))
-        .filter((item) => item.label !== "");
-    const groupLabels = [...resources.filter((item) => item.genre !== 1).map((item) => item.label),
-        ...labels(pick(identity, ["listeGroupes", "groupes", "ListeGroupes"], used))];
-    const groups = [...new Set(groupLabels)];
-    const groupDetails = [
-        ...resources.filter((item) => item.genre === 1).map((item) => ({ label: item.label, kind: "class" })),
-        ...groups.map((label) => ({ label, kind: groupKind(label) })),
-    ];
+    // 0.12.1: listeRessources is NOT the classes and groups of the student. 20/11/2026, first real read: it lists the
+    // guardians of the student, so their names came out in "groups", even without the "guardians" part. It is a known
+    // member (never reported as unmapped) and nothing of it is ever read: guardians come from listeResponsables, on
+    // request only.
+    used.add("listeRessources");
+    // Groups: only the members that name them (shapes never seen on a real account); none on the file read so far.
+    const groups = [...new Set(labels(pick(identity, ["listeGroupes", "groupes", "ListeGroupes"], used)))];
+    const groupDetails = groups.map((label) => ({ label, kind: groupKind(label) }));
     const options = [...new Set([...labels(pick(identity, ["listeOptions", "options", "ListeOptions"], used)),
             ...groupDetails.filter((item) => ["speciality", "language", "option"].includes(item.kind)).map((item) => item.label)])];
     const file = {
@@ -340,7 +337,7 @@ export const fileOf = (entry, data, include) => {
         birthdate: birth ? Date.UTC(birth.getFullYear(), birth.getMonth(), birth.getDate()) / 1000 : null,
         number: text(pick(identity, ["numeroEleve", "Numero", "numero", "numeroNational", "ine", "INE"], used)),
         email: text(pick(identity, ["email", "eMail", "adresseEmail", "mail", "courriel"], used)),
-        class: text(pick(identity, ["classe", "Classe"], used)) || (resources.find((item) => item.genre === 1)?.label ?? ""),
+        class: text(pick(identity, ["classe", "Classe"], used)),
         groups,
         options,
         regime: text(pick(identity, ["regime", "Regime", "regimeEleve", "libelleRegime"], used)),
