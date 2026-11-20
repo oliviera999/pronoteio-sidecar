@@ -265,6 +265,11 @@ export const overview = async (session: SessionHandle, periodId = "", classes: s
       base.items.push(item);
     }
   }
+  if (services.length === 0 && isTabClosed(session, "competencyList")) {
+    // 0.11.2: without the skills tab (mobile session read without the web one, e.g. PIN asked by the web space), the
+    // services of tab 65 are not listed: "no service" would read as "nothing to assess". Said as a refusal instead.
+    return { ...base, services, available: false, reason: "access_denied", ...deniedWhere(session, 65) };
+  }
   return { ...base, services };
 };
 

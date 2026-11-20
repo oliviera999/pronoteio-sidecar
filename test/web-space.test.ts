@@ -327,3 +327,21 @@ test("web login (0.11.1): the navigator identifier is read from the session and 
   assert.doesNotMatch(refused.body, /MotDePasse/);
   await app.close();
 });
+
+test("0.11.2: read without the web session, no service of the skills tab is a refusal of tab 65, not an empty list", async () => {
+  readCache.clear();
+  const app = await buildApp({ logger: false });
+  // Mobile session as Pronote answers it: tab 65 closed, its ListeServices refused (empty answer).
+  const mobile = sessionWith("mobile", tabs.mobile, { "ListeServices@65": () => ({}) });
+  const id = createSession(mobile, { key: `${account}-pin`, login }, { space: "mobile", loginMode: "token" });
+  const answer = await send(app, "GET", "/competencies?classes=6-SC-603", { main: id, announce: false });
+  assert.equal(answer.statusCode, 200, answer.body);
+  assert.deepEqual([answer.json().available, answer.json().reason, answer.json().onglet, answer.json().space],
+    [false, "access_denied", 65, "mobile"]);
+  // A class with grade services (tab 23, open in the mobile session) is still read there.
+  readCache.clear();
+  const t06 = await send(app, "GET", "/competencies?classes=T06", { main: id, announce: false });
+  assert.equal(t06.statusCode, 200, t06.body);
+  assert.equal(t06.json().services.length, 1);
+  await app.close();
+});
