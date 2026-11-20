@@ -367,3 +367,26 @@ test("0.11.3: an unexpected error of a web login gives its kind and step in the 
   assert.match(String(line.kind), /^[\w.-]+$/);
   assert.doesNotMatch(JSON.stringify(line), /MotDePasse|1234|disponible/);
 });
+
+test("0.11.4: user rebuilt from ParametresUtilisateur when Pawnote's decoder fails, TypeError detail without data", async () => {
+  const { tolerantUser, typeErrorDetail } = await import("../src/routes/session.js");
+  const handle = fakeSession({});
+  rememberUserData(handle, { resources, tabs: tabs.web, identity: null });
+  assert.equal(tolerantUser(handle), false, "nothing captured: the error is kept");
+  rememberUserData(handle, { resources, tabs: tabs.web,
+    identity: { id: "3#prof", kind: 3, name: "M. PROF Fictif", establishment: "Lycée fictif" } });
+  assert.equal(tolerantUser(handle), true);
+  assert.equal((handle as any).user.name, "M. PROF Fictif");
+  assert.equal((handle as any).user.resources[0].id, "3#prof");
+  assert.equal((handle as any).user.resources[0].establishmentName, "Lycée fictif");
+
+  let caught: unknown;
+  try {
+    (undefined as any).V.L;
+  } catch (error) {
+    caught = error;
+  }
+  assert.equal(typeErrorDetail(caught), "reading:V");
+  assert.equal(typeErrorDetail(new TypeError("x is not a function: ELEVE Un")), "type_error");
+  assert.equal(typeErrorDetail(new Error("other")), null);
+});

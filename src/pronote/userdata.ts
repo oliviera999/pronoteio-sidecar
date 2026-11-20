@@ -33,6 +33,8 @@ export type UserData = {
   acquisitionLevels: unknown[];
   maxCommentLength: unknown;
   parentsDelayDays: number | null;
+  /** 0.11.4: identity of ParametresUtilisateur ("ressource": N, G, L, Etablissement), for a tolerant decoding. */
+  identity: { id: string; kind: number; name: string; establishment: string } | null;
 };
 
 const EMPTY: UserData = {
@@ -43,6 +45,7 @@ const EMPTY: UserData = {
   acquisitionLevels: [],
   maxCommentLength: null,
   parentsDelayDays: null,
+  identity: null,
 };
 
 /** Delay of the publication to parents (days) in a General member of FonctionParametres, null when absent. */
@@ -91,6 +94,12 @@ const absorb = (data: UserData, answer: any): void => {
       }));
   }
   if (content.listeOnglets) data.tabs = tabsOf(content.listeOnglets);
+  const resource = content.ressource;
+  if (resource && typeof resource === "object" && typeof resource.N === "string") {
+    const establishment = resource.Etablissement?.V?.L ?? resource.Etablissement?.L ?? "";
+    data.identity = { id: resource.N, kind: Number(resource.G ?? 0), name: String(resource.L ?? ""),
+      establishment: String(establishment) };
+  }
   if (content.autorisations && typeof content.autorisations === "object") data.rights = content.autorisations;
   if (content.listeNiveauxDAcquisitions) data.acquisitionLevels = listOf(content.listeNiveauxDAcquisitions);
   const maxScale = parseNumber(content.General?.BaremeMaxDevoirs?.V);
