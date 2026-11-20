@@ -1,5 +1,15 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.11.4 — connexion web : fin de connexion tolérante
+
+- Cas du 20/11/2026 (journal de 0.11.3) : liaison de l'Espace Professeurs web avec le code PIN, PIN accepté et appareil
+  enregistré, puis `TypeError` à l'étape `web:finish` : le décodeur de pawnote (`ParametresUtilisateur`) casse sur la
+  réponse de l'espace web. L'identité de l'utilisateur (`ressource` : identifiant, genre, nom, établissement) est
+  désormais relevée au passage, et la session web est terminée avec elle quand le décodeur échoue, après le PIN
+  (`web:finish-tolerant:…`) comme à une connexion suivante sans PIN (`web:login-tolerant:…`). Le journal donne le
+  champ en cause (`reading:<propriété>`), jamais de donnée.
+- Tests : `test/web-space.test.ts`.
+
 ## 0.11.3 — diagnostic des erreurs de connexion web
 
 - Journal d'accès : une erreur inattendue (502 `pronote_error`) porte maintenant `kind` (nom de l'erreur, jamais son

@@ -23,7 +23,7 @@ const DEFAULT_DEVICE_NAME = "Moodle pronoteio";
  * Completes the double authentication asked by Pronote after a valid password.
  * With a PIN, the device is registered as trusted: the next token logins no longer ask for it.
  */
-const completeSecurity = async (handle, error, pin, devicename, onStep = () => { }) => {
+const completeSecurity = async (handle, error, pin, devicename, onStep = () => { }, tolerant = false) => {
     const modal = error.handle;
     if (modal.shouldCustomPassword || modal.shouldCustomDoubleAuth) {
         // First connection: the teacher must choose a password / strategy in the Pronote web space.
@@ -47,7 +47,18 @@ const completeSecurity = async (handle, error, pin, devicename, onStep = () => {
     }
     const { authentication, identity, initialUsername } = modal.context;
     onStep("finish");
-    return finishLoginManually(handle, authentication, identity, initialUsername);
+    try {
+        return await finishLoginManually(handle, authentication, identity, initialUsername);
+    }
+    catch (error) {
+        // Web space only (onStep given by webLogin): the PIN is accepted, only Pawnote's decoding of the user failed.
+        if (!tolerant || !(error instanceof TypeError) || !tolerantUser(handle))
+            throw error;
+        onStep(`finish-tolerant:${typeErrorDetail(error)}`);
+        return { token: authentication?.jetonConnexionAppliMobile, username: identity?.login ?? initialUsername,
+            kind: handle.information.accountKind, url: handle.information.url,
+            navigatorIdentifier: handle.instance?.navigatorIdentifier };
+    }
 };
 export const sessionInfo = (session) => {
     const data = userData(session);
@@ -100,6 +111,35 @@ setPresenceSender(async (handle) => {
     await limiterOf(handle).acquire(1, PRIORITY.bulk);
     await presence(handle);
 });
+/**
+ * 0.11.4: session user rebuilt from the identity of ParametresUtilisateur when Pawnote's decoder fails on the answer
+ * of the web space (case of 20/11/2026: TypeError at the end of a web login, after the PIN was accepted). Only the
+ * fields the sidecar uses (name, first resource) are filled; null when the answer was not captured.
+ */
+export const tolerantUser = (handle) => {
+    const identity = userData(handle).identity;
+    if (!identity)
+        return false;
+    const resource = {
+        id: identity.id, kind: identity.kind, name: identity.name, establishmentName: identity.establishment,
+        className: undefined, profilePicture: null, tabs: new Map(), isDirector: false, isDelegate: false, isMemberCA: false,
+    };
+    handle.user = {
+        id: identity.id, kind: identity.kind, name: identity.name, resources: [resource],
+        authorizations: { canReadDiscussions: false, canDiscuss: false, canDiscussWithStaff: false, canDiscussWithParents: false,
+            canDiscussWithStudents: false, canDiscussWithTeachers: false, hasAdvancedDiscussionEditor: false,
+            maxAssignmentFileUploadSize: 0, tabs: [] },
+    };
+    handle.userResource = resource;
+    return true;
+};
+/** Safe detail of a TypeError of a decoder ("reading 'V'"): the property name only, never data. */
+export const typeErrorDetail = (error) => {
+    if (!(error instanceof TypeError))
+        return null;
+    const match = /\(reading '([\w$]{1,40})'\)/.exec(error.message);
+    return match ? `reading:${match[1]}` : "type_error";
+};
 /** Navigator identifier (identifiantNav) Pronote gave the web session, null when absent or not a short string. */
 export const navigatorOf = (handle) => {
     const value = handle.instance?.navigatorIdentifier;
@@ -131,17 +171,25 @@ const webLogin = async (body) => {
                 await loginWeb(handle, { ...base, password, ...(navigator ? { navigatorIdentifier: navigator } : {}) });
             }
             catch (error) {
-                if (!(error instanceof SecurityError))
-                    throw error;
-                step = "security";
-                await completeSecurity(handle, error, pin, devicename ?? DEFAULT_DEVICE_NAME, (reached) => { step = reached; });
+                if (error instanceof TypeError && handle.information && tolerantUser(handle)) {
+                    // 0.11.4: trusted device, no PIN asked, but the same decoding of the user failed at the end of the login.
+                    step = `login-tolerant:${typeErrorDetail(error)}`;
+                }
+                else {
+                    if (!(error instanceof SecurityError))
+                        throw error;
+                    step = "security";
+                    await completeSecurity(handle, error, pin, devicename ?? DEFAULT_DEVICE_NAME, (reached) => { step = reached; }, true);
+                }
             }
             step = "session";
             return createSession(handle, { key: account, login: { url: base.url, username, deviceuuid } }, { space: "web", loginMode: "credentials" });
         }
         catch (error) {
-            if (error !== null && typeof error === "object")
-                Object.assign(error, { loginStep: `web:${step}` });
+            const detail = typeErrorDetail(error);
+            if (error !== null && typeof error === "object") {
+                Object.assign(error, { loginStep: `web:${step}${detail ? `:${detail}` : ""}` });
+            }
             throw error;
         }
     });

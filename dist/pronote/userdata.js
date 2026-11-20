@@ -11,6 +11,7 @@ const EMPTY = {
     acquisitionLevels: [],
     maxCommentLength: null,
     parentsDelayDays: null,
+    identity: null,
 };
 /** Delay of the publication to parents (days) in a General member of FonctionParametres, null when absent. */
 export const parentsDelayOf = (general) => {
@@ -59,6 +60,12 @@ const absorb = (data, answer) => {
     }
     if (content.listeOnglets)
         data.tabs = tabsOf(content.listeOnglets);
+    const resource = content.ressource;
+    if (resource && typeof resource === "object" && typeof resource.N === "string") {
+        const establishment = resource.Etablissement?.V?.L ?? resource.Etablissement?.L ?? "";
+        data.identity = { id: resource.N, kind: Number(resource.G ?? 0), name: String(resource.L ?? ""),
+            establishment: String(establishment) };
+    }
     if (content.autorisations && typeof content.autorisations === "object")
         data.rights = content.autorisations;
     if (content.listeNiveauxDAcquisitions)
