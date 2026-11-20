@@ -1,5 +1,14 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.11.2 — compétences lues sans la session web : refus explicite
+
+- `GET /competencies` : sans l'onglet 65 (session mobile lue sans la session web, par exemple quand l'Espace
+  Professeurs web demande le code PIN), les services de l'onglet 65 ne sont pas listés et la réponse était
+  `available: true` avec 0 service, ce qui se lisait comme « rien à évaluer ». Elle est maintenant
+  `available: false`, `reason: "access_denied"`, `onglet: 65`, `space: "mobile"` ; `local_olutionmcp` 0.49.2 donne
+  alors la marche à suivre (mot de passe et PIN). Constat en production du 20/11/2026 (classe 6-SC-603).
+- Test : `test/web-space.test.ts`.
+
 ## 0.11.1 — appareil de confiance du web, classes des cours, heures des rencontres
 
 - **Connexion web** (`POST /session/login`, `space: "web"`) : nouveau champ facultatif `navigator`, renvoyé dans la
