@@ -65,6 +65,10 @@
   },
   "competencyList": {
     "name": "ListeEvaluations",
+    "onglet": 56
+  },
+  "competencyListAll": {
+    "name": "ListeEvaluations",
     "onglet": 65
   },
   "competencyPage": {
@@ -109,7 +113,7 @@
   },
   "competencySave": {
     "name": "SaisieEvaluations",
-    "onglet": 65
+    "onglet": 56
   },
   "commentSave": {
     "name": "SaisieAppreciation",

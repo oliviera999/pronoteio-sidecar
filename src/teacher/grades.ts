@@ -214,18 +214,41 @@ export const periodDates = (session: SessionHandle, period: Element): { start?: 
   return { start: wallDay(found.startDate), end: wallDay(found.endDate) };
 };
 
-export const context = async (session: SessionHandle): Promise<GradeContext> => {
+/**
+ * Periods and services of the grade entry. 0.13.0, "withCompetencies": the services of the skills tab are added after
+ * the grade ones (a group of a "collège" class assessed by skills only has no grade service), each service with its
+ * "kinds"; the grade services keep their order and their ids. Asked by the skills features of local_pronoteio: on a
+ * mobile session lacking the skills tab, the request is replayed on the web session.
+ */
+export const context = async (session: SessionHandle, withCompetencies = false): Promise<GradeContext> => {
+  if (withCompetencies) isTabClosed(session, "competencyServicesList");
   const { periods, current } = await loadPeriods(session);
   const periodIds = stableIds("period", periods, periodKey);
   // Current period first, so that its services keep their order at the top of the list.
   const ordered = periods.map((period, index) => ({ period, periodId: periodIds[index] }))
     .sort((a, b) => Number(b.period === current) - Number(a.period === current));
   const periodServices = [];
+  const competencyServices = [];
   for (const { period, periodId } of ordered) {
     periodServices.push({ periodId, services: await loadServices(session, period) });
+    if (withCompetencies) competencyServices.push({ periodId, services: await loadCompetencyServices(session, period) });
   }
-  if (periods.length === 0) periodServices.push({ periodId: "", services: await loadServices(session, null) });
-  const entries = servicesByPeriod(periodServices);
+  if (periods.length === 0) {
+    periodServices.push({ periodId: "", services: await loadServices(session, null) });
+    if (withCompetencies) competencyServices.push({ periodId: "", services: await loadCompetencyServices(session, null) });
+  }
+  type Entry = { service: Element; periods: string[]; kinds: ServiceKind[] };
+  const entries: Entry[] = servicesByPeriod(periodServices).map((entry) => ({ ...entry, kinds: ["grades"] }));
+  for (const skills of servicesByPeriod(competencyServices)) {
+    const alias = aliasOf(skills.service);
+    const found = entries.find((entry) => aliasOf(entry.service) === alias);
+    if (found) {
+      found.kinds.push("competencies");
+      for (const periodId of skills.periods) if (!found.periods.includes(periodId)) found.periods.push(periodId);
+    } else {
+      entries.push({ ...skills, kinds: ["competencies"] });
+    }
+  }
   const services = entries.map((entry) => entry.service);
   const serviceIds = stableIds("service", services, serviceKey);
 
@@ -239,7 +262,7 @@ export const context = async (session: SessionHandle): Promise<GradeContext> => 
     services: services.map((service, index): Service => {
       const subject = String(service.matiere?.V?.L ?? service.L ?? "");
       const resourcename = String(resourceOf(service)?.L ?? "");
-      const type = resourceType(session, resourcename);
+      const type = resourceType(session, resourcename, !entries[index].kinds.includes("grades"));
       return {
         id: serviceIds[index],
         name: [subject, resourcename].filter(Boolean).join(" - "),
@@ -248,6 +271,7 @@ export const context = async (session: SessionHandle): Promise<GradeContext> => 
         resourcename,
         type,
         periods: periodIds.filter((id) => entries[index].periods.includes(id)),
+        ...(withCompetencies ? { kinds: entries[index].kinds } : {}),
       };
     }),
     maxScale: userData(session).maxScale,

@@ -1,5 +1,67 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.13.0 — évaluations par compétences : écriture reprise sur le client web, groupe réel de chaque évaluation, niveaux de l'établissement
+
+Premier essai réel du 20/11/2026 (6e, « SCIENCES ET TECHNOLOGIE », groupes 6-SC-601-602 et 6-SC-603) : la création
+d'une évaluation répondait `200` sans rien créer (`assessment_not_saved`) ; la lecture rendait les quatre mêmes
+évaluations pour les deux groupes ; les niveaux annoncés étaient l'énumération du client (10 niveaux), pas les quatre
+niveaux de l'établissement. Les trois causes ont été relues dans le code du client professeur (PRONOTE 2026.2, modules
+`interfacepagelisteevaluations.js`, `objetrequetesaisieevaluations.js`, `objetfenetre_evaluation.js`,
+`objetfenetre_competences.js`, `objetutilitaireevaluation.js`, `parametres.js`). Client : `local_pronoteio` 0.21.0.
+
+**Toujours aucune écriture validée sur un vrai serveur** : Pronote est simulé en mémoire dans les tests
+(`test/helpers/fake-skills-pronote.ts`, écrit d'après le client web et d'après ce que le vrai serveur a répondu le 20/11).
+
+- **Onglet** (`src/teacher/functions.ts`) : `ListeEvaluations`, `SaisieEvaluations` et `ListePiliers` sont signés avec
+  l'onglet **56** (« Saisie des évaluations ») au lieu de 65 (« Liste des évaluations »). En onglet 65 le client
+  n'envoie ni service ni classe : Pronote rend toutes les évaluations du professeur et n'y crée rien. Nouvelle clé
+  `competencyListAll` (`ListeEvaluations`, onglet 65), lue quand l'onglet 56 est refusé. Un fichier
+  `PRONOTEIO_FUNCTIONS_FILE` qui fixe encore `competencyList` ou `competencySave` à 65 doit être corrigé.
+- **Lecture** (`GET /competencies`) : chaque évaluation est gardée seulement si sa classe ou son groupe (membre `classe`
+  de `ListeEvaluations`) est celui du service demandé, quel que soit l'onglet ; ses niveaux sont lus avec sa propre
+  classe et sa propre période (`PageCompetencesParEvaluation`, comme le client). Deux évaluations de même titre et de
+  même date dans un groupe ont deux identifiants (`~2`). Les identifiants Pronote étant propres à une session,
+  l'identifiant public reste construit (`cp:<date>|<groupe>|<titre>`) ; l'identifiant Pronote sert à l'intérieur d'une
+  même requête (relecture après écriture).
+- **Écriture** (`POST /competencies`), en suivant le client pas à pas :
+  1. création de l'évaluation **sans élève** : compétence = copie de l'élément du référentiel (`N`, `G`, `L` de
+     `ListePiliers`) en état `E: 1`, avec une relation nouvelle (`relationESI: {N: -1002, E: 1}`), son `palier`,
+     `coefficient: 1`, `ordre` à partir de 1. Jusqu'en 0.12.0 l'identifiant de l'élément partait dans `relationESI`, la
+     compétence en `N: 0`, sans palier ; coefficients et descriptif partaient typés (`_T`) au lieu de nombres et de
+     texte ; `DatePublication` pouvait partir à `null` ;
+  2. l'identifiant créé est lu dans `RapportSaisie.listeEvaluationsCreees`, l'évaluation relue par cet identifiant
+     (sinon par son titre, son jour et son groupe) ;
+  3. les niveaux partent dans un second `SaisieEvaluations`, sur l'évaluation relue (sans état quand seuls des niveaux
+     changent), élèves et compétences en état `E: 2`, avec la relation que Pronote a donnée à la compétence ;
+  4. relecture : niveaux comptés (`ratingsSent`, `ratingsSaved`, `warnings` : `ratings_not_saved`,
+     `ratings_partly_saved:n/m`). Une évaluation créée dont les niveaux manquent n'est pas cachée derrière une erreur.
+  Réponse : `created`, `publicationDefault`, `requests` (toutes les requêtes envoyées). Dates envoyées à minuit (ce sont
+  des jours). `avecSaisie` faux ou `messageCreationImpossible` de `ListeEvaluations` : `409 pronote_refused:<texte de
+  Pronote>` avant tout envoi. `RapportSaisie` en erreur : `409 pronote_refused:<messages>`. Sauvegarde ignorée :
+  `assessment_not_saved` avec `detail` (noms des membres de la réponse de Pronote, jamais une valeur), aussi écrit dans
+  le journal d'accès (`shape`).
+- **Publication** : sans date à la création, la date par défaut de Pronote est calculée comme le client
+  (`General.NbJDecalageDatePublicationParDefaut` jours après l'évaluation, 1 si absent, puis prochain jour ouvré de
+  `General.JoursOuvres` ; jours fériés non pris en compte) et annoncée dans la simulation (`after.publication`,
+  `publicationDefault: true`). Une date donnée est envoyée telle quelle (date lointaine : publication ultérieure) ;
+  jamais avant le jour de l'évaluation.
+- **Niveaux de maîtrise** : la liste de l'établissement est `General.ListeNiveauxDAcquisitions` de
+  `FonctionParametres` (le client la lit dans `GParametres`), pas `ParametresUtilisateur.listeNiveauxDAcquisitions` où
+  elle était cherchée, donc jamais trouvée. `GET /competencies` : `levels` = niveaux **actifs** de l'établissement
+  (`code`, `name`, `abbreviation`, `color`, `points`, `brevetPoints`, `positions`), `statuses` = annotations actives
+  (Absent, Non évalué, Dispensé, Non rendu), `levelsSource` = `school` ou `fallback` (énumération du client ;
+  `shape: "levels:missing"` au journal). `GET /session` donne aussi `levelsSource`. Écriture d'un niveau : seulement
+  avec la liste de l'établissement (`409 levels_unknown` sinon, simulation comprise), `400 level_unknown:<code>` pour
+  un niveau absent de la liste, `400 level_inactive:<code>` pour un niveau que l'établissement n'utilise pas.
+- **Services de compétences** : `GET /grades/context?competencies=1` ajoute les services de l'onglet Compétences
+  après ceux des notes (ordre et identifiants des services de notes inchangés), chacun avec `kinds`.
+- **Référentiel** : `ListePiliers` rend une liste à plat par domaine, chaque élément avec son `pere` ; `element` d'un
+  item est le libellé de son père. Un code de domaine quelconque est accepté (`SCIE/13.4`, `Comp/9.1`), plus seulement
+  `D1`…`D5` et `CT`.
+- Tests : `test/competencies-web-client.test.ts` (rejeu du plan du 20/11, deux groupes, niveaux, publication, refus),
+  `test/competencies-write.test.ts`, `test/competencies.test.ts`, `test/competency-services.test.ts`,
+  `test/web-space.test.ts` mis à jour.
+
 ## 0.12.0 — vue du professeur principal : bulletins, vie scolaire, fiche élève, photos
 
 Cas du 20/11/2026 (T06, 31 élèves, sessions mobile et web ouvertes) : le connecteur ne rendait qu'une partie de ce que

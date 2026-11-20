@@ -59,11 +59,16 @@ test("levels given in PageCompetencesParEvaluation, observations only when publi
   assert.equal(ratings[1].observation, "", "unpublished observation is not returned");
 });
 
-test("levels come from the school list captured at login, else the client enumeration", () => {
+test("levels come from the school list captured at login, else the client enumeration (source fallback)", () => {
   const session = { information: { id: "s" } } as unknown as SessionHandle;
-  assert.deepEqual(levelsOf(session), DEFAULT_LEVELS);
+  const fallback = levelsOf(session);
+  assert.equal(fallback.source, "fallback");
+  assert.deepEqual(fallback.all.map(({ code, name }) => ({ code, name })), DEFAULT_LEVELS);
   rememberUserData(session, { acquisitionLevels: [{ N: "16#n1", G: 2, L: "Maîtrise satisfaisante" }] });
-  assert.deepEqual(levelsOf(session), [{ code: 2, name: "Maîtrise satisfaisante" }]);
+  const school = levelsOf(session);
+  assert.equal(school.source, "school");
+  assert.deepEqual(school.all.map(({ code, name, active, status }) => ({ code, name, active, status })),
+    [{ code: 2, name: "Maîtrise satisfaisante", active: true, status: false }]);
   assert.equal(isAccessDenied(new ServerSideError("Vos droits sont insuffisants pour effectuer cette opération.")), true);
   assert.equal(isAccessDenied(new Error("boom")), false);
 });

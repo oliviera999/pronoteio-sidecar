@@ -393,6 +393,8 @@ export type SessionInfo = {
   tabs: number[];
   rights: Record<string, unknown>;
   maxScale: number | null;
+  /** 0.13.0: whether the skills levels of the school were read at login ("school") or not ("fallback"). */
+  levelsSource?: "school" | "fallback";
   functions: Record<string, { name: string; onglet: number | null; configured: boolean }>;
   writeMode: "simulate" | "live";
   /** 0.9.0: version of the Pronote server and whether it is validated (writes refused otherwise, see formats.ts). */
@@ -538,10 +540,33 @@ export type CompetencyItem = {
   local?: LocalTimes;
 };
 
+/**
+ * Mastery level or annotation of the school (0.13.0, General.ListeNiveauxDAcquisitions): "code" is the genre the client
+ * sends (1 to 6 mastery levels, 7 absent, 8 not assessed, 9 exempted, 10 not handed in); "active": the school lets it be
+ * used in assessments; "status": an annotation, not a mastery level; "points": weighting of the level; "positions":
+ * labels of the LSU positionings.
+ */
+export type AcquisitionLevel = {
+  code: number;
+  name: string;
+  abbreviation: string;
+  color: string;
+  active: boolean;
+  status: boolean;
+  points: number | null;
+  brevetPoints: number | null;
+  positions: { kind: number; name: string; abbreviation: string }[];
+};
+
 export type CompetencyOverview = {
   available: boolean;
   reason: string;
-  levels: { code: number; name: string }[];
+  /** 0.13.0: the ACTIVE mastery levels only (the school's when levelsSource is "school"). */
+  levels: AcquisitionLevel[];
+  /** 0.13.0: the active annotations (absent, not assessed, exempted, not handed in). */
+  statuses: AcquisitionLevel[];
+  /** 0.13.0: "school" (read at login), or "fallback" (client enumeration: no level may be written). */
+  levelsSource: "school" | "fallback";
   period: { id: string; name: string };
   /** 0.8.0: days between the publication to students and to parents, null when unknown. */
   parentsDelayDays: number | null;

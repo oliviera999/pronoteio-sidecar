@@ -1,5 +1,5 @@
 import { createSessionHandle } from "pawnote";
-import { listOf } from "./encoding.js";
+import { listOf, parseNumberSet } from "./encoding.js";
 import { compatFetcher } from "./compat.js";
 import { decodePayload } from "./request.js";
 import { assertReachable } from "../space.js";
@@ -11,6 +11,8 @@ const EMPTY = {
     acquisitionLevels: [],
     maxCommentLength: null,
     parentsDelayDays: null,
+    publicationDelayDays: null,
+    workingDays: [],
     identity: null,
 };
 /** Delay of the publication to parents (days) in a General member of FonctionParametres, null when absent. */
@@ -45,6 +47,7 @@ const parseNumber = (value) => {
     const number = Number.parseFloat(String(value ?? "").replace(",", "."));
     return Number.isFinite(number) ? number : null;
 };
+const wrapped = (value) => value !== null && typeof value === "object" && "V" in value ? value.V : value;
 const absorb = (data, answer) => {
     const content = answer?.data ?? answer?.donnees ?? {};
     if (content.listeClasses) {
@@ -68,8 +71,17 @@ const absorb = (data, answer) => {
     }
     if (content.autorisations && typeof content.autorisations === "object")
         data.rights = content.autorisations;
-    if (content.listeNiveauxDAcquisitions)
-        data.acquisitionLevels = listOf(content.listeNiveauxDAcquisitions);
+    // 0.13.0: FonctionParametres carries the levels in General (capital L); the root member is kept for older servers.
+    const levels = content.General?.ListeNiveauxDAcquisitions ?? content.General?.listeNiveauxDAcquisitions
+        ?? content.listeNiveauxDAcquisitions ?? content.ListeNiveauxDAcquisitions;
+    if (levels && listOf(levels).length)
+        data.acquisitionLevels = listOf(levels);
+    const publicationDelay = parseNumber(wrapped(content.General?.NbJDecalageDatePublicationParDefaut));
+    if (publicationDelay !== null && publicationDelay >= -30 && publicationDelay <= 60)
+        data.publicationDelayDays = publicationDelay;
+    const workingDays = parseNumberSet(content.General?.JoursOuvres).filter((day) => day >= 1 && day <= 7);
+    if (workingDays.length)
+        data.workingDays = workingDays;
     const maxScale = parseNumber(content.General?.BaremeMaxDevoirs?.V);
     if (maxScale !== null)
         data.maxScale = maxScale;
@@ -81,7 +93,7 @@ const absorb = (data, answer) => {
 };
 /** Session handle whose fetcher records the login-only data (read back with userData()). */
 export const createCapturingHandle = (base = compatFetcher) => {
-    const data = { ...EMPTY };
+    const data = { ...EMPTY, workingDays: [] };
     let handle = null;
     const fetcher = async (request) => {
         const response = await base(request);

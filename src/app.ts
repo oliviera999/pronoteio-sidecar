@@ -88,7 +88,9 @@ const unverifiedResult = (request: { method: string; headers: Record<string, unk
   if (request.method !== "POST" || !(error instanceof HttpError) || error.status !== 502 || !NOT_SAVED.test(error.code)) return null;
   if (clientContract(request) < 2) return null;
   const context = currentContext();
-  return { written: context?.writeSent === true, dryRun: false, verified: false, differences: [error.code], after: error.extra.after ?? null };
+  // 0.13.0: "detail" (member names of Pronote's answer to the save, never a value) when the write module gives it.
+  return { written: context?.writeSent === true, dryRun: false, verified: false, differences: [error.code], after: error.extra.after ?? null,
+    ...(typeof error.extra.detail === "string" ? { detail: error.extra.detail } : {}) };
 };
 
 /** Routes of an application with their request schemas (contracts/requests.json, P10). */

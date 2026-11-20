@@ -1,3 +1,4 @@
+import { listOf } from "../pronote/encoding.js";
 import * as pawnote from "pawnote";
 import { AccountKind, finishLoginManually, loginCredentials, loginToken, presence, SecurityError, securityCheckPIN, securitySave, } from "pawnote";
 import { readCache } from "../cache.js";
@@ -68,6 +69,9 @@ export const sessionInfo = (session) => {
         tabs: data.tabs ?? [],
         rights: data.rights,
         maxScale: data.maxScale,
+        // 0.13.0: "school" when General.ListeNiveauxDAcquisitions was captured at login (see teacher/competencies.ts).
+        levelsSource: listOf(data.acquisitionLevels).some((item) => Number(item?.G) >= 1 && /^\d{1,3}#/.test(String(item?.N ?? "")))
+            ? "school" : "fallback",
         functions: Object.fromEntries(Object.entries(functions).map(([key, fn]) => [key, { name: fn.name, onglet: fn.onglet, configured: fn.name !== "" }])),
         writeMode: config.writeMode,
         pronoteversion: pronoteVersion(session),
