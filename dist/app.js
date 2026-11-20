@@ -111,6 +111,8 @@ export const buildApp = async (options = {}) => {
             route: request.routeOptions.url ?? "(unknown)",
             status: reply.statusCode,
             ...(request.errorCode ? { code: request.errorCode } : {}),
+            ...(request.errorKind ? { kind: request.errorKind } : {}),
+            ...(request.errorStep ? { step: request.errorStep } : {}),
             ms: Math.round(reply.elapsedTime),
             bytes: request.answerBytes ?? 0,
             ...(reply.getHeader("x-cache") ? { cache: String(reply.getHeader("x-cache")) } : {}),
@@ -191,7 +193,12 @@ export const buildApp = async (options = {}) => {
         stateStore.recordError(summary);
         if (status >= 500 && status !== 501) {
             request.log.error({ ...summary, kind: error?.name ?? typeof error }, "request failed");
+            // 0.11.3: the kind (Error name, never the message) and the step of a web login go to the access log too.
+            request.errorKind = String(error?.name ?? typeof error).replace(/[^\w.-]/g, "").slice(0, 60);
         }
+        const step = error?.loginStep;
+        if (typeof step === "string")
+            request.errorStep = step;
         if (error instanceof HttpError)
             reply.headers(error.headers);
         reply.status(status).send(body);

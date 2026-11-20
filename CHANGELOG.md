@@ -1,5 +1,14 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.11.3 — diagnostic des erreurs de connexion web
+
+- Journal d'accès : une erreur inattendue (502 `pronote_error`) porte maintenant `kind` (nom de l'erreur, jamais son
+  message) et, pour une connexion à l'Espace Professeurs web, `step` : `web:login`, `web:security`, `web:pin-check`,
+  `web:pin-save`, `web:source-save`, `web:finish` ou `web:session`. Cas du 20/11/2026 : liaison web avec le code PIN
+  refusée en 326 ms par `pronote_error`, sans aucune indication de l'étape (le chemin après le PIN n'avait jamais été
+  parcouru en production).
+- Test : `test/web-space.test.ts`.
+
 ## 0.11.2 — compétences lues sans la session web : refus explicite
 
 - `GET /competencies` : sans l'onglet 65 (session mobile lue sans la session web, par exemple quand l'Espace

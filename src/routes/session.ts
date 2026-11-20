@@ -77,6 +77,7 @@ const completeSecurity = async (
   error: SecurityError,
   pin: string | undefined,
   devicename: string,
+  onStep: (step: string) => void = () => {},
 ): Promise<RefreshInformation> => {
   const modal = error.handle;
   if (modal.shouldCustomPassword || modal.shouldCustomDoubleAuth) {
@@ -85,14 +86,18 @@ const completeSecurity = async (
   }
   if (modal.shouldEnterPIN) {
     if (pin === undefined) throw new HttpError(409, "pin_required");
+    onStep("pin-check");
     if (!(await securityCheckPIN(handle, pin))) throw new HttpError(401, "bad_pin");
+    onStep("pin-save");
     await securitySave(handle, modal, { pin, deviceName: devicename });
   } else if (modal.shouldEnterSource) {
+    onStep("source-save");
     await securitySave(handle, modal, { deviceName: devicename });
   } else {
     throw new HttpError(409, "double_auth_required");
   }
   const { authentication, identity, initialUsername } = modal.context;
+  onStep("finish");
   return finishLoginManually(handle, authentication, identity, initialUsername);
 };
 
@@ -171,15 +176,24 @@ const webLogin = async (body: LoginBody) => {
   const handle = createCapturingHandle(webFetcher());
   const base = { url: pronoteBaseUrl(url), username, kind: AccountKind.TEACHER, deviceUUID: deviceuuid };
   const account = accountKey(base.url, username, deviceuuid);
+  // 0.11.3: step reached by an unexpected error (login, security, session), written to the access log.
+  let step = "login";
   const sessionid = await serializeLogin(`${account}|web`, async () => {
     try {
-      await loginWeb(handle, { ...base, password, ...(navigator ? { navigatorIdentifier: navigator } : {}) });
+      try {
+        await loginWeb(handle, { ...base, password, ...(navigator ? { navigatorIdentifier: navigator } : {}) });
+      } catch (error) {
+        if (!(error instanceof SecurityError)) throw error;
+        step = "security";
+        await completeSecurity(handle, error, pin, devicename ?? DEFAULT_DEVICE_NAME, (reached) => { step = reached; });
+      }
+      step = "session";
+      return createSession(handle, { key: account, login: { url: base.url, username, deviceuuid } },
+        { space: "web", loginMode: "credentials" });
     } catch (error) {
-      if (!(error instanceof SecurityError)) throw error;
-      await completeSecurity(handle, error, pin, devicename ?? DEFAULT_DEVICE_NAME);
+      if (error !== null && typeof error === "object") Object.assign(error, { loginStep: `web:${step}` });
+      throw error;
     }
-    return createSession(handle, { key: account, login: { url: base.url, username, deviceuuid } },
-      { space: "web", loginMode: "credentials" });
   });
   return {
     sessionid,

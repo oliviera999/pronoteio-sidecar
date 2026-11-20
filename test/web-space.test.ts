@@ -345,3 +345,25 @@ test("0.11.2: read without the web session, no service of the skills tab is a re
   assert.equal(t06.json().services.length, 1);
   await app.close();
 });
+
+test("0.11.3: an unexpected error of a web login gives its kind and step in the access log, never its message", async () => {
+  const entries: Record<string, unknown>[] = [];
+  const app = await buildApp({ logger: false, accessLog: { write: (entry: Record<string, unknown>) => void entries.push(entry) } as any });
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response("<html>Le site n'est pas disponible</html>", { status: 200 })) as typeof fetch;
+  try {
+    const json = JSON.stringify({ ...login, space: "web", password: "MotDePasse-Fictif", pin: "1234" });
+    const answer = await app.inject({ method: "POST", url: "/session/login", payload: json, headers: signedHeaders("POST", "/session/login", json) });
+    assert.equal(answer.statusCode, 502, answer.body);
+    assert.doesNotMatch(answer.body, /MotDePasse|1234/);
+  } finally {
+    globalThis.fetch = realFetch;
+    await app.close();
+  }
+  const line = entries.find((entry) => entry.route === "/session/login");
+  assert.ok(line, "login logged");
+  assert.equal(line.step, "web:login");
+  assert.equal(typeof line.kind, "string");
+  assert.match(String(line.kind), /^[\w.-]+$/);
+  assert.doesNotMatch(JSON.stringify(line), /MotDePasse|1234|disponible/);
+});
