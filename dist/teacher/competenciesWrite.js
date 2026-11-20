@@ -226,6 +226,13 @@ const changesProperties = (session, write, existing) => {
  */
 export const buildUpdateRequest = (session, service, resource, period, existing, skillIds, students, write, wanted, ratings, options = {}) => {
     const withStructure = options.withStructure !== false;
+    // Observation already stored for a student and a relation (raw page): sent back untouched when only the level changes.
+    const storedObservation = (studentId, relationId) => {
+        const row = listOf(options.page?.ListeElevesCompetences).find((item) => String(item?.N ?? "") === studentId);
+        const cell = listOf(row?.ListeCompetences).find((item) => String(item?.N ?? "") === relationId);
+        const text = unwrap(cell?.Observation);
+        return { text: typeof text === "string" ? text : "", published: cell?.ObservationPubliee === true };
+    };
     const added = withStructure ? wanted.filter((skill) => !skill.existing) : [];
     const modified = !write.delete && withStructure && (changesProperties(session, write, existing) || added.length > 0);
     const kept = listOf(existing.listeCompetences).length;
@@ -260,13 +267,18 @@ export const buildUpdateRequest = (session, service, resource, period, existing,
             E: STATE_MODIFIED,
             listeCompetences: items.map((rating) => {
                 const skill = skillOfRating(rating.skill, existing, skillIds, wanted);
+                const relation = skill.relationESI?.V ? ref(skill.relationESI.V) : { N: skill.N };
+                // The client always sends the observation with a level ("" for a skill never rated): the one given, else the
+                // one Pronote already holds, so that a level change never erases the teacher's observation.
+                const stored = storedObservation(student.N, String(relation.N));
                 return {
                     ...ref(skill),
                     E: STATE_MODIFIED,
-                    relationESI: skill.relationESI?.V ? ref(skill.relationESI.V) : { N: skill.N },
+                    relationESI: relation,
                     niveauDAcquisition: levelElement(session, rating.level),
-                    // The client sends the observation only with a level, and only when it is a text.
-                    ...(typeof rating.observation === "string" ? { observation: rating.observation, observationPubliee: rating.published === true } : {}),
+                    observation: typeof rating.observation === "string" ? rating.observation : stored.text,
+                    observationPubliee: typeof rating.observation === "string" ? rating.published === true
+                        : rating.published ?? stored.published,
                 };
             }),
         };
@@ -409,7 +421,7 @@ export const writeCompetency = async (session, write) => {
     const dates = plannedDates(session, write, current?.evaluation ?? null);
     const firstRequest = creating
         ? buildCreationRequest(session, service, resourceRef, picked.period, write, resolved)
-        : buildUpdateRequest(session, service, resourceRef, picked.period, current.evaluation, skillIds, students, write, resolved, structural ? [] : ratings);
+        : buildUpdateRequest(session, service, resourceRef, picked.period, current.evaluation, skillIds, students, write, resolved, structural ? [] : ratings, { page });
     const plannedTitle = (write.title ?? beforeItem?.title ?? "").trim();
     const plannedDate = dates.date ? seconds(dates.date) : beforeItem?.date ?? null;
     const plannedPublication = dates.publication ? seconds(dates.publication) : beforeItem?.publication ?? null;
@@ -491,7 +503,7 @@ export const writeCompetency = async (session, write) => {
     if (structural && ratings.length) {
         // Levels of an assessment that now exists, with the students and the relations Pronote gave it.
         students = studentsOf(afterPage, roster);
-        const levels = buildUpdateRequest(session, service, resourceRef, picked.period, found.evaluation, found.skillIds, students, write, resolved, ratings, { withStructure: false });
+        const levels = buildUpdateRequest(session, service, resourceRef, picked.period, found.evaluation, found.skillIds, students, write, resolved, ratings, { withStructure: false, page: afterPage });
         requests.push(levels);
         await sendWrite(session, "competencySave", levels, write.force === true);
         found = find(parse((await readList()).evaluations)) ?? found;

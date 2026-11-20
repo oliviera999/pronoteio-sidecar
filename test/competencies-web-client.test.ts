@@ -61,7 +61,7 @@ test("lot 5: tab 56 refused, the list of tab 65 holds every assessment and is fi
   // One refusal of tab 56, then one read of tab 65 for the two services.
   assert.deepEqual(session.calls.filter((call) => call.name === "ListeEvaluations").map((call) => call.onglet), [56, 65]);
   // Two assessments with the same title and date in ONE group: distinct ids too.
-  stored.push({ ...stored[3], N: "29#twin", levels: new Map() });
+  stored.push({ ...stored[3], N: "29#twin", levels: new Map(), observations: new Map() });
   const twins = (await overview(session, "", ["6-SC-603"])).items.filter((item) => item.title.startsWith("Se connecter"));
   assert.equal(twins.length, 2);
   assert.equal(twins[1].id, `${twins[0].id}~2`);
@@ -184,6 +184,9 @@ test("lot 0: the plan of 20/11 creates the assessment, then its 19 levels, in th
       N: "25#i134", G: 25, L: "13.4 Interpréter un résultat, en tirer une conclusion", E: 2,
       relationESI: { N: created.skills[0].relation },
       niveauDAcquisition: { N: "16#n1", G: 1, L: "Très bonne maîtrise" },
+      // As the client for a skill never rated: an empty, unpublished observation.
+      observation: "",
+      observationPubliee: false,
     }],
   });
 
@@ -273,9 +276,18 @@ test("levels of an existing assessment: one request, only the changed students, 
   assert.equal(result.after!.ratings.find((rating) => rating.student === "ELEVEB03 Prénom")!.level, 4);
   assert.deepEqual([result.created, result.ratingsSent, result.ratingsSaved], [false, 1, 1]);
 
+  // A level alone keeps the observation Pronote already holds for that student and skill.
+  const kept = await writeCompetency(session, {
+    assessment: target.id, service: SERVICE_3, period: "", dryRun: false,
+    ratings: [{ student: "ELEVEB03 Prénom", skill: target.skills[0].id, level: 2 }],
+  });
+  const resent = (saves[1].data.listeEvaluations as any[])[0].listeEleves[0].listeCompetences[0];
+  assert.deepEqual([resent.observation, resent.observationPubliee], ["À revoir", true]);
+  assert.equal(kept.after!.ratings.find((rating) => rating.student === "ELEVEB03 Prénom")!.observation, "À revoir");
+
   const removed = await writeCompetency(session, { assessment: target.id, service: SERVICE_3, period: "", delete: true, dryRun: false });
   assert.equal(removed.after, null);
-  assert.equal((saves[1].data.listeEvaluations as any[])[0].E, 3);
+  assert.equal((saves[2].data.listeEvaluations as any[])[0].E, 3);
   assert.ok(!stored.some((item) => item.L === "Evaluation classeur"));
 });
 

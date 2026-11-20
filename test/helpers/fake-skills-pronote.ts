@@ -70,6 +70,8 @@ type Stored = {
   coefficient: number; cycle: boolean; descriptif: string; skills: StoredSkill[];
   /** student N → relation N → level N. */
   levels: Map<string, Map<string, string>>;
+  /** "student N|relation N" → observation. */
+  observations: Map<string, { text: string; published: boolean }>;
 };
 
 export type SkillsPronote = ReturnType<typeof skillsPronote>;
@@ -87,6 +89,7 @@ export const skillsPronote = (options: { levels?: unknown[] | null; refuseEntryT
       cycle: true, descriptif: "",
       skills: skillIds.map((id, index) => ({ ...elements.get(id)!.item, relation: `15#r${counter}_${index}`, pilier: elements.get(id)!.pilier })) as StoredSkill[],
       levels: new Map(),
+      observations: new Map(),
     };
     if (level) for (const student of ROSTERS[group]) assessment.levels.set(student.N, new Map(assessment.skills.map((skill) => [skill.relation, level])));
     stored.push(assessment);
@@ -174,6 +177,9 @@ export const skillsPronote = (options: { levels?: unknown[] | null; refuseEntryT
           const row = assessment.levels.get(student.N) ?? new Map<string, string>();
           row.set(relation.relation, skill.niveauDAcquisition.N);
           assessment.levels.set(student.N, row);
+          if (typeof skill.observation === "string") {
+            assessment.observations.set(`${student.N}|${relation.relation}`, { text: skill.observation, published: skill.observationPubliee === true });
+          }
         }
       }
     }
@@ -203,6 +209,8 @@ export const skillsPronote = (options: { levels?: unknown[] | null; refuseEntryT
           N: student.N,
           ListeCompetences: { _T: 24, V: [...assessment.levels.get(student.N)!.entries()].map(([relation, level]) => ({
             N: relation, NiveauDAcquisition: { _T: 24, V: { N: level, G: (levelByN.get(level) as any)?.G, L: (levelByN.get(level) as any)?.L } },
+            Observation: assessment.observations.get(`${student.N}|${relation}`)?.text ?? "",
+            ObservationPubliee: assessment.observations.get(`${student.N}|${relation}`)?.published ?? false,
           })) },
         })) },
       };

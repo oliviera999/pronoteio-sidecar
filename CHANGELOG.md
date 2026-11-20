@@ -35,6 +35,8 @@ niveaux de l'établissement. Les trois causes ont été relues dans le code du c
      changent), élèves et compétences en état `E: 2`, avec la relation que Pronote a donnée à la compétence ;
   4. relecture : niveaux comptés (`ratingsSent`, `ratingsSaved`, `warnings` : `ratings_not_saved`,
      `ratings_partly_saved:n/m`). Une évaluation créée dont les niveaux manquent n'est pas cachée derrière une erreur.
+  Comme le client, chaque niveau part avec son observation : celle donnée, sinon celle que Pronote a déjà (jamais
+  effacée par un changement de niveau), sinon une observation vide non publiée.
   Réponse : `created`, `publicationDefault`, `requests` (toutes les requêtes envoyées). Dates envoyées à minuit (ce sont
   des jours). `avecSaisie` faux ou `messageCreationImpossible` de `ListeEvaluations` : `409 pronote_refused:<texte de
   Pronote>` avant tout envoi. `RapportSaisie` en erreur : `409 pronote_refused:<messages>`. Sauvegarde ignorée :
