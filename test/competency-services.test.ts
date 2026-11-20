@@ -40,7 +40,7 @@ const skill = {
   N: "14#k41",
   L: "4.1 Utiliser des outils numériques pour réaliser une production.",
   relationESI: { _T: 24, V: { N: "15#r41" } },
-  pilier: { _T: 24, V: { N: "16#d2", L: "D2 Les méthodes et outils pour apprendre", palier: { _T: 24, V: { L: "Cycle 3" } } } },
+  pilier: { _T: 24, V: { N: "16#d2", L: "D2 Les méthodes et outils pour apprendre", palier: { _T: 24, V: { N: "27#c3", G: 27, L: "Cycle 3" } } } },
 };
 const evaluationOf = (group: string) => ({
   N: `13#e${group}`,
@@ -60,7 +60,7 @@ const referentialAnswer = {
       {
         N: "16#d2",
         L: "D2 Les méthodes et outils pour apprendre",
-        palier: { _T: 24, V: { L: "Cycle 3" } },
+        palier: { _T: 24, V: { N: "27#c3", G: 27, L: "Cycle 3" } },
         listeElements: {
           _T: 24,
           V: [
@@ -241,13 +241,19 @@ test("creation on a skills service with a default level: every student at V+, on
   const evaluation = (result.request.listeEvaluations as any[])[0];
   assert.equal(evaluation.E, 1);
   assert.equal(evaluation.priseEnCompteDansBilan, true);
-  assert.deepEqual(evaluation.listeCompetences[0].relationESI, { N: "15#r41" });
+  // 0.13.0: the skill is the element of the referential with a NEW relation and the cycle of its domain; the levels
+  // of the students follow in a second request, once Pronote has created the assessment.
+  assert.equal(evaluation.listeCompetences[0].N, "19#i41");
+  assert.deepEqual(evaluation.listeCompetences[0].relationESI, { N: -1002, E: 1 });
+  assert.deepEqual(evaluation.listeCompetences[0].palier, { N: "27#c3", G: 27, L: "Cycle 3" });
   assert.equal(evaluation.listeCompetences[0].niveauAcquiDefaut.G, 1);
   assert.equal(evaluation.Ressource.G, 2);
-  const levels = evaluation.listeEleves.map((student: any) => student.listeCompetences[0].niveauDAcquisition.G);
+  assert.equal(evaluation.listeEleves, undefined);
+  const levels = result.after!.ratings.map((rating) => rating.level);
   assert.equal(levels.length, 20);
-  assert.equal(levels.filter((level: number) => level === 1).length, 19);
-  assert.equal(levels.filter((level: number) => level === 8).length, 1);
+  assert.equal(levels.filter((level) => level === 1).length, 19);
+  assert.equal(levels.filter((level) => level === 8).length, 1);
+  assert.deepEqual([result.ratingsSent, result.created, result.publicationDefault], [20, false, false]);
   assert.equal(result.after!.ratings.length, 20);
   assert.equal(result.after!.publicationParents! - publication, 86400);
   assert.equal(result.after!.skills[0].code, "D2/4.1");

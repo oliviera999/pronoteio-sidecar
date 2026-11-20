@@ -89,7 +89,8 @@ test("a function of the skills tabs asks for the web session before any call to 
   assert.equal(answer.statusCode, 409, answer.body);
   assert.equal(answer.json().error, "web_session_required");
   assert.equal(answer.json().code, "web_session_required");
-  assert.equal(answer.json().onglet, 65);
+  // 0.13.0: the list of a service is the one of "Saisie des évaluations" (tab 56).
+  assert.equal(answer.json().onglet, 56);
   assert.equal(answer.json().function, "ListeEvaluations");
   assert.equal(mobile.calls.length, 0, "no call sent to Pronote");
   // A write too: refused before any call, so the client may send it again with the web session.

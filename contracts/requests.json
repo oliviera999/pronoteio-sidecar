@@ -609,6 +609,18 @@
     {
       "method": "GET",
       "url": "/grades/context",
+      "querystring": {
+        "type": "object",
+        "properties": {
+          "competencies": {
+            "type": "string",
+            "enum": [
+              "0",
+              "1"
+            ]
+          }
+        }
+      },
       "signed": true
     },
     {

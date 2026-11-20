@@ -5,7 +5,7 @@
  */
 import type { Fetcher } from "@literate.ink/utilities";
 import { createSessionHandle, type SessionHandle } from "pawnote";
-import { listOf } from "./encoding.js";
+import { listOf, parseNumberSet } from "./encoding.js";
 import { compatFetcher } from "./compat.js";
 import { decodePayload } from "./request.js";
 import { assertReachable } from "../space.js";
@@ -19,8 +19,10 @@ export type SchoolResource = { id: string; label: string; genre: 1 | 2; taught: 
 /**
  * "tabs": every tab number of listeOnglets (groups and their tabs), null when not received.
  * "rights": raw "autorisations" object of ParametresUtilisateur (absences.*, cours.*, casierNumerique.*...), {} when
- * not received. "acquisitionLevels": raw listeNiveauxDAcquisitions (skills levels of the school), [] when not
- * received. "maxCommentLength": General.TailleMaxAppreciation (per kind), null when not received.
+ * not received. "acquisitionLevels": raw General.ListeNiveauxDAcquisitions of FonctionParametres (skills levels of the
+ * school; 0.13.0: the client reads them there, GParametres.listeNiveauxDAcquisitions, not in ParametresUtilisateur where
+ * they were looked for until 0.12.0 and never found), [] when not received. "maxCommentLength":
+ * General.TailleMaxAppreciation (per kind), null when not received.
  * "parentsDelayDays" (0.8.0): days between the publication to students and to parents ("publiée aux parents un jour
  * après la publication aux élèves"), from the first numeric member of General whose name speaks of parents and of a
  * delay (decalage, delai), null when not received. NOT VALIDATED: member name unknown, read defensively.
@@ -33,6 +35,13 @@ export type UserData = {
   acquisitionLevels: unknown[];
   maxCommentLength: unknown;
   parentsDelayDays: number | null;
+  /**
+   * 0.13.0: days added to the date of an assessment for its default publication (General.NbJDecalageDatePublicationParDefaut,
+   * the client's getProchaineDateOuvreePourPublication), null when not received (the client then uses 1).
+   */
+  publicationDelayDays: number | null;
+  /** 0.13.0: working days of the school (General.JoursOuvres: 1 Monday … 7 Sunday), [] when not received. */
+  workingDays: number[];
   /** 0.11.4: identity of ParametresUtilisateur ("ressource": N, G, L, Etablissement), for a tolerant decoding. */
   identity: { id: string; kind: number; name: string; establishment: string } | null;
 };
@@ -45,6 +54,8 @@ const EMPTY: UserData = {
   acquisitionLevels: [],
   maxCommentLength: null,
   parentsDelayDays: null,
+  publicationDelayDays: null,
+  workingDays: [],
   identity: null,
 };
 
@@ -80,6 +91,9 @@ const parseNumber = (value: unknown): number | null => {
   return Number.isFinite(number) ? number : null;
 };
 
+const wrapped = (value: unknown): unknown =>
+  value !== null && typeof value === "object" && "V" in (value as object) ? (value as { V: unknown }).V : value;
+
 const absorb = (data: UserData, answer: any): void => {
   const content = answer?.data ?? answer?.donnees ?? {};
   if (content.listeClasses) {
@@ -101,7 +115,14 @@ const absorb = (data: UserData, answer: any): void => {
       establishment: String(establishment) };
   }
   if (content.autorisations && typeof content.autorisations === "object") data.rights = content.autorisations;
-  if (content.listeNiveauxDAcquisitions) data.acquisitionLevels = listOf(content.listeNiveauxDAcquisitions);
+  // 0.13.0: FonctionParametres carries the levels in General (capital L); the root member is kept for older servers.
+  const levels = content.General?.ListeNiveauxDAcquisitions ?? content.General?.listeNiveauxDAcquisitions
+    ?? content.listeNiveauxDAcquisitions ?? content.ListeNiveauxDAcquisitions;
+  if (levels && listOf(levels).length) data.acquisitionLevels = listOf(levels);
+  const publicationDelay = parseNumber(wrapped(content.General?.NbJDecalageDatePublicationParDefaut));
+  if (publicationDelay !== null && publicationDelay >= -30 && publicationDelay <= 60) data.publicationDelayDays = publicationDelay;
+  const workingDays = parseNumberSet(content.General?.JoursOuvres).filter((day) => day >= 1 && day <= 7);
+  if (workingDays.length) data.workingDays = workingDays;
   const maxScale = parseNumber(content.General?.BaremeMaxDevoirs?.V);
   if (maxScale !== null) data.maxScale = maxScale;
   if (content.General?.TailleMaxAppreciation !== undefined) data.maxCommentLength = content.General.TailleMaxAppreciation;
@@ -111,7 +132,7 @@ const absorb = (data: UserData, answer: any): void => {
 
 /** Session handle whose fetcher records the login-only data (read back with userData()). */
 export const createCapturingHandle = (base: Fetcher = compatFetcher): SessionHandle => {
-  const data: UserData = { ...EMPTY };
+  const data: UserData = { ...EMPTY, workingDays: [] };
   let handle: SessionHandle | null = null;
   const fetcher: Fetcher = async (request) => {
     const response = await base(request);

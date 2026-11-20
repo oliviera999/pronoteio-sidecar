@@ -76,6 +76,9 @@ sans compétences (55, 56, 65, 199, 200), bulletins (4, 13, 25, 27) ni relevé (
 | `401 web_session_expired` | Session web inconnue ou expirée (jamais reconnectée : pas de chaîne de jetons) ; la session principale est gardée. |
 | `GET /session/info` | + `"space":"mobile"`, `"login":"token"`, `"webtabs":[…]` (session web envoyée). |
 | `GET /competencies/referential/subjects?cycle=Cycle%203&subject=SCIENCES%20ET%20TECHNOLOGIE` | Référentiel d'une matière (onglet 200, `ListePaliers`, `ListeTousPiliersDeCompetence`, `CompetencesGrilles`, **non validé**) : `elements[]` (`id` `rs:…`, `name`, `domains[]`, `reportElement`, `items[]` (`id` `ri:…`, `name`, `evaluable`, `levels`)) dans l'ordre de Pronote ; sans matière : `subjects[]` (`cycle`, `name`, `elements`, `items`, `classes`). Forme inconnue : `available:false`, `reason:"format_unknown"`, `shape`. |
+| `GET /competencies?period=&classes=` | Évaluations par compétences des services (0.13.0, **non validé**) : `ListeEvaluations` en onglet 56 (« Saisie des évaluations »), sinon onglet 65 filtré par la classe de chaque évaluation ; `levels` (niveaux actifs de l'établissement), `statuses`, `levelsSource` (`school`, `fallback`), `services`, `items[]` (id `cp:…`, compétences, niveaux par élève). |
+| `POST /competencies` | Création, niveaux, suppression d'une évaluation par compétences (0.13.0, **non validé**) : création sans élève, relecture par `RapportSaisie.listeEvaluationsCreees`, puis niveaux ; `created`, `publicationDefault`, `ratingsSent`, `ratingsSaved`, `warnings`, `requests`. Sans `publication` à la création : date par défaut de Pronote. Niveau refusé sans la liste de l'établissement (`levels_unknown`). |
+| `GET /grades/context?competencies=1` | Contexte des notes avec les services de l'onglet Compétences (0.13.0) : `services[].kinds`. |
 | Refus des compétences | `available:false`, `reason:"access_denied"`, + `onglet`, `space`. |
 
 ### Vue du professeur principal (0.12.0)

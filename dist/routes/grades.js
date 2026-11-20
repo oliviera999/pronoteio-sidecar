@@ -6,7 +6,8 @@ import * as teacher from "../teacher/index.js";
 import { periodClassesQuery } from "./competencies.js";
 import { classesOf } from "./notebook.js";
 export default async function gradesRoutes(app) {
-    app.get("/grades/context", async (request) => teacher.gradeContext(requireSession(request)));
+    // 0.13.0: competencies=1 adds the services of the skills tab (kinds), for the skills features of local_pronoteio.
+    app.get("/grades/context", { schema: { querystring: { type: "object", properties: { competencies: { type: "string", enum: ["0", "1"] } } } } }, async (request) => teacher.gradeContext(requireSession(request), request.query.competencies === "1"));
     app.get("/grades/overview", { schema: { querystring: periodClassesQuery } }, async (request) => teacher.gradeOverview(requireSession(request), request.query.period ?? "", classesOf(request.query.classes)));
     app.post("/grades", {
         schema: {

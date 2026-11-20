@@ -1,13 +1,13 @@
 {
   "ok": true,
-  "version": "0.12.1",
-  "commit": "c39923db68ab5613312a0251e4d95be8560d3338",
+  "version": "0.13.0",
+  "commit": "a23532a88cd212276ebfe9a1a112011693d559ee",
   "node": "22.23.5",
-  "startedAt": "2026-11-20T19:39:41.435Z",
+  "startedAt": "2026-11-20T20:41:06.786Z",
   "uptimeSeconds": 2,
   "starts": 0,
   "process": {
-    "pid": 515,
+    "pid": 28892,
     "primary": true,
     "holder": null,
     "lockFile": "off",
@@ -24,7 +24,7 @@
     "icu": "78.3",
     "hostTimezone": "UTC",
     "hostTzEnv": null,
-    "localNow": "2026-11-20 19:39"
+    "localNow": "2026-11-20 20:41"
   },
   "writeMode": "simulate",
   "session": {
@@ -107,14 +107,14 @@
       "error": "session_expired",
       "route": "/roster",
       "status": 401,
-      "at": "2026-11-20T19:39:42.566Z"
+      "at": "2026-11-20T20:41:07.991Z"
     },
     {
       "code": "validation_failed",
       "error": "invalid_request",
       "route": "/roster",
       "status": 400,
-      "at": "2026-11-20T19:39:42.565Z"
+      "at": "2026-11-20T20:41:07.990Z"
     }
   ]
 }

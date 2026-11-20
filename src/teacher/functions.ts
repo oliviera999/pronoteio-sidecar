@@ -55,8 +55,14 @@ export type FunctionKey =
   | "lessonSave"
   /** Resources of the school timetable: classes, teachers, rooms, equipment (RessourceEDT, tab 16). */
   | "timetableResources"
-  /** Skills assessments of a service and period (tab 65; not validated on the demo server). */
+  /**
+   * Skills assessments of a service, class or group and period: "Saisie des évaluations" (tab 56, 0.13.0). Until 0.12.0
+   * the call was signed with tab 65 ("Liste des évaluations"), where the client sends no service nor resource and
+   * Pronote answers every assessment of the teacher (case of 20/11/2026: the same four assessments for two groups).
+   */
   | "competencyList"
+  /** Every skills assessment of the teacher: "Liste des évaluations" (tab 65), read when tab 56 is refused. */
+  | "competencyListAll"
   /** Levels given in one skills assessment (tab 56; not validated on the demo server). */
   | "competencyPage"
   /** Report card comments grid of a service, class and period (tab 25; not validated on the demo server). */
@@ -77,7 +83,10 @@ export type FunctionKey =
   | "quizList"
   /** One grade or comment of a student on an assessment (SaisieNotesUnitaire, tab 23). */
   | "gradeSaveUnit"
-  /** Creates, modifies or deletes a skills assessment and its levels (SaisieEvaluations, tab 65; not validated). */
+  /**
+   * Creates, modifies or deletes a skills assessment and its levels (SaisieEvaluations, tab 56 since 0.13.0: the client
+   * creates assessments in "Saisie des évaluations" only; not validated on a real server).
+   */
   | "competencySave"
   /** Report card comment of the teacher's service (SaisieAppreciation, tab 25; not validated). */
   | "commentSave"
@@ -129,7 +138,7 @@ export type FunctionKey =
   /* ---- Skills services and referential (0.8.0, not validated: skills tabs closed on the demo profile) ---- */
   /** Services of the skills tab, as the "Saisie des évaluations" page lists them (ListeServices, tab 65). */
   | "competencyServicesList"
-  /** Domains and items of the skills referential of a service (ListePiliers, tab 65). */
+  /** Domains and items of the skills referential of a service (ListePiliers, tab 56 since 0.13.0, as the client). */
   | "competencyReferential"
   /* ---- Referentials per subject (0.10.0, tab 200, not validated: closed on the demo, missing from the mobile space) ---- */
   /** Cycles of the referentials (ListePaliers, tab 200). */
@@ -175,7 +184,8 @@ const defaults: Record<FunctionKey, TeacherFunction> = {
   assessmentPlanning: { name: "ProgrammerDevoirEvaluationCDT", onglet: 28 },
   lessonSave: { name: "SaisieCours", onglet: 16 },
   timetableResources: { name: "RessourceEDT", onglet: 16 },
-  competencyList: { name: "ListeEvaluations", onglet: 65 },
+  competencyList: { name: "ListeEvaluations", onglet: 56 },
+  competencyListAll: { name: "ListeEvaluations", onglet: 65 },
   competencyPage: { name: "PageCompetencesParEvaluation", onglet: 56 },
   commentsPage: { name: "PageApprBulletin", onglet: 25 },
   commentKinds: { name: "ListeAppreciations", onglet: 27 },
@@ -186,7 +196,7 @@ const defaults: Record<FunctionKey, TeacherFunction> = {
   lockerPage: { name: "Casier", onglet: 148 },
   quizList: { name: "listeQCM", onglet: 86 },
   gradeSaveUnit: { name: "SaisieNotesUnitaire", onglet: 23 },
-  competencySave: { name: "SaisieEvaluations", onglet: 65 },
+  competencySave: { name: "SaisieEvaluations", onglet: 56 },
   commentSave: { name: "SaisieAppreciation", onglet: 25 },
   generalCommentSave: { name: "SaisieAppreciation", onglet: 27 },
   messageSave: { name: "SaisieMessage", onglet: 131 },
@@ -212,7 +222,7 @@ const defaults: Record<FunctionKey, TeacherFunction> = {
   forum: { name: "ForumPedagogique", onglet: 275 },
   studentFile: { name: "FicheEleve", onglet: 105 },
   competencyServicesList: { name: "ListeServices", onglet: 65 },
-  competencyReferential: { name: "ListePiliers", onglet: 65 },
+  competencyReferential: { name: "ListePiliers", onglet: 56 },
   competencyCycles: { name: "ListePaliers", onglet: 200 },
   competencySubjects: { name: "ListeTousPiliersDeCompetence", onglet: 200 },
   competencySubjectReferential: { name: "CompetencesGrilles", onglet: 200 },
