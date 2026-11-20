@@ -47,11 +47,19 @@ type LoginBody = {
   devicename?: string;
   /** 0.10.0: "web" opens the web Espace Professeurs (professeur.html, "Domicile" mode) with the password. */
   space?: "mobile" | "web";
+  /**
+   * 0.11.1: navigator identifier (identifiantNav) given by Pronote at a previous web login. The web space recognises a
+   * trusted device by it, not by deviceuuid: without it every web login came from a new browser, and the double
+   * authentication asked the PIN each time.
+   */
+  navigator?: string;
 };
 
 /** Login of the web Espace Professeurs, added to Pawnote by tools/patch-pawnote.mjs (0.10.0); undefined when unpatched. */
-type WebLogin = (handle: SessionHandle, options: { url: string; username: string; kind: AccountKind; deviceUUID: string; password: string }) =>
-  Promise<RefreshInformation>;
+type WebLogin = (
+  handle: SessionHandle,
+  options: { url: string; username: string; kind: AccountKind; deviceUUID: string; password: string; navigatorIdentifier?: string },
+) => Promise<RefreshInformation>;
 const loginWeb = (pawnote as unknown as { pronoteioLoginWeb?: WebLogin }).pronoteioLoginWeb;
 
 /** Chain of the single-use tokens (see tokenStore.ts); null when PRONOTEIO_TOKEN_STORE=off. */
@@ -141,14 +149,22 @@ setPresenceSender(async (handle) => {
   await presence(handle);
 });
 
+/** Navigator identifier (identifiantNav) Pronote gave the web session, null when absent or not a short string. */
+export const navigatorOf = (handle: SessionHandle): string | null => {
+  const value = (handle.instance as { navigatorIdentifier?: unknown } | undefined)?.navigatorIdentifier;
+  return typeof value === "string" && /^[\x21-\x7e]{1,200}$/.test(value) ? value : null;
+};
+
 /**
  * Login of the web Espace Professeurs (0.10.0): professeur.html in "Domicile" mode, with the password only. The mobile
  * token is not accepted by this space (and a refused try would consume it): web_token_refused, without any call to
  * Pronote. A double authentication asks the PIN as for the mobile space (pin_required, bad_pin). The session is kept
  * beside the main one (one web session per account), never reconnected. The password is neither logged nor returned.
+ * 0.11.1: the navigator identifier of the previous web login is sent again (see LoginBody.navigator) and the new one
+ * returned.
  */
 const webLogin = async (body: LoginBody) => {
-  const { url, username, deviceuuid, password, pin, devicename } = body;
+  const { url, username, deviceuuid, password, pin, devicename, navigator } = body;
   if (password === undefined) throw new HttpError(401, "web_token_refused");
   if (!loginWeb) throw new HttpError(501, "not_implemented:web_space");
   assertPrimary();
@@ -157,7 +173,7 @@ const webLogin = async (body: LoginBody) => {
   const account = accountKey(base.url, username, deviceuuid);
   const sessionid = await serializeLogin(`${account}|web`, async () => {
     try {
-      await loginWeb(handle, { ...base, password });
+      await loginWeb(handle, { ...base, password, ...(navigator ? { navigatorIdentifier: navigator } : {}) });
     } catch (error) {
       if (!(error instanceof SecurityError)) throw error;
       await completeSecurity(handle, error, pin, devicename ?? DEFAULT_DEVICE_NAME);
@@ -172,6 +188,8 @@ const webLogin = async (body: LoginBody) => {
     space: "web" as const,
     login: "credentials" as const,
     tabs: userData(handle).tabs ?? [],
+    // To send back at the next web login (0.11.1): the device trusted after the PIN is this browser identifier.
+    navigator: navigatorOf(handle),
   };
 };
 
@@ -192,6 +210,7 @@ export default async function sessionRoutes(app: FastifyInstance): Promise<void>
             pin: { type: "string", pattern: "^[0-9]{4,8}$" },
             devicename: { type: "string", minLength: 1, maxLength: 30 },
             space: { type: "string", enum: ["mobile", "web"], default: "mobile" },
+            navigator: { type: "string", pattern: "^[\\x21-\\x7e]{1,200}$" },
           },
           oneOf: [{ required: ["password"] }, { required: ["token"] }],
         },

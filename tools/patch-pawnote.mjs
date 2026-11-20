@@ -95,4 +95,25 @@ for (const file of ["index.mjs", "index.js"]) {
   console.log(`pawnote ${version} ${file}: web space patched`);
 }
 
+// 0.11.1: classes of a lesson. Pawnote keeps the groups (G 2) of a lesson but drops its classes (G 1) and parts of
+// classes (G 57): a lesson of a whole class came with no group, and the attendance of a Moodle course linked to that
+// class found no lesson. The three genres go to groupNames, in the order of the answer, as in src/teacher/timetable.ts.
+const CLASSES_MARKER = "/*pronoteio-lesson-classes*/";
+const classesPattern = /(case 17:\w\.push\(s\.L\);break;)case 2:(\w)\.push\(s\.L\)/;
+for (const file of ["index.mjs", "index.js"]) {
+  const path = join(dist, file);
+  const source = readFileSync(path, "utf8");
+  if (source.includes(CLASSES_MARKER)) {
+    console.log(`pawnote ${version} ${file}: lesson classes already patched`);
+    continue;
+  }
+  if (!classesPattern.test(source)) {
+    console.error(`pawnote ${version} ${file}: lesson decoder not found, the timetable will miss the classes`);
+    failed = true;
+    continue;
+  }
+  writeFileSync(path, source.replace(classesPattern, (_, head, groups) => `${head}case 1:case 57:case 2:${groups}.push(s.L)${CLASSES_MARKER}`));
+  console.log(`pawnote ${version} ${file}: lesson classes patched`);
+}
+
 process.exit(failed ? 1 : 0);

@@ -200,7 +200,7 @@ main() {
   fi
   step="merged"
   new_version="$(pkg_version)"
-  if echo "$changed" | grep -qE '^package(-lock)?\.json$'; then
+  if echo "$changed" | grep -qE '^(package(-lock)?\.json|tools/patch-pawnote\.mjs)$'; then
     step="install_dependencies"
     install_dependencies || log "npm ci failed"
   fi
@@ -227,7 +227,7 @@ main() {
   log "${local_rev:0:7} -> ${remote_rev:0:7} ($old_version -> $new_version) health failed ($status): rollback"
   step="rollback"
   "$git_cmd" reset --hard --quiet "$local_rev"
-  if echo "$changed" | grep -qE '^package(-lock)?\.json$'; then
+  if echo "$changed" | grep -qE '^(package(-lock)?\.json|tools/patch-pawnote\.mjs)$'; then
     install_dependencies || log "npm ci failed during rollback"
   fi
   restart

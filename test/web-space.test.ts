@@ -311,3 +311,19 @@ test("referential of a subject for a cycle (tab 200), read in Pronote's order on
   assert.equal(gridFrom({ autre: { _T: 24, V: [] } }, "Cycle 3", "X"), null);
   await app.close();
 });
+
+test("web login (0.11.1): the navigator identifier is read from the session and checked in the request", async () => {
+  const { navigatorOf } = await import("../src/routes/session.js");
+  assert.equal(navigatorOf({ instance: { navigatorIdentifier: "nav-1A2b3C" } } as any), "nav-1A2b3C");
+  assert.equal(navigatorOf({ instance: { navigatorIdentifier: null } } as any), null);
+  assert.equal(navigatorOf({ instance: { navigatorIdentifier: "a b" } } as any), null);
+  assert.equal(navigatorOf({ instance: { navigatorIdentifier: "x".repeat(201) } } as any), null);
+  assert.equal(navigatorOf({} as any), null);
+
+  const app = await buildApp();
+  const json = JSON.stringify({ ...login, space: "web", password: "MotDePasse-Fictif", navigator: "a b" });
+  const refused = await app.inject({ method: "POST", url: "/session/login", payload: json, headers: signedHeaders("POST", "/session/login", json) });
+  assert.equal(refused.statusCode, 400, refused.body);
+  assert.doesNotMatch(refused.body, /MotDePasse/);
+  await app.close();
+});

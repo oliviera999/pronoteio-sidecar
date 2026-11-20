@@ -1821,6 +1821,10 @@
               "web"
             ],
             "default": "mobile"
+          },
+          "navigator": {
+            "type": "string",
+            "pattern": "^[\\x21-\\x7e]{1,200}$"
           }
         },
         "oneOf": [
