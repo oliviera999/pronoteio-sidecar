@@ -141,6 +141,7 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
       ...(reply.getHeader("x-cache") ? { cache: String(reply.getHeader("x-cache")) } : {}),
       ...(context ? { calls: context.calls, priority: context.priority } : {}),
       ...(reply.getHeader("x-pronoteio-duplicate") ? { duplicate: true } : {}),
+      ...(context?.shape ? { shape: context.shape } : {}),
     });
   });
 

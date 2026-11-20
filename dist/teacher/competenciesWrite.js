@@ -3,7 +3,7 @@ import { listOf, pronoteDate, pronoteNumber } from "../pronote/encoding.js";
 import { userData } from "../pronote/userdata.js";
 import { normalise } from "../normalise.js";
 import { epochToWall, legacySeconds } from "../time.js";
-import { competencyElement, DEFAULT_LEVELS, findReferentialItem, isAccessDenied, itemFromList, levelsOf, loadReferential, parentsDelayOf, ratingsFromPage, resourceRefOf, ensureSkillsSpace, } from "./competencies.js";
+import { competencyElement, DEFAULT_LEVELS, findReferentialItem, isAccessDenied, itemFromList, levelsOf, loadReferential, parentsDelayOf, ratingsFromPage, studentLabelOf, studentNamesOf, resourceRefOf, ensureSkillsSpace, } from "./competencies.js";
 import { call, loadAllServices, pickPeriod, ref, resolveService, resourceOf, resourceType, serviceIdsOf } from "./grades.js";
 import { stableId } from "./ids.js";
 import { rosterEntries } from "./roster.js";
@@ -28,9 +28,17 @@ export const levelElement = (session, code) => {
 const number = (value) => ({ _T: TYPE_NUMBER, V: pronoteNumber(value) });
 /** Students of an assessment page (ListeElevesCompetences) or of the roster, by label. */
 const studentsOf = (page, roster) => {
+    const names = studentNamesOf(page);
     const fromPage = listOf(page?.ListeElevesCompetences)
         .filter((item) => typeof item?.N === "string")
-        .map((item) => ({ N: String(item.N), L: String(item?.L ?? item?.eleve?.V?.L ?? "").trim() }));
+        .map((item) => ({ N: String(item.N), L: studentLabelOf(item, names, page ?? undefined) }));
+    // 0.11.5: rows without a label are completed from the roster of the same session (same ids), else left out.
+    if (fromPage.some((item) => item.L === "")) {
+        const byId = new Map(roster.map((item) => [item.pronoteId, item.label]));
+        for (const item of fromPage)
+            if (item.L === "")
+                item.L = byId.get(item.N) ?? "";
+    }
     return fromPage.length ? fromPage : roster.map((item) => ({ N: item.pronoteId, L: item.label }));
 };
 /**

@@ -26,6 +26,8 @@ export type RequestContext = {
   webCapable?: boolean;
   /** 0.10.0: the request runs on the web session (replayed after a WebSessionRequired). */
   webActive?: boolean;
+  /** 0.11.5: member names (never values) of an answer whose shape was not understood, written to the access log. */
+  shape?: string;
 };
 
 /** Pronote functions that write (SaisiePublicMessage only reads the recipients of a message). */

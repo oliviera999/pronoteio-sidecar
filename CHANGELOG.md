@@ -1,5 +1,16 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.11.5 — compétences : nom des élèves
+
+- Première lecture réelle des compétences sur l'Espace Professeurs web (20/11/2026, 6-SC-603 : 4 évaluations, 66
+  niveaux) : aucun niveau ne portait le nom de l'élève (`L` et `eleve.V.L` absents des lignes de
+  `ListeElevesCompetences`), donc aucun rapprochement avec Moodle, et une écriture n'aurait trouvé personne. Le nom
+  est maintenant cherché dans `L`, `eleve`/`Eleve` (enveloppé ou non), `libelle`, nom + prénom, puis dans la liste
+  d'élèves voisine (`listeEleves`…) par identifiant ; à l'écriture, une ligne sans nom est complétée par la liste de
+  la classe de la même session. Sans nom trouvé, le journal d'accès porte `shape` : les noms des membres de la ligne et
+  de la page, jamais leurs valeurs.
+- Tests : `test/competencies.test.ts`.
+
 ## 0.11.4 — connexion web : fin de connexion tolérante
 
 - Cas du 20/11/2026 (journal de 0.11.3) : liaison de l'Espace Professeurs web avec le code PIN, PIN accepté et appareil

@@ -67,3 +67,31 @@ test("levels come from the school list captured at login, else the client enumer
   assert.equal(isAccessDenied(new ServerSideError("Vos droits sont insuffisants pour effectuer cette opération.")), true);
   assert.equal(isAccessDenied(new Error("boom")), false);
 });
+
+test("0.11.5: student label of a level row from L, eleve (wrapped or not), nom + prénom, or the students beside", async () => {
+  const { studentLabelOf, studentNamesOf, ratingsFromPage } = await import("../src/teacher/competencies.js");
+  const names = studentNamesOf({ listeEleves: { _T: 24, V: [{ N: "4#e9", L: "ELEVE Neuf" }] } });
+  assert.equal(studentLabelOf({ N: "x", L: "ELEVE Un" }, names), "ELEVE Un");
+  assert.equal(studentLabelOf({ N: "x", eleve: { _T: 24, V: { N: "4#e2", L: "ELEVE Deux" } } }, names), "ELEVE Deux");
+  assert.equal(studentLabelOf({ N: "x", eleve: { N: "4#e3", L: "ELEVE Trois" } }, names), "ELEVE Trois");
+  assert.equal(studentLabelOf({ N: "x", nom: "ELEVE", prenom: "Quatre" }, names), "ELEVE Quatre");
+  assert.equal(studentLabelOf({ N: "4#e9" }, names), "ELEVE Neuf");
+  assert.equal(studentLabelOf({ N: "x", eleve: { V: { N: "4#e9" } } }, names), "ELEVE Neuf");
+  assert.equal(studentLabelOf({ N: "inconnu", note: 3 }, names), "");
+
+  const page = { listeEleves: { _T: 24, V: [{ N: "4#e9", L: "ELEVE Neuf" }] },
+    ListeElevesCompetences: { _T: 24, V: [{ N: "4#e9", ListeCompetences: { _T: 24, V: [{ N: "15#c1", NiveauDAcquisition: { _T: 19, V: { G: 2 } } }] } }] } };
+  const [rating] = ratingsFromPage(page, new Map([["15#c1", "cp:c1"]]));
+  assert.deepEqual([rating.student, rating.skill, rating.level], ["ELEVE Neuf", "cp:c1", 2]);
+});
+
+test("0.11.5: a level row without any student label writes its member names (never values) to the access log", async () => {
+  const { studentLabelOf } = await import("../src/teacher/competencies.js");
+  const { requestContext } = await import("../src/context.js");
+  const context: any = { priority: 1, deadline: Date.now() + 1000, calls: 0, route: "/competencies" };
+  requestContext.run(context, () => {
+    studentLabelOf({ N: "4#x", Secret: "ELEVE Cache", ListeCompetences: [] }, new Map(), { ListeElevesCompetences: [], autre: 1 });
+  });
+  assert.equal(context.shape, "student:ListeCompetences,N,Secret;eleve:;page:ListeElevesCompetences,autre");
+  assert.doesNotMatch(context.shape, /ELEVE/);
+});
