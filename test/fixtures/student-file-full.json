@@ -38,38 +38,26 @@
  "Scolarite": {
   "_T": 8,
   "V": {
+   "classe": {
+    "_T": 24,
+    "V": {
+     "L": "T06",
+     "N": "1#c1",
+     "G": 1
+    }
+   },
    "listeRessources": {
     "_T": 24,
     "V": [
      {
-      "L": "T06",
-      "N": "1#c1",
-      "G": 1
+      "L": "M. BENALI Karim",
+      "N": "5#r1",
+      "G": 5
      },
      {
-      "L": "T-SPE SVT 2",
-      "N": "2#g1",
-      "G": 2
-     },
-     {
-      "L": "T-SPE PC 1",
-      "N": "2#g2",
-      "G": 2
-     },
-     {
-      "L": "T-OPT MATHS COMP",
-      "N": "2#g3",
-      "G": 2
-     },
-     {
-      "L": "TLVA ANG 3",
-      "N": "2#g4",
-      "G": 2
-     },
-     {
-      "L": "[T06AP ORIENT]",
-      "N": "2#g5",
-      "G": 2
+      "L": "Mme BENALI Salma",
+      "N": "5#r2",
+      "G": 5
      }
     ]
    },
@@ -172,6 +160,36 @@
         "L": "PHILOSOPHIE"
        }
       }
+     }
+    ]
+   },
+   "listeGroupes": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "T-SPE SVT 2",
+      "N": "2#g1",
+      "G": 2
+     },
+     {
+      "L": "T-SPE PC 1",
+      "N": "2#g2",
+      "G": 2
+     },
+     {
+      "L": "T-OPT MATHS COMP",
+      "N": "2#g3",
+      "G": 2
+     },
+     {
+      "L": "TLVA ANG 3",
+      "N": "2#g4",
+      "G": 2
+     },
+     {
+      "L": "[T06AP ORIENT]",
+      "N": "2#g5",
+      "G": 2
      }
     ]
    }

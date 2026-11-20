@@ -1,7 +1,7 @@
 # pronoteio-sidecar
 
 Service Node.js (Fastify, Pawnote) qui fait le pont entre le plugin Moodle **local_pronoteio** (olution.info) et le
-Pronote du lycée, avec le compte enseignant lié. Version **0.12.0** — voir [CHANGELOG.md](CHANGELOG.md).
+Pronote du lycée, avec le compte enseignant lié. Version **0.12.1** — voir [CHANGELOG.md](CHANGELOG.md).
 
 - Hébergement : o2switch, cPanel « Setup Node.js App » (Phusion Passenger), fichier de démarrage `app.cjs`, code
   compilé versionné dans `dist/` (pas d'étape de build sur l'hôte).

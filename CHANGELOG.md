@@ -1,5 +1,19 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.12.1 — fiche élève : les responsables ne sortent plus dans les groupes
+
+- Première lecture réelle d'une fiche (20/11/2026, `GET /students/files`, sidecar 0.12.0) : `groups` et `groupDetails`
+  portaient les **noms des responsables** de l'élève. `listeRessources` de `FicheEleve`, pris en 0.12.0 pour la liste
+  des classes et groupes, est en réalité la liste des responsables ; tout élément dont le genre n'était pas 1 y devenait
+  un groupe. Les noms sortaient donc sans la partie `guardians`, contre la règle « responsables sur demande seulement ».
+- `listeRessources` n'est plus lu du tout : membre connu (jamais dans `unmappedKeys`), aucune valeur n'en sort. Les
+  responsables viennent toujours de `listeResponsables`, avec `include=guardians`.
+- `groups`, `options` et `groupDetails` reviennent **vides** sur les fiches réelles, faute de membre qui porte les
+  groupes de l'élève (seuls `listeGroupes`, `groupes`, `listeOptions`, jamais vus, sont encore lus). `class` ne vient
+  plus que du membre `classe`. Les vraies sources des groupes sont au programme du lot suivant.
+- Tests : `test/students-full.test.ts` (aucun libellé de `listeRessources` dans une réponse, avec ou sans `guardians` ;
+  fixture corrigée : responsables dans `listeRessources`, classe dans `classe`).
+
 ## 0.12.0 — vue du professeur principal : bulletins, vie scolaire, fiche élève, photos
 
 Cas du 20/11/2026 (T06, 31 élèves, sessions mobile et web ouvertes) : le connecteur ne rendait qu'une partie de ce que
