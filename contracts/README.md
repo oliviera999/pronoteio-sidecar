@@ -23,6 +23,16 @@ Référence commune entre le sidecar et le plugin Moodle `local_pronoteio` (0.9.
 - En-têtes : `X-Cache`, `Retry-After`, `X-Pronoteio-Pronote-Version`, `X-Pronoteio-Pronote-Validated`,
   `X-Pronoteio-Duplicate`.
 
+## Champs ajoutés en 0.12.0 (vue du professeur principal)
+
+- `studentFile` : `birthplace`, `adult`, `groupDetails` (toujours) ; `contact`, `school`, `memos` (sur `include`) ;
+  `health.allergies`, `health.planDetails` ; `guardian` : `order`, `authority`, `mail`, `sms`, `emailAllowed`,
+  `phoneDetails`.
+- `students/files` : `unmappedGuardianKeys` (noms seulement).
+- Routes nouvelles ou étendues sans schéma de réponse strict pour l'instant (`/reports` paginé, `/reports/results`,
+  `/reports/comments`, `/classlife`, `/students/photos`, `/pp/check`) : leur forme est décrite dans
+  `docs/pronoteio/vue-pp.md` du dépôt `mood_prod` et leurs types dans `src/normalise.ts` et `src/teacher/`.
+
 ## Couverture des réponses
 
 Routes avec schéma de réponse strict : `/health/public`, `/health`, `/errors`, `/roster`, `/students/files` (page et

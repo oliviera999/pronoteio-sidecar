@@ -1,0 +1,239 @@
+{
+ "listeAbsences": {
+  "_T": 24,
+  "V": [
+   {
+    "N": "13#a1",
+    "G": 13,
+    "dateDebut": {
+     "_T": 7,
+     "V": "14/09/2026 08:00:00"
+    },
+    "dateFin": {
+     "_T": 7,
+     "V": "15/09/2026 17:00:00"
+    },
+    "justifie": true,
+    "reglee": true,
+    "NbrHeures": "12h00",
+    "NbrJours": 2,
+    "listeMotifs": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Maladie avec certificat"
+      }
+     ]
+    }
+   },
+   {
+    "N": "13#a2",
+    "G": 13,
+    "dateDebut": {
+     "_T": 7,
+     "V": "05/10/2026 14:00:00"
+    },
+    "dateFin": {
+     "_T": 7,
+     "V": "05/10/2026 16:00:00"
+    },
+    "justifie": false,
+    "reglee": false,
+    "NbrHeures": "2h00",
+    "listeMotifs": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Motif non encore connu"
+      }
+     ]
+    }
+   },
+   {
+    "N": "14#r1",
+    "G": 14,
+    "date": {
+     "_T": 7,
+     "V": "12/10/2026 08:05:00"
+    },
+    "duree": 10,
+    "justifie": false,
+    "reglee": true,
+    "justification": "Réveil",
+    "listeMotifs": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Retard injustifié"
+      }
+     ]
+    }
+   },
+   {
+    "N": "15#x1",
+    "G": 15,
+    "date": {
+     "_T": 7,
+     "V": "03/11/2026 10:00:00"
+    },
+    "circonstances": "Exclusion fictive du cours",
+    "demandeur": {
+     "_T": 24,
+     "V": {
+      "L": "Mme FABRE N."
+     }
+    },
+    "matiere": {
+     "_T": 24,
+     "V": {
+      "L": "PHYSIQUE-CHIMIE SPE"
+     }
+    },
+    "listeMotifs": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Comportement"
+      }
+     ]
+    }
+   },
+   {
+    "N": "41#p1",
+    "G": 41,
+    "dateDemande": {
+     "_T": 7,
+     "V": "04/11/2026 00:00:00"
+    },
+    "nature": {
+     "_T": 24,
+     "V": {
+      "L": "Retenue"
+     }
+    },
+    "duree": 60,
+    "circonstances": "Travail non fait à plusieurs reprises",
+    "demandeur": {
+     "_T": 24,
+     "V": {
+      "L": "M. HENRY P."
+     }
+    },
+    "listeMotifs": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Travail non fait"
+      }
+     ]
+    }
+   },
+   {
+    "N": "46#o1",
+    "G": 46,
+    "L": "Observation",
+    "genreObservation": 1,
+    "date": {
+     "_T": 7,
+     "V": "06/11/2026 09:00:00"
+    },
+    "commentaire": "Bavardages répétés",
+    "demandeur": {
+     "_T": 24,
+     "V": {
+      "L": "Mme COLLIN S."
+     }
+    },
+    "matiere": {
+     "_T": 24,
+     "V": {
+      "L": "ANGLAIS LV1"
+     }
+    }
+   },
+   {
+    "N": "46#o2",
+    "G": 46,
+    "L": "Encouragements",
+    "genreObservation": 2,
+    "date": {
+     "_T": 7,
+     "V": "09/11/2026 11:00:00"
+    },
+    "commentaire": "Belle progression",
+    "demandeur": {
+     "_T": 24,
+     "V": {
+      "L": "M. EVRARD O."
+     }
+    }
+   },
+   {
+    "N": "46#o3",
+    "G": 46,
+    "L": "Défaut de carnet",
+    "genreObservation": 0,
+    "date": {
+     "_T": 7,
+     "V": "10/11/2026 08:00:00"
+    },
+    "commentaire": "",
+    "demandeur": {
+     "_T": 24,
+     "V": {
+      "L": "M. GIRARD T."
+     }
+    }
+   },
+   {
+    "N": "46#o4",
+    "G": 46,
+    "L": "Leçon non apprise",
+    "genreObservation": 3,
+    "date": {
+     "_T": 7,
+     "V": "12/11/2026 14:00:00"
+    },
+    "commentaire": "Chapitre 3",
+    "demandeur": {
+     "_T": 24,
+     "V": {
+      "L": "Mme ARNAUD C."
+     }
+    }
+   },
+   {
+    "N": "21#i1",
+    "G": 21,
+    "dateDebut": {
+     "_T": 7,
+     "V": "13/11/2026 10:00:00"
+    },
+    "dateFin": {
+     "_T": 7,
+     "V": "13/11/2026 10:30:00"
+    },
+    "commentaire": "Symptôme fictif à ne jamais renvoyer"
+   },
+   {
+    "N": "40#d1",
+    "G": 40,
+    "dateDebut": {
+     "_T": 7,
+     "V": "02/11/2026 08:00:00"
+    },
+    "dateFin": {
+     "_T": 7,
+     "V": "20/11/2026 18:00:00"
+    },
+    "commentaire": "Entorse fictive",
+    "matiere": {
+     "_T": 24,
+     "V": {
+      "L": "ED.PHYSIQUE & SPORT."
+     }
+    }
+   }
+  ]
+ }
+}

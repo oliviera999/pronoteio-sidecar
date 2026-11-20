@@ -134,5 +134,25 @@
   "studentFile": {
     "name": "FicheEleve",
     "onglet": 105
+  },
+  "transcript": {
+    "name": "PageReleve",
+    "onglet": 12
+  },
+  "classResults": {
+    "name": "ResultatsClasses",
+    "onglet": 64
+  },
+  "studentLifeRecap": {
+    "name": "RecapitulatifVSEleve",
+    "onglet": 19
+  },
+  "studentNotebook": {
+    "name": "PageSaisieCarnetCorrespondance",
+    "onglet": 78
+  },
+  "studentMemos": {
+    "name": "ListeMemosEleves",
+    "onglet": 105
   }
 }

@@ -28,6 +28,6 @@ export { sendMessage } from "./messagingWrite.js";
 export { writeAttendance } from "./absencesWrite.js";
 export { changeLesson } from "./lessonWrite.js";
 export { resources, roster } from "./roster.js";
-export { reportContext, reports } from "./reports.js";
+export { classResults, reportContext, reports, reportsPage } from "./reports.js";
 export { lessons } from "./timetable.js";
 //# sourceMappingURL=index.js.map

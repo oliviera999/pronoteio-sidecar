@@ -135,7 +135,9 @@ export const limiterOptions = (env = process.env) => ({
  * Cost of the Pronote functions heavier than a list (tokens; 1 for the others). PRONOTEIO_CALL_COSTS overrides or
  * adds: "FicheEleve=3,PageNotes=2".
  */
-const DEFAULT_COSTS = { FicheEleve: 2, PageBulletins: 2, PageNotes: 2, PageCahierDeTexte: 2 };
+const DEFAULT_COSTS = { FicheEleve: 2, PageBulletins: 2, PageNotes: 2, PageCahierDeTexte: 2,
+    // 0.12.0: per-student pages of the main teacher view.
+    PageReleve: 2, RecapitulatifVSEleve: 2 };
 export const parseCosts = (value) => {
     const costs = { ...DEFAULT_COSTS };
     for (const part of String(value ?? "").split(",")) {

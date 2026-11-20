@@ -32,6 +32,9 @@ export const CACHEABLE: Record<string, number> = {
   "/competencies/referential": 300,
   "/reports/context": 120,
   "/reports": 60,
+  // 0.12.0: main teacher view. The photos (/students/photos) are never cached.
+  "/reports/results": 60,
+  "/classlife": 120,
   "/lists": 120,
   "/resources": 60,
 };
@@ -42,7 +45,7 @@ const INVALIDATES: [string, string[]][] = [
   ["/competencies", ["/competencies"]],
   ["/notebook", ["/notebook", "/homework", "/timetable", "/assessments"]],
   ["/timetable", ["/timetable", "/notebook", "/homework"]],
-  ["/absences", ["/absences", "/notebook", "/timetable"]],
+  ["/absences", ["/absences", "/notebook", "/timetable", "/classlife"]],
   ["/reports", ["/reports"]],
   ["/lists", ["/lists"]],
   ["/messages", []],
@@ -233,7 +236,8 @@ export const registerCache = (app: FastifyInstance, cache: ReadCache = readCache
   app.addHook("onSend", async (request, reply, payload) => {
     const route = request.routeOptions.url ?? "";
     const session = sessionOf(request);
-    if (request.cacheKey && reply.statusCode === 200 && typeof payload === "string") {
+    // 0.12.0: a partial answer (students left to read, "partial": true) is never cached: the next request goes further.
+    if (request.cacheKey && reply.statusCode === 200 && typeof payload === "string" && !payload.includes('"partial":true')) {
       cache.set(request.cacheKey, {
         session,
         route,

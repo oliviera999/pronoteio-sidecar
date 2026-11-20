@@ -132,6 +132,31 @@ export type PushResult = {
 };
 
 /** One subject line of a report card. Averages as Pronote shows them (usually out of 20). */
+/** Part of a report card subject taught separately ("sous-service"): its own teachers and averages. */
+export type ReportSubservice = {
+  subject: string;
+  teachers: string[];
+  coefficient: number | null;
+  average: number | null;
+  classAverage: number | null;
+  min: number | null;
+  max: number | null;
+  status: string;
+};
+
+/** Assessment of a transcript ("relevé de notes", PageReleve): only with source=transcript. */
+export type ReportAssessment = {
+  /** "YYYY-MM-DD", "" when unknown. */
+  date: string;
+  title: string;
+  grade: number | null;
+  /** Annotation written instead of the grade ("Abs", "Disp"...), "" otherwise. */
+  status: string;
+  scale: number | null;
+  coefficient: number | null;
+  classAverage: number | null;
+};
+
 export type ReportSubject = {
   subject: string;
   teachers: string[];
@@ -143,6 +168,14 @@ export type ReportSubject = {
   /** Annotation written instead of the average ("Abs", "Disp"...), "" otherwise. */
   status: string;
   comments: string[];
+  /** 0.12.0: rank of the student in the subject, null when Pronote does not give it. */
+  rank: number | null;
+  /** 0.12.0: label of the group of a group service (speciality, language, option), "" otherwise. */
+  group: string;
+  /** 0.12.0: sub-services, [] when the service has none. */
+  subservices: ReportSubservice[];
+  /** 0.12.0: assessments of the subject (transcript only, [] for a report card). */
+  assessments: ReportAssessment[];
 };
 
 /** General comment of a report card: kind from its Pronote genre (0 general, 1-3/8 class council, 4-6 comment, 7 CPE). */
@@ -154,12 +187,19 @@ export type Report = {
   lastname: string;
   firstname: string;
   period: string;
+  /** 0.12.0: "published" (subjects present), "unpublished" (only a message of Pronote), "empty" (nothing). */
+  state: "published" | "unpublished" | "empty";
   average: number | null;
   classAverage: number | null;
+  /** 0.12.0: general rank of the student and size of the class, null when Pronote does not give them. */
+  rank: number | null;
+  classSize: number | null;
   subjects: ReportSubject[];
   comments: ReportComment[];
   /** Summaries written by Pronote in the footer ("3 demi-journées dont 1 non justifiée"...). */
   attendance: { absences: string; lates: string; punishments: string; sanctions: string };
+  /** 0.12.0: publication notice of Pronote (strInfoDatePublication), "" otherwise. */
+  publication: string;
   /** Message of Pronote when there is no report card to show (not published, no grade...), "" otherwise. */
   message: string;
 };
@@ -522,16 +562,30 @@ export type ReferentialItem = {
   name: string;
 };
 
+/** 0.12.0: general comments of the main teacher (tab 27): why nothing came back, and the kinds read. */
+export type GeneralComments = {
+  available: boolean;
+  /** "", "not_principal", "access_denied", "no_kind" or "format_unknown". */
+  reason: string;
+  /** Kind used for students[].general (the global/general one, else the first read). */
+  kind: string;
+  kinds: { name: string; rubric: boolean }[];
+  /** Member paths and types of the answer that was not understood (never a value). */
+  shape?: string[];
+};
+
 export type ReportComments = {
   available: boolean;
   reason: string;
   class: { id: string; name: string };
   period: { id: string; name: string };
-  service: { id: string; name: string };
+  /** null (0.12.0) when the account is main teacher of the class without teaching a service in it. */
+  service: { id: string; name: string } | null;
   closed: boolean;
   maxLength: number | null;
   classComment: string | null;
-  students: { student: string; comment: string | null; general: string | null }[];
+  general: GeneralComments;
+  students: { student: string; comment: string | null; general: string | null; generals: { kind: string; text: string }[] }[];
 };
 
 export type DiscussionFolder = "inbox" | "sent" | "drafts" | "archive" | "trash";

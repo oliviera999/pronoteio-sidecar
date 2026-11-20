@@ -81,12 +81,17 @@
           "description": "0.10.0 : onglet absent de la session (web_session_required, access_denied)."
         },
         "space": {
-          "enum": ["mobile", "web"],
+          "enum": [
+            "mobile",
+            "web"
+          ],
           "description": "0.10.0 : espace où l'onglet manque (access_denied)."
         },
         "webtabs": {
           "type": "array",
-          "items": { "type": "integer" }
+          "items": {
+            "type": "integer"
+          }
         },
         "validated": {
           "type": "array",
@@ -279,6 +284,58 @@
           "items": {
             "type": "string"
           }
+        },
+        "order": {
+          "type": "integer"
+        },
+        "authority": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "mail": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "sms": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "emailAllowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "phoneDetails": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "mobile",
+                  "home",
+                  "work",
+                  "other"
+                ]
+              },
+              "number": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "number"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -288,7 +345,13 @@
         "phones",
         "email",
         "address",
-        "preferences"
+        "preferences",
+        "order",
+        "authority",
+        "mail",
+        "sms",
+        "emailAllowed",
+        "phoneDetails"
       ],
       "additionalProperties": false
     },
@@ -376,11 +439,89 @@
               "items": {
                 "type": "string"
               }
+            },
+            "allergies": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "planDetails": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "PAI",
+                      "PAP",
+                      "PPS",
+                      "PPRE",
+                      "accommodation",
+                      "other"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "start": {
+                    "type": "string"
+                  },
+                  "end": {
+                    "type": "string"
+                  },
+                  "comment": {
+                    "type": "string"
+                  },
+                  "accommodations": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "examAccommodations": {
+                    "type": "boolean"
+                  },
+                  "documents": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "type",
+                  "label",
+                  "title",
+                  "start",
+                  "end",
+                  "comment",
+                  "accommodations",
+                  "examAccommodations",
+                  "documents"
+                ],
+                "additionalProperties": false
+              }
             }
           },
           "required": [
             "plans",
-            "medical"
+            "medical",
+            "allergies",
+            "planDetails"
           ],
           "additionalProperties": false
         },
@@ -395,6 +536,226 @@
             "exists"
           ],
           "additionalProperties": false
+        },
+        "birthplace": {
+          "type": "string"
+        },
+        "adult": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "groupDetails": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "class",
+                  "speciality",
+                  "language",
+                  "option",
+                  "group"
+                ]
+              }
+            },
+            "required": [
+              "label",
+              "kind"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "contact": {
+          "type": "object",
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "postcode": {
+              "type": "string"
+            },
+            "city": {
+              "type": "string"
+            },
+            "country": {
+              "type": "string"
+            },
+            "mobile": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "address",
+            "postcode",
+            "city",
+            "country",
+            "mobile"
+          ],
+          "additionalProperties": false
+        },
+        "school": {
+          "type": "object",
+          "properties": {
+            "delegate": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "commitments": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "exitAuthorisation": {
+              "type": "string"
+            },
+            "transport": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "locker": {
+              "type": "string"
+            },
+            "canteen": {
+              "type": "string"
+            },
+            "aesh": {
+              "type": "string"
+            },
+            "tutors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "mainTeachers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "team": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "subject": {
+                    "type": "string"
+                  },
+                  "teachers": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "subject",
+                  "teachers"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "communication": {
+              "type": "object",
+              "properties": {
+                "email": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "sms": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "mail": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "discussion": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "email",
+                "sms",
+                "mail",
+                "discussion"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "delegate",
+            "commitments",
+            "exitAuthorisation",
+            "transport",
+            "locker",
+            "canteen",
+            "aesh",
+            "tutors",
+            "mainTeachers",
+            "team",
+            "communication"
+          ],
+          "additionalProperties": false
+        },
+        "memos": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "author": {
+                "type": "string"
+              },
+              "published": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "memo",
+                  "valorisation"
+                ]
+              }
+            },
+            "required": [
+              "date",
+              "text",
+              "author",
+              "published",
+              "kind"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -410,7 +771,10 @@
         "class",
         "groups",
         "options",
-        "regime"
+        "regime",
+        "birthplace",
+        "adult",
+        "groupDetails"
       ],
       "additionalProperties": false
     }

@@ -1,0 +1,287 @@
+{
+ "Eleve": {
+  "_T": 8,
+  "V": {
+   "N": "4#e1",
+   "L": "BENALI Yasmine",
+   "P": 3,
+   "Nom": "BENALI",
+   "Prenoms": "Yasmine",
+   "estFeminin": true,
+   "DateNaissance": {
+    "_T": 7,
+    "V": "02/05/2008 00:00:00"
+   },
+   "villeNaiss": "Rabat",
+   "estMajeur": true,
+   "numeroEleve": "E000777",
+   "email": "yasmine.benali@pedagolyautey.org",
+   "adresse1": "12 rue des Fictifs",
+   "adresse2": "Résidence Exemple",
+   "adresse3": "",
+   "adresse4": "",
+   "CP": "20100",
+   "ville": "Casablanca",
+   "pays": "Maroc",
+   "indPort": "212",
+   "telPort": "600000010",
+   "autoriseEmail": true,
+   "autoriseSMS": false,
+   "autoriseCourrier": true,
+   "autoriseDiscussion": true,
+   "avecDiscussion": true,
+   "autoriseDiffusionPhoto": true,
+   "existePhoto": true,
+   "nombreJoursSelectionnables": 7
+  }
+ },
+ "Scolarite": {
+  "_T": 8,
+  "V": {
+   "listeRessources": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "T06",
+      "N": "1#c1",
+      "G": 1
+     },
+     {
+      "L": "T-SPE SVT 2",
+      "N": "2#g1",
+      "G": 2
+     },
+     {
+      "L": "T-SPE PC 1",
+      "N": "2#g2",
+      "G": 2
+     },
+     {
+      "L": "T-OPT MATHS COMP",
+      "N": "2#g3",
+      "G": 2
+     },
+     {
+      "L": "TLVA ANG 3",
+      "N": "2#g4",
+      "G": 2
+     },
+     {
+      "L": "[T06AP ORIENT]",
+      "N": "2#g5",
+      "G": 2
+     }
+    ]
+   },
+   "delegue": "Déléguée titulaire",
+   "engagements": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "Éco-déléguée"
+     },
+     {
+      "L": "CVL"
+     }
+    ]
+   },
+   "autorisationSortie": {
+    "L": "Autorisée après le dernier cours"
+   },
+   "useTransport": false,
+   "numeroCasier": "B-112",
+   "numeroSelf": "45012",
+   "accompagnant": {
+    "_T": 24,
+    "V": {
+     "L": "Mme ROUX A.",
+     "N": "34#a1"
+    }
+   },
+   "tuteur": {
+    "_T": 24,
+    "V": {
+     "L": "M. EVRARD O."
+    }
+   },
+   "listeTuteurs": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "M. EVRARD O."
+     }
+    ]
+   },
+   "profPrincipal": {
+    "_T": 24,
+    "V": {
+     "L": "M. EVRARD O."
+    }
+   },
+   "listePP": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "M. EVRARD O."
+     },
+     {
+      "L": "Mme FABRE N."
+     }
+    ]
+   },
+   "listeEquipePeda": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "M. EVRARD O.",
+      "listeMatieres": {
+       "_T": 24,
+       "V": [
+        {
+         "L": "SC. VIE & TERRE SPE"
+        },
+        {
+         "L": "ENSEIGNEMENT SCIENTIFIQUE"
+        }
+       ]
+      }
+     },
+     {
+      "L": "Mme FABRE N.",
+      "matiere": {
+       "_T": 24,
+       "V": {
+        "L": "PHYSIQUE-CHIMIE SPE"
+       }
+      }
+     },
+     {
+      "L": "Mme FABRE N.",
+      "matiere": {
+       "_T": 24,
+       "V": {
+        "L": "ENSEIGNEMENT SCIENTIFIQUE"
+       }
+      }
+     },
+     {
+      "L": "Mme ARNAUD C.",
+      "matiere": {
+       "_T": 24,
+       "V": {
+        "L": "PHILOSOPHIE"
+       }
+      }
+     }
+    ]
+   }
+  }
+ },
+ "listeProjetsAccompagnement": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "PAP",
+    "intitule": "Trouble fictif",
+    "dateDebut": {
+     "_T": 7,
+     "V": "01/09/2026"
+    },
+    "dateFin": {
+     "_T": 7,
+     "V": "03/07/2027"
+    },
+    "commentaire": "Commentaire fictif",
+    "listeAmenagements": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Tiers-temps"
+      },
+      {
+       "L": "Supports agrandis"
+      }
+     ]
+    },
+    "listeDocuments": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "pap-fictif.pdf",
+       "N": "99#d1"
+      }
+     ]
+    }
+   },
+   {
+    "L": "AMENAGTS EXAMS",
+    "commentaire": "Tiers-temps aux examens"
+   },
+   {
+    "L": "PAI.",
+    "intitule": "Allergie fictive"
+   }
+  ]
+ },
+ "allergies": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "Arachide fictive"
+   }
+  ]
+ },
+ "listeMemos": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "Mémo intégré fictif",
+    "date": {
+     "_T": 7,
+     "V": "10/10/2026"
+    }
+   }
+  ]
+ },
+ "listeResponsables": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "M. BENALI Karim",
+    "lienParente": {
+     "L": "Père"
+    },
+    "estResponsableLegal": true,
+    "avecAutoriteParentale": true,
+    "indPort": "212",
+    "telPort": "600000011",
+    "indFixe": "212",
+    "telFixe": "500000012",
+    "email": "parent1.fictif@example.org",
+    "adresse1": "12 rue des Fictifs",
+    "CP": "20100",
+    "ville": "Casablanca",
+    "pays": "Maroc",
+    "autoriseCourrier": true,
+    "autoriseSMS": true,
+    "autoriseEmail": true,
+    "champResponsableInconnu": "x"
+   },
+   {
+    "L": "Mme BENALI Salma",
+    "lienParente": {
+     "L": "Mère"
+    },
+    "estResponsableLegal": true,
+    "avecAutoriteParentale": true,
+    "indPort": "33",
+    "telPort": "600000013",
+    "telPro": "0500000014",
+    "email": "parent2.fictif@example.org",
+    "autoriseCourrier": false,
+    "autoriseSMS": true,
+    "autoriseEmail": false
+   }
+  ]
+ }
+}

@@ -19,9 +19,22 @@
         "T-EMC 3"
       ],
       "options": [
-        "Latin"
+        "Latin",
+        "T-SPE SVT 2"
       ],
       "regime": "Demi-pensionnaire",
+      "birthplace": "",
+      "adult": null,
+      "groupDetails": [
+        {
+          "label": "T-SPE SVT 2",
+          "kind": "speciality"
+        },
+        {
+          "label": "T-EMC 3",
+          "kind": "group"
+        }
+      ],
       "imageRights": "refused",
       "guardians": [
         {
@@ -35,6 +48,17 @@
           "address": "1 rue Fictive 20000 Casablanca",
           "preferences": [
             "accepteSMS"
+          ],
+          "order": 1,
+          "authority": null,
+          "mail": null,
+          "sms": true,
+          "emailAllowed": null,
+          "phoneDetails": [
+            {
+              "type": "mobile",
+              "number": "0600000001"
+            }
           ]
         },
         {
@@ -46,7 +70,18 @@
           ],
           "email": "",
           "address": "",
-          "preferences": []
+          "preferences": [],
+          "order": 2,
+          "authority": null,
+          "mail": null,
+          "sms": null,
+          "emailAllowed": null,
+          "phoneDetails": [
+            {
+              "type": "home",
+              "number": "0500000002"
+            }
+          ]
         }
       ],
       "photo": {
@@ -67,6 +102,9 @@
       "groups": [],
       "options": [],
       "regime": "",
+      "birthplace": "",
+      "adult": null,
+      "groupDetails": [],
       "imageRights": "unknown",
       "guardians": [],
       "photo": {
@@ -75,9 +113,9 @@
     }
   ],
   "unmappedKeys": [
-    "L",
     "champInconnu"
   ],
+  "unmappedGuardianKeys": [],
   "truncated": false,
   "total": 2,
   "offset": 0

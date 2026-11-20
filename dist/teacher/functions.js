@@ -76,6 +76,11 @@ const defaults = {
     competencyCycles: { name: "ListePaliers", onglet: 200 },
     competencySubjects: { name: "ListeTousPiliersDeCompetence", onglet: 200 },
     competencySubjectReferential: { name: "CompetencesGrilles", onglet: 200 },
+    transcript: { name: "PageReleve", onglet: 12 },
+    classResults: { name: "ResultatsClasses", onglet: 64 },
+    studentLifeRecap: { name: "RecapitulatifVSEleve", onglet: 19 },
+    studentNotebook: { name: "PageSaisieCarnetCorrespondance", onglet: 78 },
+    studentMemos: { name: "ListeMemosEleves", onglet: 105 },
 };
 const load = () => {
     const file = process.env.PRONOTEIO_FUNCTIONS_FILE;

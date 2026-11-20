@@ -132,30 +132,37 @@ export const weeksOf = (session, from, to) => {
         weeks.push(week);
     return weeks;
 };
-/** Lessons of the teacher in [from, to), sorted by date. */
-export const lessons = async (session, from, to) => {
+/** Lessons of the teacher for one Pronote week (not discriminated, in the order of the answer). */
+export const lessonsOfWeek = async (session, week) => {
     const fn = requireFunction("timetablePage");
     const me = session.user.resources[0];
+    const answer = await callPronote(session, {
+        name: fn.name,
+        data: {
+            // Keys are case sensitive: with "numeroSemaine" Pronote silently answers the current week.
+            Ressource: { N: me.id, G: GENRE_TEACHER, L: me.name },
+            NumeroSemaine: week,
+            avecAbsencesEleve: false,
+            avecConseilDeClasse: false,
+            avecRetenuesEleve: false,
+            estEDTPermanence: false,
+            avecCoursSortiePeda: true,
+        },
+        signature: fn.onglet !== null ? { onglet: fn.onglet } : undefined,
+    });
+    const found = [];
+    for (const cours of listOf(answerData(session, answer).ListeCours)) {
+        const ref = lessonFromPage(session, cours, week);
+        if (ref)
+            found.push(ref);
+    }
+    return found;
+};
+/** Lessons of the teacher in [from, to), sorted by date. */
+export const lessons = async (session, from, to) => {
     const found = [];
     for (const week of weeksOf(session, from, to)) {
-        const answer = await callPronote(session, {
-            name: fn.name,
-            data: {
-                // Keys are case sensitive: with "numeroSemaine" Pronote silently answers the current week.
-                Ressource: { N: me.id, G: GENRE_TEACHER, L: me.name },
-                NumeroSemaine: week,
-                avecAbsencesEleve: false,
-                avecConseilDeClasse: false,
-                avecRetenuesEleve: false,
-                estEDTPermanence: false,
-                avecCoursSortiePeda: true,
-            },
-            signature: fn.onglet !== null ? { onglet: fn.onglet } : undefined,
-        });
-        for (const cours of listOf(answerData(session, answer).ListeCours)) {
-            const ref = lessonFromPage(session, cours, week);
-            if (!ref)
-                continue;
+        for (const ref of await lessonsOfWeek(session, week)) {
             // Wall Dates from/to compared in the school's zone with the lesson timestamp.
             const start = ref.lesson.start;
             if (start >= seconds(from) && start < seconds(to))

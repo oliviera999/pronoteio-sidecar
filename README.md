@@ -1,7 +1,7 @@
 # pronoteio-sidecar
 
 Service Node.js (Fastify, Pawnote) qui fait le pont entre le plugin Moodle **local_pronoteio** (olution.info) et le
-Pronote du lycée, avec le compte enseignant lié. Version **0.9.0** — voir [CHANGELOG.md](CHANGELOG.md).
+Pronote du lycée, avec le compte enseignant lié. Version **0.12.0** — voir [CHANGELOG.md](CHANGELOG.md).
 
 - Hébergement : o2switch, cPanel « Setup Node.js App » (Phusion Passenger), fichier de démarrage `app.cjs`, code
   compilé versionné dans `dist/` (pas d'étape de build sur l'hôte).
@@ -78,6 +78,37 @@ sans compétences (55, 56, 65, 199, 200), bulletins (4, 13, 25, 27) ni relevé (
 | `GET /competencies/referential/subjects?cycle=Cycle%203&subject=SCIENCES%20ET%20TECHNOLOGIE` | Référentiel d'une matière (onglet 200, `ListePaliers`, `ListeTousPiliersDeCompetence`, `CompetencesGrilles`, **non validé**) : `elements[]` (`id` `rs:…`, `name`, `domains[]`, `reportElement`, `items[]` (`id` `ri:…`, `name`, `evaluable`, `levels`)) dans l'ordre de Pronote ; sans matière : `subjects[]` (`cycle`, `name`, `elements`, `items`, `classes`). Forme inconnue : `available:false`, `reason:"format_unknown"`, `shape`. |
 | Refus des compétences | `available:false`, `reason:"access_denied"`, + `onglet`, `space`. |
 
+### Vue du professeur principal (0.12.0)
+
+Bulletins de toutes les matières, vie scolaire de la classe, fiche élève complète, photos. Contrat et marche à suivre
+pour la validation : `docs/pronoteio/vue-pp.md` du dépôt `mood_prod`. **Aucune de ces lectures n'a été validée sur un
+vrai serveur** : quand la forme d'une réponse n'est pas reconnue, la route répond `available:false`,
+`reason:"format_unknown"` et `shape` (chemins et types des membres, jamais une valeur). Fonctions ajoutées,
+modifiables par `PRONOTEIO_FUNCTIONS_FILE` : `transcript` (`PageReleve`, 12), `classResults` (`ResultatsClasses`, 64),
+`studentLifeRecap` (`RecapitulatifVSEleve`, 19), `studentNotebook` (`PageSaisieCarnetCorrespondance`, 78),
+`studentMemos` (`ListeMemosEleves`, 105).
+
+Les routes qui lisent un élève à la fois acceptent `student` (un élève) ou `offset` / `limit` (une page de la liste),
+renvoient `total`, et, quand la file vers Pronote est pleine, les élèves déjà lus avec `partial:true`, `remaining` et
+`retry_after` (un 429 seulement si aucun élève n'a pu être lu). Une réponse partielle n'est jamais mise en cache.
+
+| Route | Exemple |
+| --- | --- |
+| `GET /reports?resource=c%3AT06&period=p%3ATrimestre%201&offset=0&limit=10` | Page de bulletins (`PageBulletins`) : `{available, source:"reportcard", total:31, offset:0, items:[{studentid, state:"published", average, rank, classSize, subjects:[{subject, teachers, coefficient, average, classAverage, min, max, rank, group, subservices[], comments[]}], comments[], attendance, publication}], read, remaining, partial, retry_after}`. `source=transcript` : relevé de notes (`PageReleve`), avec `assessments[]` par matière. Sans `student`, `offset`, `limit` ni `source` : toute la classe d'un coup, `{items}`, comme avant. |
+| `GET /reports/results?resource=c%3AT06&period=…` | Résultats de la classe (`ResultatsClasses`) : `subjects[]` (moyenne de classe, min, max, enseignants), `students[]` (moyenne générale, rang, une moyenne par matière). |
+| `GET /reports/comments?resource=c%3AT06&period=…` | + `general: {available, reason, kind, kinds[]}` (`not_principal`, `access_denied`, `no_kind`, `format_unknown`), `students[].generals[]` (toutes les rubriques non pères lues) ; professeur principal sans service dans la classe : `service:null` au lieu de `404 service_not_found`. |
+| `GET /classlife?resource=c%3AT06&from=…&to=…&include=absences,lateness,observations&limit=10` | Vie scolaire par élève : `totals` (absences, demi-journées, non justifiées, heures manquées, retards, exclusions, punitions, infirmerie, dispenses, observations par type) et `events[]` datés. `include` : `absences`, `lateness`, `exclusions`, `punishments`, `observations`, `infirmary`, `exemptions`, `motives`. `sources` : `recap` (récapitulatif de l'élève, toutes matières), `carnet` (carnet de correspondance), `callsheets` (feuilles d'appel des cours du compte, `scope:"own_lessons"`, en repli quand `recap` ne répond pas). Année entière permise (400 jours). |
+| `GET /students/files?…&include=contact,school,memos` | + adresse et portable de l'élève, délégué, engagements, AESH, tuteurs, professeurs principaux, équipe pédagogique, mémos ; toujours : `birthplace`, `adult`, `groupDetails[]` ; responsables : `order`, `authority`, `mail`, `phoneDetails[]` ; santé : `planDetails[]`, `allergies[]` ; `unmappedGuardianKeys`. |
+| `GET /students/photos?resource=c%3AT06&offset=0&limit=10` | Photos d'une page d'élèves (10 au plus, ou `student=`) : `items:[{student, label, available, reason, mime, size, base64}]`. Jamais en cache ni dans une tâche. |
+| `GET /pp/check?resource=c%3AT06` | Une lecture de chaque fonction du lot sur le premier élève : `checks:[{key, function, onglet, status, detail, shape[]}]`, **aucune valeur**. Sert à valider ou corriger les décodeurs au premier essai réel. |
+
+Vie scolaire, à savoir : `totals` est calculé sur `events` (ils se recoupent toujours) ; les demi-journées d'une
+absence sont celles que Pronote donne, sinon une estimation d'après ses heures (coupure à 13 h, dimanches exclus) ;
+les motifs d'une absence, d'un retard, d'une dispense ou d'un passage à l'infirmerie ne sortent qu'avec
+`include=motives`, le commentaire d'un passage à l'infirmerie jamais. Les feuilles d'appel d'une longue période
+demandent beaucoup d'appels : les semaines lues restent dix minutes en mémoire, et une requête refusée faute de temps
+dans la file (`429 rate_limited`, `retry_after`) avance d'autant quand elle est renvoyée.
+
 En-têtes de réponse : `X-Cache` (hit/miss), `Retry-After` (429), `X-Pronoteio-Pronote-Version`,
 `X-Pronoteio-Pronote-Validated`, `X-Pronoteio-Duplicate` (seconde livraison servie). En-tête de requête facultatif
 `X-Pronoteio-Contract: 2` (ou `contract=2` dans `X-Pronoteio-Client`) : un écart à la relecture d'une écriture est
@@ -111,6 +142,9 @@ Le sidecar manipule des données de mineurs (fiches, notes, absences) pour le co
 
 - Cache des lectures, sessions Pronote, résultats des tâches : **en mémoire uniquement**, 60 s par défaut pour le cache,
   10 min au plus pour les tâches, tout est perdu au redémarrage. Jamais écrits sur disque.
+- 0.12.0 : les photos ne passent ni par le cache ni par les tâches ; santé, mémos, coordonnées et motifs d'absence ne
+  quittent le sidecar que si la requête les demande (`include`) ; les semaines de feuilles d'appel gardées dix minutes
+  pour `GET /classlife` restent en mémoire et disparaissent avec la session.
 - Journaux : route-modèle, statut, code, durée, taille ; **jamais** d'URL (sa requête peut nommer un élève), de corps,
   d'en-tête, d'identifiant de session ni de message de Pronote. Les erreurs consignées ne gardent que code, route et
   heure.

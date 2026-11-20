@@ -39,15 +39,17 @@ test("identity only: no image rights, guardians, health nor photo", async () => 
   assert.equal(lea.email, "lea.martin@pedagolyautey.org");
   assert.equal(lea.class, "T06");
   assert.deepEqual(lea.groups, ["T-SPE SVT 2", "T-EMC 3"]);
-  assert.deepEqual(lea.options, ["Latin"]);
+  // 0.12.0: the specialities, languages and options among the groups are options too (kind guessed from the label).
+  assert.deepEqual(lea.options, ["Latin", "T-SPE SVT 2"]);
+  assert.deepEqual(lea.groupDetails, [{ label: "T-SPE SVT 2", kind: "speciality" }, { label: "T-EMC 3", kind: "group" }]);
   assert.equal(lea.regime, "Demi-pensionnaire");
-  for (const key of ["imageRights", "guardians", "health", "photo"]) assert.equal(key in lea, false, key);
+  for (const key of ["imageRights", "guardians", "health", "photo", "contact", "school", "memos"]) assert.equal(key in lea, false, key);
   const json = JSON.stringify(result);
   assert.equal(json.includes("Allergie"), false);
   assert.equal(json.includes("Mémo"), false);
   assert.equal(json.includes("valeur à ne pas renvoyer"), false);
   // Keys only: unknown members are named so that the mapping can be checked, health and memos never.
-  assert.deepEqual(result.unmappedKeys, ["L", "champInconnu"]);
+  assert.deepEqual(result.unmappedKeys, ["champInconnu"]);
   assert.equal(session.calls.filter((call) => call.name === "FicheEleve")[0].data?.AvecResponsables, false);
 });
 
@@ -59,9 +61,13 @@ test("image rights, guardians, health and photo only on request", async () => {
   assert.equal(lea.imageRights, "refused");
   assert.equal(lea.guardians?.length, 2);
   assert.deepEqual(lea.guardians?.[0], { name: "MARTIN Paul", relation: "Père", legal: true, phones: ["0600000001"],
-    email: "parent.fictif@example.org", address: "1 rue Fictive 20000 Casablanca", preferences: ["accepteSMS"] });
+    email: "parent.fictif@example.org", address: "1 rue Fictive 20000 Casablanca", preferences: ["accepteSMS"],
+    order: 1, authority: null, mail: null, sms: true, emailAllowed: null, phoneDetails: [{ type: "mobile", number: "0600000001" }] });
+  assert.equal(lea.guardians?.[1].order, 2);
+  assert.deepEqual(lea.guardians?.[1].phoneDetails, [{ type: "home", number: "0500000002" }]);
   assert.equal(lea.guardians?.[1].legal, false);
-  assert.deepEqual(lea.health, { plans: ["PAI"], medical: ["Allergie fictive"] });
+  assert.deepEqual(lea.health, { plans: ["PAI"], medical: ["Allergie fictive"], allergies: [],
+    planDetails: [{ type: "PAI", label: "PAI", title: "", start: "", end: "", comment: "", accommodations: [], examAccommodations: false, documents: [] }] });
   assert.deepEqual(lea.photo, { exists: true });
   assert.equal(JSON.stringify(result).includes("Mémo"), false);
   assert.equal(session.calls.filter((call) => call.name === "FicheEleve")[0].data?.AvecResponsables, true);
@@ -122,7 +128,8 @@ test("a closed tab or a refusal of Pronote is relayed, never bypassed", async ()
   assert.equal(result.available, false);
   assert.match(result.reason, /droits sont insuffisants/);
   assert.deepEqual(parseInclude("imagerights,guardians"), ["imagerights", "guardians"]);
-  assert.throws(() => parseInclude("memos"), /invalid_include:memos/);
+  assert.deepEqual(parseInclude("contact,school,memos"), ["contact", "school", "memos"]);
+  assert.throws(() => parseInclude("dossier"), /invalid_include:dossier/);
 });
 
 test("teachers and rooms of RessourceEDT, timetable of a room week by week", async () => {
@@ -203,7 +210,7 @@ test("a file wrapped in typed values and Scolarite is read: sex, birth date, cla
   assert.equal(lea.regime, "Externe");
   assert.deepEqual(lea.options, ["Latin"]);
   // Containers, type codes, health and project members are never "unmapped" keys.
-  assert.deepEqual(result.unmappedKeys, ["L", "champScolariteInconnu"]);
+  assert.deepEqual(result.unmappedKeys, ["champScolariteInconnu"]);
   const json = JSON.stringify(result);
   for (const value of ["Allergie", "Motif fictif", "PAP", "valeur à ne pas renvoyer"]) assert.equal(json.includes(value), false, value);
 });

@@ -140,7 +140,18 @@ export type FunctionKey =
   | "competencySubjectReferential"
   /* ---- Student files (0.3.0): only the students of the classes taught, checked by Moodle ---- */
   /** File of one student: identity, image rights, guardians, health (FicheEleve, tab 105; not validated). */
-  | "studentFile";
+  | "studentFile"
+  /* ---- Main teacher view (0.12.0, docs/pronoteio/vue-pp.md in mood_prod; none validated on a real server) ---- */
+  /** Transcript ("relevé de notes") of one student for a period, with its assessments (PageReleve, tab 12). */
+  | "transcript"
+  /** Results of a class for a period, every subject (ResultatsClasses, tab 64; answer shape unknown). */
+  | "classResults"
+  /** School life summary of one student over a date range (RecapitulatifVSEleve, tab 19; refused on the demo). */
+  | "studentLifeRecap"
+  /** Correspondence notebook of one student: observations, encouragements, other events (tab 78; a read). */
+  | "studentNotebook"
+  /** Memos and "valorisations" of one student (ListeMemosEleves, tab 105). */
+  | "studentMemos";
 
 /**
  * Values read from the PRONOTE 2026.2 teacher client (tabs: 23 grade entry, 105 student list, 113 call sheet,
@@ -205,6 +216,11 @@ const defaults: Record<FunctionKey, TeacherFunction> = {
   competencyCycles: { name: "ListePaliers", onglet: 200 },
   competencySubjects: { name: "ListeTousPiliersDeCompetence", onglet: 200 },
   competencySubjectReferential: { name: "CompetencesGrilles", onglet: 200 },
+  transcript: { name: "PageReleve", onglet: 12 },
+  classResults: { name: "ResultatsClasses", onglet: 64 },
+  studentLifeRecap: { name: "RecapitulatifVSEleve", onglet: 19 },
+  studentNotebook: { name: "PageSaisieCarnetCorrespondance", onglet: 78 },
+  studentMemos: { name: "ListeMemosEleves", onglet: 105 },
 };
 
 const load = (): Record<FunctionKey, TeacherFunction> => {
