@@ -39,7 +39,9 @@ export const currentContext = (): RequestContext | undefined => requestContext.g
 
 /** Bulk routes: several Pronote calls per request, served after the unit reads. */
 const BULK_ROUTES = new Set(["/students/files", "/grades/overview", "/notebook", "/assessments", "/jobs", "/jobs/:id",
-  "/competencies/referential/subjects"]);
+  "/competencies/referential/subjects",
+  // 0.12.0: main teacher view, one or two Pronote calls per student.
+  "/reports", "/classlife", "/students/photos", "/pp/check"]);
 
 /** Priority of a request from its method and route. */
 export const priorityOf = (method: string, route: string, query: Record<string, unknown> = {}): Priority => {
@@ -47,6 +49,10 @@ export const priorityOf = (method: string, route: string, query: Record<string, 
   if (route === "/students/files") {
     // One student (student=…) is a unit read; a page of a class or a list of ids is a bulk read.
     return typeof query.student === "string" && query.student !== "" && query.ids === undefined ? PRIORITY.read : PRIORITY.bulk;
+  }
+  if (route === "/reports" || route === "/classlife" || route === "/students/photos") {
+    // One student is a unit read, a page or a whole class a bulk read.
+    if (typeof query.student === "string" && query.student !== "") return PRIORITY.read;
   }
   return BULK_ROUTES.has(route) ? PRIORITY.bulk : PRIORITY.read;
 };

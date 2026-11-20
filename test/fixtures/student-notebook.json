@@ -1,0 +1,67 @@
+{
+ "estPubliable": true,
+ "carnetAvecAR": true,
+ "ListeObservations": {
+  "_T": 24,
+  "V": [
+   {
+    "N": "1#o1",
+    "G": 1,
+    "commentaire": "Bavardages répétés",
+    "date": {
+     "_T": 7,
+     "V": "06/11/2026"
+    },
+    "estPubliee": true,
+    "etatAR": 0,
+    "demandeur": {
+     "_T": 24,
+     "V": {
+      "L": "Mme COLLIN S."
+     }
+    }
+   }
+  ]
+ },
+ "ListeEncouragements": {
+  "_T": 24,
+  "V": [
+   {
+    "N": "1#o2",
+    "G": 2,
+    "commentaire": "Exposé remarquable",
+    "date": {
+     "_T": 7,
+     "V": "16/11/2026"
+    },
+    "estPubliee": true,
+    "demandeur": {
+     "_T": 24,
+     "V": {
+      "L": "M. EVRARD O."
+     }
+    }
+   }
+  ]
+ },
+ "listeAutresEvenements": {
+  "_T": 24,
+  "V": [
+   {
+    "rubrique": {
+     "_T": 24,
+     "V": {
+      "L": "Oubli de matériel"
+     }
+    },
+    "estPublie": true,
+    "strMatiere": "PHILOSOPHIE",
+    "strIndividu": "Mme ARNAUD C.",
+    "date": {
+     "_T": 7,
+     "V": "17/11/2026"
+    }
+   }
+  ]
+ }
+}

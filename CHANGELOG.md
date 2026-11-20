@@ -1,5 +1,63 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.12.0 — vue du professeur principal : bulletins, vie scolaire, fiche élève, photos
+
+Cas du 20/11/2026 (T06, 31 élèves, sessions mobile et web ouvertes) : le connecteur ne rendait qu'une partie de ce que
+le professeur principal voit dans Pronote web. Notes : le seul service du compte ; appréciations générales absentes sans
+explication ; absences limitées aux cours du compte, puis `rate_limited` et délai dépassé ; photos non transmises ;
+32 membres de `FicheEleve` non associés. Contrat : `docs/pronoteio/vue-pp.md` (dépôt `mood_prod`), client
+`local_pronoteio` 0.20.0. Lecture seule. Rétrocompatible : les réponses 0.11 gardent leurs membres.
+
+**Aucune fonction ajoutée n'a été appelée sur un vrai serveur** (développement sans connexion à Pronote). Une forme non
+reconnue répond `available:false`, `reason:"format_unknown"` et `shape` (chemins et types, jamais une valeur) ;
+`GET /pp/check` donne ces formes en une fois.
+
+- **Fonctions** (`src/teacher/functions.ts`, modifiables par `PRONOTEIO_FUNCTIONS_FILE`) : `transcript`
+  (`PageReleve`, 12), `classResults` (`ResultatsClasses`, 64), `studentLifeRecap` (`RecapitulatifVSEleve`, 19),
+  `studentNotebook` (`PageSaisieCarnetCorrespondance`, 78), `studentMemos` (`ListeMemosEleves`, 105). Coût 2 jetons
+  pour `PageReleve` et `RecapitulatifVSEleve`.
+- **`GET /reports`** : `student`, `offset`, `limit` (40 au plus), `source` (`reportcard`, `transcript`). Réponse
+  paginée `{available, reason, source, total, offset, items, read, remaining, partial, retry_after}` ; refus de
+  Pronote en `available:false` avec `onglet` et `space`. Bulletin enrichi : `state` (`published`, `unpublished`,
+  `empty`), `rank`, `classSize`, `publication`, et par matière `rank`, `group`, `subservices[]`, `assessments[]`
+  (relevé). Noms de membres lus sans tenir compte de la casse. Sans paramètre de page : toute la classe, comme avant.
+- **`GET /reports/results`** : résultats de la classe (`ResultatsClasses`), décodage tolérant d'un tableau colonnes
+  (matières) × lignes (élèves).
+- **`GET /reports/comments`** : seule la rubrique nommée « globale » (ou de genre 0) était lue, et tout échec était
+  silencieux : rien ne revenait dans un établissement qui la nomme autrement. Toutes les rubriques non pères sont
+  lues (8 au plus) ; `general {available, reason, kind, kinds}` dit pourquoi rien ne revient (`not_principal`,
+  `access_denied`, `no_kind`, `format_unknown` + `shape`) ; `students[].generals[]` ; un professeur principal sans
+  service dans la classe reçoit `service:null` et les appréciations générales au lieu de `404 service_not_found`.
+- **`GET /classlife`** (`src/teacher/classlife.ts`) : vie scolaire d'une page d'élèves sur une période (400 jours au
+  plus). Sources : `recap` (récapitulatif de l'élève, toutes matières), `carnet` (carnet de correspondance, forme
+  relevée sur la démo), `callsheets` (feuilles d'appel des cours du compte, semaine par semaine, `own_lessons`, en repli
+  quand `recap` ne répond pas). Événements typés (absence, retard, exclusion, punition, observation, infirmerie,
+  dispense), dédoublonnés entre sources ; `totals` calculé sur `events`. Motifs des absences, retards, dispenses et
+  passages à l'infirmerie seulement avec `include=motives` ; jamais le commentaire de l'infirmerie. Les semaines de
+  feuilles d'appel lues restent dix minutes en mémoire : un `429` faute de temps avance d'autant au renvoi.
+- **`GET /students/files`** : tous les membres vus en production le 20/11/2026 sont associés (`unmappedKeys` vide sur
+  la fixture complète). Toujours : `birthplace`, `adult`, `groups` / `options` / `groupDetails` tirés de
+  `listeRessources` (nature devinée du libellé : spécialité, langue, option, groupe). `include` : `contact` (adresse,
+  portable avec indicatif), `school` (délégué, engagements, sortie, transport, casier, self, AESH, tuteurs, professeurs
+  principaux, équipe pédagogique, préférences de communication), `memos` (`ListeMemosEleves`, mémos puis
+  valorisations ; refus : ceux de la fiche). Responsables : `order`, `authority`, `mail`, `sms`, `emailAllowed`,
+  `phoneDetails` ; `unmappedGuardianKeys`. Santé : `planDetails` (type normalisé, intitulé, dates, aménagements,
+  documents), `allergies` ; `plans` et `medical` inchangés.
+- **`GET /students/photos`** : photos d'une page (10 au plus) ou d'un élève, une seule lecture de la liste. Ni cache
+  ni tâche.
+- **`GET /pp/check`** : statut (`ok`, `access_denied`, `tab_closed`, `format_unknown`, `error`) et forme de la réponse
+  de chaque fonction du lot sur le premier élève ; aucune valeur.
+- File et cache : `/reports`, `/classlife`, `/students/photos`, `/pp/check` en priorité « lot » (lecture unitaire avec
+  `student=`) ; `/classlife` (120 s) et `/reports/results` (60 s) en cache ; une réponse partielle n'est plus mise en
+  cache ; `/classlife`, `/reports/results`, `/reports/comments` permises dans une tâche.
+- `contracts/` : `studentFile`, `guardian` et `GET /students/files` mis à jour (contrat strict).
+- Non fait : bulletins des années précédentes (`ListeElevesBIA`), dossiers (`PageDossiers`), `regime` (aucun membre
+  de la fiche ne le porte dans le relevé du 20/11/2026) ; l'écriture des appréciations générales
+  (`commentsWrite.ts`) cherche encore la rubrique par son libellé.
+- Tests : `test/report-cards.test.ts`, `test/comments-general.test.ts`, `test/classlife.test.ts`,
+  `test/students-full.test.ts` ; fixtures `report-card-terminale`, `student-file-full`, `student-life-recap`,
+  `student-notebook` (noms fictifs).
+
 ## 0.11.5 — compétences : nom des élèves
 
 - Première lecture réelle des compétences sur l'Espace Professeurs web (20/11/2026, 6-SC-603 : 4 évaluations, 66

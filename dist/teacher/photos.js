@@ -2,6 +2,7 @@ import { HttpError } from "../errors.js";
 import { downloadUrl } from "../pronote/files.js";
 import { isTabClosed } from "./functions.js";
 import { rosterEntries } from "./roster.js";
+import { pageOf } from "./tolerant.js";
 /** Largest picture accepted (bytes). */
 export const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 /** Default downloader: the session-bound URL needs no cookie (docs/pronote-matrice/8-ressources.md). */
@@ -22,13 +23,9 @@ export const imageType = (bytes) => {
         return "image/gif";
     return "";
 };
-export const studentPhoto = async (session, resource, student, downloader = download) => {
-    const empty = { available: false, reason: "", validated: false, student, mime: "", size: 0, base64: "" };
-    if (isTabClosed(session, "studentFile"))
-        return { ...empty, reason: "tab_closed:105" };
-    const entry = (await rosterEntries(session, resource)).find((item) => item.id === student);
-    if (!entry)
-        throw new HttpError(404, "student_not_found");
+/** Photo of one student of the roster (never kept: the caller sends it at once). */
+const photoOf = async (session, entry, downloader) => {
+    const empty = { available: false, reason: "", validated: false, student: entry.id, mime: "", size: 0, base64: "" };
     let file;
     try {
         file = await downloader(downloadUrl(session, { N: entry.pronoteId, L: "photo.jpg" }));
@@ -42,6 +39,36 @@ export const studentPhoto = async (session, resource, student, downloader = down
         return { ...empty, reason: "no_photo" };
     if (file.bytes.length > MAX_PHOTO_BYTES)
         return { ...empty, reason: "photo_too_large" };
-    return { available: true, reason: "", validated: false, student, mime, size: file.bytes.length, base64: file.bytes.toString("base64") };
+    return { ...empty, available: true, mime, size: file.bytes.length, base64: file.bytes.toString("base64") };
+};
+export const studentPhoto = async (session, resource, student, downloader = download) => {
+    const empty = { available: false, reason: "", validated: false, student, mime: "", size: 0, base64: "" };
+    if (isTabClosed(session, "studentFile"))
+        return { ...empty, reason: "tab_closed:105" };
+    const entry = (await rosterEntries(session, resource)).find((item) => item.id === student);
+    if (!entry)
+        throw new HttpError(404, "student_not_found");
+    return photoOf(session, entry, downloader);
+};
+/* ---- 0.12.0: photos of a page of students ---- */
+/** Largest number of photos sent in one answer (each up to MAX_PHOTO_BYTES before base64). */
+export const MAX_PHOTOS = 10;
+/**
+ * Photos of a page of students of a class or group (or of one student), with one roster read for the page. The
+ * pictures go straight to the answer: this route is neither cached nor allowed in a job, nothing is kept in memory.
+ * Moodle (local_olutionmcp) checks the perimeter before asking and returns the image rights beside each photo.
+ */
+export const studentPhotos = async (session, resource, page = {}, downloader = download) => {
+    const base = { available: false, reason: "", validated: false, total: 0, offset: 0, items: [] };
+    if (isTabClosed(session, "studentFile"))
+        return { ...base, reason: "tab_closed:105" };
+    const { selected, offset, total } = pageOf(await rosterEntries(session, resource), page, MAX_PHOTOS, MAX_PHOTOS);
+    const items = [];
+    for (const entry of selected) {
+        const photo = await photoOf(session, entry, downloader);
+        items.push({ student: entry.id, label: entry.label, available: photo.available, reason: photo.reason, mime: photo.mime,
+            size: photo.size, base64: photo.base64 });
+    }
+    return { ...base, available: true, total, offset, items };
 };
 //# sourceMappingURL=photos.js.map

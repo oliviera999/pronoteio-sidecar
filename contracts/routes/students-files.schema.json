@@ -40,6 +40,12 @@
             },
             "offset": {
               "type": "integer"
+            },
+            "unmappedGuardianKeys": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           "required": [
@@ -48,6 +54,7 @@
             "validated",
             "items",
             "unmappedKeys",
+            "unmappedGuardianKeys",
             "truncated",
             "total",
             "offset"
@@ -110,6 +117,12 @@
             },
             "retry_after": {
               "type": "integer"
+            },
+            "unmappedGuardianKeys": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           "required": [
@@ -118,6 +131,7 @@
             "validated",
             "items",
             "unmappedKeys",
+            "unmappedGuardianKeys",
             "truncated",
             "total",
             "offset",

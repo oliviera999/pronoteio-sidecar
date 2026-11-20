@@ -78,7 +78,14 @@ test("reads the subjects, averages and teachers of a report card", () => {
     max: 17.25,
     status: "",
     comments: ["Bon trimestre."],
+    rank: null,
+    group: "",
+    subservices: [],
+    assessments: [],
   });
+  assert.equal(report.state, "published");
+  assert.equal(report.rank, null);
+  assert.equal(report.publication, "");
   assert.equal(sport.subject, "ED.PHYSIQUE & SPORT.");
   assert.equal(sport.average, null);
   assert.equal(sport.status, "Disp");
@@ -104,6 +111,8 @@ test("keeps the message of a report card that cannot be shown", () => {
   assert.equal(report.message, "Le bulletin sera publié à partir du 22/11/26.");
   assert.deepEqual(report.subjects, []);
   assert.equal(report.average, null);
+  assert.equal(report.state, "unpublished");
+  assert.equal(reportFromAnswer({}, student, "Trimestre 1").state, "empty");
 });
 
 test("converts Pronote cells", () => {

@@ -43,23 +43,29 @@ export const studentKey = (pronoteId: string): string =>
 /** Student of a class or group in the current session: Pronote id, "NOM Prénom" and stable id. */
 export type RosterEntry = { pronoteId: string; label: string; id: string };
 
-export const rosterEntries = async (session: SessionHandle, resourceId: string): Promise<RosterEntry[]> => {
+/**
+ * Class or group of the current session matching a stable id (c:… or g:…): HTTP 409 for another kind of id, HTTP 404
+ * when unknown. 0.8.0: a group read in the skills tab may be written with brackets ("[6-SC-603]") or without.
+ */
+export const resolveResource = (session: SessionHandle, resourceId: string): SchoolResource => {
   const kind = kindOf(resourceId);
   if (kind !== "class" && kind !== "group") {
     throw new HttpError(409, "resource_without_pronote_id");
   }
   const genre = kind === "class" ? 1 : 2;
   const candidates = userData(session).resources.filter((item) => item.genre === genre);
-  let resource: (typeof candidates)[number];
   try {
-    resource = resolve(kind, resourceId, candidates, (item) => item.label);
+    return resolve(kind, resourceId, candidates, (item) => item.label);
   } catch (error) {
-    // 0.8.0: a group read in the skills tab may be written with brackets ("[6-SC-603]") or without.
     const wanted = labelKey(resourceId.slice(resourceId.indexOf(":") + 1));
     const found = candidates.filter((item) => labelKey(item.label) === wanted);
     if (wanted === "" || found.length !== 1) throw error;
-    resource = found[0];
+    return found[0];
   }
+};
+
+export const rosterEntries = async (session: SessionHandle, resourceId: string): Promise<RosterEntry[]> => {
+  const resource = resolveResource(session, resourceId);
 
   const fn = requireFunction("studentsList");
   const answer = await callPronote(session, {

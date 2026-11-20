@@ -2,6 +2,7 @@ import { config } from "../config.js";
 import { HttpError } from "../errors.js";
 import { requireSession } from "../session.js";
 import * as teacher from "../teacher/index.js";
+import { MAX_REPORTS, REPORT_SOURCES } from "../teacher/reports.js";
 import { resourceQuery } from "./schemas.js";
 export default async function reportsRoutes(app) {
     app.get("/reports/context", async (request) => teacher.reportContext(requireSession(request)));
@@ -14,7 +15,8 @@ export default async function reportsRoutes(app) {
             },
         },
     }, async (request) => teacher.reportComments(requireSession(request), request.query.resource, request.query.period));
-    app.get("/reports", {
+    // 0.12.0: results of the class, every subject (ResultatsClasses, not validated).
+    app.get("/reports/results", {
         schema: {
             querystring: {
                 type: "object",
@@ -22,9 +24,30 @@ export default async function reportsRoutes(app) {
                 properties: { ...resourceQuery.properties, period: { type: "string", minLength: 1 } },
             },
         },
+    }, async (request) => teacher.classResults(requireSession(request), request.query.resource, request.query.period));
+    app.get("/reports", {
+        schema: {
+            querystring: {
+                type: "object",
+                required: ["resource", "period"],
+                properties: {
+                    ...resourceQuery.properties,
+                    period: { type: "string", minLength: 1 },
+                    // 0.12.0: one student, or a page of the roster; "transcript" reads PageReleve (assessments of each subject).
+                    student: { type: "string", minLength: 3, maxLength: 200 },
+                    offset: { type: "integer", minimum: 0, maximum: 10000 },
+                    limit: { type: "integer", minimum: 1, maximum: MAX_REPORTS },
+                    source: { type: "string", enum: [...REPORT_SOURCES] },
+                },
+            },
+        },
     }, async (request) => {
-        const { resource, period } = request.query;
-        return { items: await teacher.reports(requireSession(request), resource, period) };
+        const { resource, period, student, offset, limit, source } = request.query;
+        // Without page nor source: the whole class at once, as before 0.12.0 (import of the report cards by Moodle).
+        if (student === undefined && offset === undefined && limit === undefined && source === undefined) {
+            return { items: await teacher.reports(requireSession(request), resource, period) };
+        }
+        return teacher.reportsPage(requireSession(request), resource, period, { student, offset, limit }, source ?? "reportcard");
     });
     // Not validated on a real server (tabs 25 and 27 closed on the demo profile).
     app.post("/reports/comments", {

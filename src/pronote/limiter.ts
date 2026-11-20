@@ -192,7 +192,9 @@ export const limiterOptions = (env: Record<string, string | undefined> = process
  * Cost of the Pronote functions heavier than a list (tokens; 1 for the others). PRONOTEIO_CALL_COSTS overrides or
  * adds: "FicheEleve=3,PageNotes=2".
  */
-const DEFAULT_COSTS: Record<string, number> = { FicheEleve: 2, PageBulletins: 2, PageNotes: 2, PageCahierDeTexte: 2 };
+const DEFAULT_COSTS: Record<string, number> = { FicheEleve: 2, PageBulletins: 2, PageNotes: 2, PageCahierDeTexte: 2,
+  // 0.12.0: per-student pages of the main teacher view.
+  PageReleve: 2, RecapitulatifVSEleve: 2 };
 
 export const parseCosts = (value: string | undefined): Record<string, number> => {
   const costs: Record<string, number> = { ...DEFAULT_COSTS };

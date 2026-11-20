@@ -2,7 +2,8 @@ import { HttpError } from "../errors.js";
 import { requireSession } from "../session.js";
 import { RESOURCE_KINDS, resourceTimetable } from "../teacher/resourceTimetable.js";
 import { INCLUDE_VALUES, MAX_FILES, MAX_IDS, checkStudentFiles, studentFiles, studentFilesByIds } from "../teacher/students.js";
-import { studentPhoto } from "../teacher/photos.js";
+import { MAX_PHOTOS, studentPhoto, studentPhotos } from "../teacher/photos.js";
+import { ppCheck } from "../teacher/ppcheck.js";
 import { epochToWall } from "../time.js";
 const filesQuery = {
     type: "object",
@@ -63,6 +64,26 @@ export default async function studentsRoutes(app) {
             },
         },
     }, async (request) => studentPhoto(requireSession(request), request.query.resource, request.query.student));
+    // 0.12.0: photos of a page of students (or of one), never cached nor kept.
+    app.get("/students/photos", {
+        schema: {
+            querystring: {
+                type: "object",
+                required: ["resource"],
+                properties: {
+                    resource: { type: "string", minLength: 1, maxLength: 200 },
+                    student: { type: "string", minLength: 3, maxLength: 200 },
+                    offset: { type: "integer", minimum: 0, maximum: 10000 },
+                    limit: { type: "integer", minimum: 1, maximum: MAX_PHOTOS },
+                },
+            },
+        },
+    }, async (request) => {
+        const { resource, student, offset, limit } = request.query;
+        return studentPhotos(requireSession(request), resource, { student, offset, limit });
+    });
+    // 0.12.0: check of the main teacher view: status and shape of each function, never a value.
+    app.get("/pp/check", { schema: { querystring: { type: "object", required: ["resource"], properties: { resource: { type: "string", minLength: 1, maxLength: 200 } } } } }, async (request) => ppCheck(requireSession(request), request.query.resource));
     app.get("/timetable/resource", { schema: { querystring: resourceTimetableQuery } }, async (request) => {
         const { kind, name, class: className = "", from, to } = request.query;
         if (to <= from || to - from > 62 * 24 * 3600)

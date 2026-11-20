@@ -1,0 +1,949 @@
+{
+ "Editable": false,
+ "ListeServices": {
+  "_T": 24,
+  "V": [
+   {
+    "L": "PHILOSOPHIE",
+    "N": "13#s1",
+    "Matiere": {
+     "_T": 24,
+     "V": {
+      "L": "PHILOSOPHIE",
+      "N": "21#m1"
+     }
+    },
+    "SurMatiere": {
+     "_T": 24,
+     "V": {
+      "L": "",
+      "N": "0"
+     }
+    },
+    "Coefficient": {
+     "_T": 10,
+     "V": "8"
+    },
+    "MoyenneEleve": {
+     "_T": 10,
+     "V": "11,50"
+    },
+    "MoyenneClasse": {
+     "_T": 10,
+     "V": "10,80"
+    },
+    "MoyenneInf": {
+     "_T": 10,
+     "V": "4,00"
+    },
+    "MoyenneSup": {
+     "_T": 10,
+     "V": "16,50"
+    },
+    "ListeAppreciations": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Des progrès à confirmer.",
+       "N": "0",
+       "G": 1
+      }
+     ]
+    },
+    "Rang": 12,
+    "ListeElements": {
+     "_T": 24,
+     "V": [
+      {
+       "ListeProfesseurs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "Mme ARNAUD C.",
+          "N": "109#Mme AR"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "L": "HISTOIRE-GEOGRAPHIE",
+    "N": "13#s2",
+    "Matiere": {
+     "_T": 24,
+     "V": {
+      "L": "HISTOIRE-GEOGRAPHIE",
+      "N": "21#m2"
+     }
+    },
+    "SurMatiere": {
+     "_T": 24,
+     "V": {
+      "L": "",
+      "N": "0"
+     }
+    },
+    "Coefficient": {
+     "_T": 10,
+     "V": "3"
+    },
+    "MoyenneEleve": {
+     "_T": 10,
+     "V": "13,20"
+    },
+    "MoyenneClasse": {
+     "_T": 10,
+     "V": "11,90"
+    },
+    "MoyenneInf": {
+     "_T": 10,
+     "V": "6,50"
+    },
+    "MoyenneSup": {
+     "_T": 10,
+     "V": "17,00"
+    },
+    "ListeAppreciations": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Bon trimestre.",
+       "N": "0",
+       "G": 1
+      }
+     ]
+    },
+    "Rang": 8,
+    "ListeElements": {
+     "_T": 24,
+     "V": [
+      {
+       "ListeProfesseurs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "M. BERTIN L.",
+          "N": "109#M. BER"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "L": "ENSEIGN.MORAL & CIVIQUE",
+    "N": "13#s3",
+    "Matiere": {
+     "_T": 24,
+     "V": {
+      "L": "ENSEIGN.MORAL & CIVIQUE",
+      "N": "21#m3"
+     }
+    },
+    "SurMatiere": {
+     "_T": 24,
+     "V": {
+      "L": "",
+      "N": "0"
+     }
+    },
+    "Coefficient": {
+     "_T": 10,
+     "V": "1"
+    },
+    "MoyenneEleve": {
+     "_T": 10,
+     "V": "15,00"
+    },
+    "MoyenneClasse": {
+     "_T": 10,
+     "V": "14,10"
+    },
+    "MoyenneInf": {
+     "_T": 10,
+     "V": "9,00"
+    },
+    "MoyenneSup": {
+     "_T": 10,
+     "V": "18,00"
+    },
+    "ListeAppreciations": {
+     "_T": 24,
+     "V": []
+    },
+    "Rang": 5,
+    "ListeElements": {
+     "_T": 24,
+     "V": [
+      {
+       "ListeProfesseurs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "M. BERTIN L.",
+          "N": "109#M. BER"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "L": "ANGLAIS LV1",
+    "N": "13#s4",
+    "Matiere": {
+     "_T": 24,
+     "V": {
+      "L": "ANGLAIS LV1",
+      "N": "21#m4"
+     }
+    },
+    "SurMatiere": {
+     "_T": 24,
+     "V": {
+      "L": "",
+      "N": "0"
+     }
+    },
+    "Coefficient": {
+     "_T": 10,
+     "V": "3"
+    },
+    "MoyenneEleve": {
+     "_T": 10,
+     "V": "14,75"
+    },
+    "MoyenneClasse": {
+     "_T": 10,
+     "V": "12,40"
+    },
+    "MoyenneInf": {
+     "_T": 10,
+     "V": "7,00"
+    },
+    "MoyenneSup": {
+     "_T": 10,
+     "V": "18,50"
+    },
+    "ListeAppreciations": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Participation active.",
+       "N": "0",
+       "G": 1
+      }
+     ]
+    },
+    "Rang": 6,
+    "groupe": {
+     "_T": 24,
+     "V": {
+      "L": "TLVA ANG 3",
+      "N": "2#g4"
+     }
+    },
+    "ListeElements": {
+     "_T": 24,
+     "V": [
+      {
+       "ListeProfesseurs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "Mme COLLIN S.",
+          "N": "109#Mme CO"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "L": "ESPAGNOL LV2",
+    "N": "13#s5",
+    "Matiere": {
+     "_T": 24,
+     "V": {
+      "L": "ESPAGNOL LV2",
+      "N": "21#m5"
+     }
+    },
+    "SurMatiere": {
+     "_T": 24,
+     "V": {
+      "L": "",
+      "N": "0"
+     }
+    },
+    "Coefficient": {
+     "_T": 10,
+     "V": "3"
+    },
+    "MoyenneEleve": {
+     "_T": 10,
+     "V": "12,00"
+    },
+    "MoyenneClasse": {
+     "_T": 10,
+     "V": "11,70"
+    },
+    "MoyenneInf": {
+     "_T": 10,
+     "V": "5,50"
+    },
+    "MoyenneSup": {
+     "_T": 10,
+     "V": "17,50"
+    },
+    "ListeAppreciations": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Ensemble correct.",
+       "N": "0",
+       "G": 1
+      }
+     ]
+    },
+    "Rang": 10,
+    "groupe": {
+     "_T": 24,
+     "V": {
+      "L": "TLVB ESP 2",
+      "N": "2#g5"
+     }
+    },
+    "ListeElements": {
+     "_T": 24,
+     "V": [
+      {
+       "ListeProfesseurs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "M. DIAZ R.",
+          "N": "109#M. DIA"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "L": "ENSEIGNEMENT SCIENTIFIQUE",
+    "N": "13#s6",
+    "Matiere": {
+     "_T": 24,
+     "V": {
+      "L": "ENSEIGNEMENT SCIENTIFIQUE",
+      "N": "21#m6"
+     }
+    },
+    "SurMatiere": {
+     "_T": 24,
+     "V": {
+      "L": "",
+      "N": "0"
+     }
+    },
+    "Coefficient": {
+     "_T": 10,
+     "V": "3"
+    },
+    "MoyenneEleve": {
+     "_T": 10,
+     "V": "13,60"
+    },
+    "MoyenneClasse": {
+     "_T": 10,
+     "V": "12,10"
+    },
+    "MoyenneInf": {
+     "_T": 10,
+     "V": "6,00"
+    },
+    "MoyenneSup": {
+     "_T": 10,
+     "V": "17,80"
+    },
+    "ListeAppreciations": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Travail sérieux.",
+       "N": "0",
+       "G": 1
+      }
+     ]
+    },
+    "Rang": 9,
+    "ListeElements": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "SVT",
+       "N": "13#s6e0",
+       "Matiere": {
+        "_T": 24,
+        "V": {
+         "L": "SVT",
+         "N": "21#m60"
+        }
+       },
+       "Coefficient": {
+        "_T": 10,
+        "V": "1"
+       },
+       "MoyenneEleve": {
+        "_T": 10,
+        "V": "14,20"
+       },
+       "MoyenneClasse": {
+        "_T": 10,
+        "V": "12,60"
+       },
+       "MoyenneInf": {
+        "_T": 10,
+        "V": "5,00"
+       },
+       "MoyenneSup": {
+        "_T": 10,
+        "V": "18,00"
+       },
+       "ListeProfesseurs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "M. EVRARD O.",
+          "N": "109#M. EVR"
+         }
+        ]
+       }
+      },
+      {
+       "L": "PHYSIQUE-CHIMIE",
+       "N": "13#s6e1",
+       "Matiere": {
+        "_T": 24,
+        "V": {
+         "L": "PHYSIQUE-CHIMIE",
+         "N": "21#m61"
+        }
+       },
+       "Coefficient": {
+        "_T": 10,
+        "V": "1"
+       },
+       "MoyenneEleve": {
+        "_T": 10,
+        "V": "13,00"
+       },
+       "MoyenneClasse": {
+        "_T": 10,
+        "V": "11,60"
+       },
+       "MoyenneInf": {
+        "_T": 10,
+        "V": "5,00"
+       },
+       "MoyenneSup": {
+        "_T": 10,
+        "V": "18,00"
+       },
+       "ListeProfesseurs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "Mme FABRE N.",
+          "N": "109#Mme FA"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "L": "ED.PHYSIQUE & SPORT.",
+    "N": "13#s7",
+    "Matiere": {
+     "_T": 24,
+     "V": {
+      "L": "ED.PHYSIQUE & SPORT.",
+      "N": "21#m7"
+     }
+    },
+    "SurMatiere": {
+     "_T": 24,
+     "V": {
+      "L": "",
+      "N": "0"
+     }
+    },
+    "Coefficient": {
+     "_T": 10,
+     "V": "2"
+    },
+    "MoyenneEleve": {
+     "_T": 10,
+     "V": "|2"
+    },
+    "MoyenneClasse": {
+     "_T": 10,
+     "V": "14,30"
+    },
+    "MoyenneInf": {
+     "_T": 10,
+     "V": "8,00"
+    },
+    "MoyenneSup": {
+     "_T": 10,
+     "V": "19,00"
+    },
+    "ListeAppreciations": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Dispensé ce trimestre.",
+       "N": "0",
+       "G": 1
+      }
+     ]
+    },
+    "ListeElements": {
+     "_T": 24,
+     "V": [
+      {
+       "ListeProfesseurs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "M. GIRARD T.",
+          "N": "109#M. GIR"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "L": "SC. VIE & TERRE SPE",
+    "N": "13#s8",
+    "Matiere": {
+     "_T": 24,
+     "V": {
+      "L": "SC. VIE & TERRE SPE",
+      "N": "21#m8"
+     }
+    },
+    "SurMatiere": {
+     "_T": 24,
+     "V": {
+      "L": "",
+      "N": "0"
+     }
+    },
+    "Coefficient": {
+     "_T": 10,
+     "V": "16"
+    },
+    "MoyenneEleve": {
+     "_T": 10,
+     "V": "15,10"
+    },
+    "MoyenneClasse": {
+     "_T": 10,
+     "V": "12,80"
+    },
+    "MoyenneInf": {
+     "_T": 10,
+     "V": "6,20"
+    },
+    "MoyenneSup": {
+     "_T": 10,
+     "V": "18,90"
+    },
+    "ListeAppreciations": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Très bon niveau.",
+       "N": "0",
+       "G": 1
+      }
+     ]
+    },
+    "Rang": 3,
+    "groupe": {
+     "_T": 24,
+     "V": {
+      "L": "T-SPE SVT 2",
+      "N": "2#g8"
+     }
+    },
+    "ListeElements": {
+     "_T": 24,
+     "V": [
+      {
+       "ListeProfesseurs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "M. EVRARD O.",
+          "N": "109#M. EVR"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "L": "PHYSIQUE-CHIMIE SPE",
+    "N": "13#s9",
+    "Matiere": {
+     "_T": 24,
+     "V": {
+      "L": "PHYSIQUE-CHIMIE SPE",
+      "N": "21#m9"
+     }
+    },
+    "SurMatiere": {
+     "_T": 24,
+     "V": {
+      "L": "",
+      "N": "0"
+     }
+    },
+    "Coefficient": {
+     "_T": 10,
+     "V": "16"
+    },
+    "MoyenneEleve": {
+     "_T": 10,
+     "V": "12,30"
+    },
+    "MoyenneClasse": {
+     "_T": 10,
+     "V": "11,40"
+    },
+    "MoyenneInf": {
+     "_T": 10,
+     "V": "4,80"
+    },
+    "MoyenneSup": {
+     "_T": 10,
+     "V": "18,20"
+    },
+    "ListeAppreciations": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Des résultats irréguliers.",
+       "N": "0",
+       "G": 1
+      }
+     ]
+    },
+    "Rang": 11,
+    "groupe": {
+     "_T": 24,
+     "V": {
+      "L": "T-SPE PC 1",
+      "N": "2#g9"
+     }
+    },
+    "ListeElements": {
+     "_T": 24,
+     "V": [
+      {
+       "ListeProfesseurs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "Mme FABRE N.",
+          "N": "109#Mme FA"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "L": "MATHS COMPLEMENTAIRES",
+    "N": "13#s10",
+    "Matiere": {
+     "_T": 24,
+     "V": {
+      "L": "MATHS COMPLEMENTAIRES",
+      "N": "21#m10"
+     }
+    },
+    "SurMatiere": {
+     "_T": 24,
+     "V": {
+      "L": "",
+      "N": "0"
+     }
+    },
+    "Coefficient": {
+     "_T": 10,
+     "V": "2"
+    },
+    "MoyenneEleve": {
+     "_T": 10,
+     "V": "10,90"
+    },
+    "MoyenneClasse": {
+     "_T": 10,
+     "V": "11,00"
+    },
+    "MoyenneInf": {
+     "_T": 10,
+     "V": "3,50"
+    },
+    "MoyenneSup": {
+     "_T": 10,
+     "V": "17,60"
+    },
+    "ListeAppreciations": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Peut mieux faire.",
+       "N": "0",
+       "G": 1
+      }
+     ]
+    },
+    "Rang": 14,
+    "groupe": {
+     "_T": 24,
+     "V": {
+      "L": "T-OPT MATHS COMP",
+      "N": "2#g10"
+     }
+    },
+    "ListeElements": {
+     "_T": 24,
+     "V": [
+      {
+       "ListeProfesseurs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "M. HENRY P.",
+          "N": "109#M. HEN"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "L": "ORIENTATION",
+    "N": "13#s11",
+    "Matiere": {
+     "_T": 24,
+     "V": {
+      "L": "ORIENTATION",
+      "N": "21#m11"
+     }
+    },
+    "SurMatiere": {
+     "_T": 24,
+     "V": {
+      "L": "",
+      "N": "0"
+     }
+    },
+    "Coefficient": {
+     "_T": 10,
+     "V": "0"
+    },
+    "MoyenneEleve": {
+     "_T": 10,
+     "V": ""
+    },
+    "MoyenneClasse": {
+     "_T": 10,
+     "V": ""
+    },
+    "MoyenneInf": {
+     "_T": 10,
+     "V": ""
+    },
+    "MoyenneSup": {
+     "_T": 10,
+     "V": ""
+    },
+    "ListeAppreciations": {
+     "_T": 24,
+     "V": []
+    },
+    "groupe": {
+     "_T": 24,
+     "V": {
+      "L": "T06AP ORIENT",
+      "N": "2#g11"
+     }
+    },
+    "ListeElements": {
+     "_T": 24,
+     "V": [
+      {
+       "ListeProfesseurs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "M. EVRARD O.",
+          "N": "109#M. EVR"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "L": "SECTION INTERNATIONALE",
+    "N": "13#s12",
+    "Matiere": {
+     "_T": 24,
+     "V": {
+      "L": "SECTION INTERNATIONALE",
+      "N": "21#m12"
+     }
+    },
+    "SurMatiere": {
+     "_T": 24,
+     "V": {
+      "L": "",
+      "N": "0"
+     }
+    },
+    "Coefficient": {
+     "_T": 10,
+     "V": "2"
+    },
+    "MoyenneEleve": {
+     "_T": 10,
+     "V": "16,40"
+    },
+    "MoyenneClasse": {
+     "_T": 10,
+     "V": "14,90"
+    },
+    "MoyenneInf": {
+     "_T": 10,
+     "V": "10,00"
+    },
+    "MoyenneSup": {
+     "_T": 10,
+     "V": "19,20"
+    },
+    "ListeAppreciations": {
+     "_T": 24,
+     "V": [
+      {
+       "L": "Excellent.",
+       "N": "0",
+       "G": 1
+      }
+     ]
+    },
+    "Rang": 2,
+    "groupe": {
+     "_T": 24,
+     "V": {
+      "L": "TSI ARABE 1",
+      "N": "2#g12"
+     }
+    },
+    "ListeElements": {
+     "_T": 24,
+     "V": [
+      {
+       "ListeProfesseurs": {
+        "_T": 24,
+        "V": [
+         {
+          "L": "Mme IBANEZ M.",
+          "N": "109#Mme IB"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "General": {
+  "_T": 24,
+  "V": {
+   "MoyenneEleve": {
+    "_T": 10,
+    "V": "13,42"
+   },
+   "MoyenneClasse": {
+    "_T": 10,
+    "V": "12,05"
+   },
+   "RangEleve": 7,
+   "NbrEleves": 31
+  }
+ },
+ "ObjetListeAppreciations": {
+  "_T": 24,
+  "V": {
+   "Editable": false,
+   "ListeAppreciations": {
+    "_T": 24,
+    "V": [
+     {
+      "L": "Trimestre satisfaisant, poursuivez vos efforts en philosophie.",
+      "N": "1",
+      "G": 0,
+      "Intitule": "Appréciation générale"
+     },
+     {
+      "L": "Avis favorable",
+      "N": "2",
+      "G": 1,
+      "Intitule": "Avis du conseil de classe"
+     },
+     {
+      "L": "Encouragements",
+      "N": "3",
+      "G": 8,
+      "Intitule": "Mention"
+     },
+     {
+      "L": "Assiduité correcte.",
+      "N": "4",
+      "G": 7,
+      "Intitule": "Vie scolaire"
+     }
+    ]
+   }
+  }
+ },
+ "ListeAbsences": {
+  "strAbsences": "3 demi-journées dont 1 non justifiée",
+  "strRetards": "2 retards",
+  "strPunitions": "",
+  "strSanctions": ""
+ },
+ "strInfoDatePublication": "Bulletin publié le 05/12/2026"
+}

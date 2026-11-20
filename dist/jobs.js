@@ -31,6 +31,10 @@ export const JOB_ROUTES = [
     "/competencies",
     "/reports/context",
     "/reports",
+    // 0.12.0: main teacher view (never the photos: a job keeps its results in memory).
+    "/reports/results",
+    "/reports/comments",
+    "/classlife",
 ];
 export const MAX_JOB_REQUESTS = 50;
 const MAX_JOBS = 20;

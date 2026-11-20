@@ -20,6 +20,7 @@ import { accessLog as defaultAccessLog } from "./logs.js";
 import { assertWritable, isValidated, pronoteVersion } from "./pronote/formats.js";
 import absencesRoutes from "./routes/absences.js";
 import assessmentsRoutes from "./routes/assessments.js";
+import classLifeRoutes from "./routes/classlife.js";
 import filesRoutes from "./routes/files.js";
 import forumRoutes from "./routes/forum.js";
 import listsRoutes from "./routes/lists.js";
@@ -310,6 +311,7 @@ export const buildApp = async (options = {}) => {
     await app.register(meetingsRoutes);
     await app.register(forumRoutes);
     await app.register(studentsRoutes);
+    await app.register(classLifeRoutes);
     return app;
 };
 //# sourceMappingURL=app.js.map
