@@ -13,18 +13,28 @@ type ReportPageQuery = ReportQuery & { student?: string; offset?: number; limit?
 export default async function reportsRoutes(app: FastifyInstance): Promise<void> {
   app.get("/reports/context", async (request) => teacher.reportContext(requireSession(request)));
 
-  app.get<{ Querystring: ReportQuery }>(
+  app.get<{ Querystring: ReportPageQuery }>(
     "/reports/comments",
     {
       schema: {
         querystring: {
           type: "object",
           required: ["resource", "period"],
-          properties: { ...resourceQuery.properties, period: { type: "string", minLength: 1 } },
+          properties: {
+            ...resourceQuery.properties,
+            period: { type: "string", minLength: 1 },
+            // 0.14.0: page of students of the general comments read from the report cards (main teacher, no kind).
+            student: { type: "string", minLength: 3, maxLength: 200 },
+            offset: { type: "integer", minimum: 0, maximum: 10000 },
+            limit: { type: "integer", minimum: 1, maximum: MAX_REPORTS },
+          },
         },
       },
     },
-    async (request) => teacher.reportComments(requireSession(request), request.query.resource, request.query.period),
+    async (request) => {
+      const { resource, period, student, offset, limit } = request.query;
+      return teacher.reportComments(requireSession(request), resource, period, { student, offset, limit });
+    },
   );
 
   // 0.12.0: results of the class, every subject (ResultatsClasses, not validated).
@@ -97,6 +107,8 @@ export default async function reportsRoutes(app: FastifyInstance): Promise<void>
               },
             },
             dryRun: { type: "boolean", default: false },
+            // 0.14.0: kind of general comment to write when the school has several.
+            generalKind: { type: "string", maxLength: 200 },
           },
         },
       },

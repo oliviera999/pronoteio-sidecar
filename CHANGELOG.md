@@ -1,5 +1,75 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.14.0 — vue du professeur principal : corrections d'après le premier contrôle réel
+
+Premier contrôle réel du 20/11/2026 (`GET /pp/check`, classe de 31 élèves, sessions mobile et web) : `ResultatsClasses`,
+`RecapitulatifVSEleve` et `ListeAppreciations` répondent sous une autre forme que celle supposée en 0.12.0 ;
+`ListeMemosEleves` répond vide ; 8 clés des responsables n'étaient pas associées. Les formes relevées (noms et types
+des membres, sans valeur) ont été relues avec le client web qui les affiche (PRONOTE 2026.2, modules
+`interfacepageresultatsclasses.js`, `donneesliste_resultatsclasse.js`, `objetfenetre_recapitulatifvseleve.js`,
+`objetrequetelistes.js`, `interfaceficheeleve.js`, serveur de démonstration, sans connexion). Client :
+`local_pronoteio` 0.22.0.
+
+**Toujours aucune valeur réelle vue** : les fixtures des tests sont construites sur ces formes, avec des noms et des
+valeurs générés. Chaque lecture reste `validated: false`.
+
+- **Formes** (`src/teacher/shape.ts`, sorti de `students.ts`) : `shapeOf` réunit les membres des cinq premiers éléments
+  d'une liste et décrit un membre vide chez eux par le premier élément qui le remplit (la première ligne de
+  `resultats` cachait `notesEleve`) ; classe de longueur des listes (`list[0]`, `list[1]`, `list[2+]`) ; types
+  multiples (`object|null`). Jamais une valeur (test dédié sur chaque ligne).
+- **Contrôle** (`GET /pp/check`, `src/teacher/ppcheck.ts`) : groupes de sondes (`groups` : `core`, `life`, `reports`,
+  `misc`), une ligne par fonction et par variante de requête (`variant`, `group`). `function=<clé>` : une seule
+  fonction, forme entière (1 500 lignes au plus) par pages de 300 (`shapeoffset`, `shapelimit`, `shapeTotal`,
+  `shapeMore`) ; clé inconnue : `400 invalid_function` avec les clés. Forme d'une fonction non comprise : 150 lignes.
+  Sondes ajoutées, toutes en lecture (aucune fonction `Saisie*` ni `Programmer*`, vérifié avant l'appel et par un test) :
+  `DetailAbsences` (113, sans puis avec `professeur`), `ListePunitions` (192), `PageSuivisAbsenceRetard` (74),
+  `AbsencesGrille` (155), `RecapAbsencesEleves` (138), `RecapFeuilleAppel` (139), `RecapPunitions` (140), `Incidents`
+  (135), `ListeRegimesEleve` (138), `PageApprBulletin` (25 et 30), `PageAppreciationsBulletinParEleve` (246),
+  `ListeElevesBIA` et `BulletinBIA` (227), `RecapitulatifScolarite` (161), `LivretScolaire` (83), `PageDossiers` (20,
+  `eleve` puis `Eleve`), `PageSuiviPluriannuel` (44), `ListeAvisProfesseurs` (260), `PageTrombinoscope` (77),
+  `DetailsPIEleve` (105) ; quatre variantes de `ListeAppreciations`, six de `ListeMemosEleves`, deux de
+  `RecapitulatifVSEleve` ; photo du premier élève (`studentPhoto` : `available`, `reason`, type et taille, jamais
+  l'image) ; membres de la fiche qui portent des personnes (`studentFileMembers` : `Responsables`, `listeRessources`,
+  `listeEquipePeda`, `listePP`). Un refus ou une erreur d'une sonde n'arrête pas les suivantes.
+- **Résultats de la classe** (`GET /reports/results`) : grille réelle (`resultats[]` par élève et période, la ligne
+  `lignePere: 0` étant celle de l'élève, les autres ses sous-périodes ; `notesEleve[].ColMoy.moyenne` ; `moyennes[]` en
+  pied ; `titresColonnes[].ColMoy.titre1…3`). Ajouts : `median`, `groupAverage`, `heading`, `detail`, `lateness`,
+  `absenceHalfDays`, `averages[].column`, `periods[]`, `general`. `titresColonnes` n'était pas dans la forme relevée
+  (coupée à 60 lignes) : s'il manque, `columnsUnnamed: true`, `subject: ""` et `shape`, jamais un libellé deviné. Le
+  tableau supposé en 0.12.0 reste lu en second.
+- **Vie scolaire** (`GET /classlife`) : `RecapitulatifVSEleve` = totaux par type (`listeTotal`) et par matière
+  (`listeMatiere[].colonnes`) → `items[].official` (réduit aux parties de `include`), sans date. `totalsScope` dit ce
+  que couvre le détail daté ; les feuilles d'appel du compte restent lues pour le détail tant qu'aucune source ne le
+  donne pour toutes les matières. Source `summary` (sur demande seulement : aucune de ses fonctions n'a été vue
+  répondre) : `DetailAbsences` sans `professeur` (un appel par genre demandé), `ListePunitions`,
+  `PageSuivisAbsenceRetard`, décodage tolérant sur les noms des feuilles d'appel, `format_unknown` et `shape` par
+  fonction (`parts[]`) ; une fonction refusée ou non comprise n'est pas redemandée pendant la session.
+- **Appréciations générales** (`GET /reports/comments`) : membre `liste` ; requêtes essayées dans l'ordre
+  (`ressource + periode`, `+ listeRessources`, sans paramètre, `classe + periode`), la première dont la liste n'est pas
+  vide est gardée (`general.variant`) ; « aucune rubrique » est gardé dix minutes. Repli pour un professeur principal :
+  `PageBulletins` de chaque élève, par pages (`student`, `offset`, `limit`), `general.source: "reportcards"`,
+  `general.page` ; `general.reason` garde la cause première. Le repli ne s'applique qu'à un client qui demande une
+  page d'élèves (`local_pronoteio` 0.22.0) : un client plus ancien garde la réponse d'avant.
+- **Écriture des appréciations générales** (`POST /reports/comments`) : rubrique résolue comme en lecture
+  (`generalKindFor`) ; `generalKind` pour choisir ; `409 general_kind_ambiguous`, `404 general_kind_not_found`
+  (`candidates`), `404 no_kind` (avant : `general_rubric_not_found`). Réponse : `generalKind`.
+- **Fiche élève** : responsables : `niveauResponsabilite` (libellé, nombre ou `{G, L}`) → `responsibility`, `legal`,
+  `authority` (`null` quand la valeur n'est pas comprise) ; `delegueClasse` → `classDelegate`, `membreCA` →
+  `boardMember`, `contactUrgence` → `emergency`, `emailReason` ; `profession`, `situation`, `couleurPanel`,
+  `couleurStr`, `autoriseRecupererEnfant` connues et jamais renvoyées. Options : texte de `Scolarite.options` ;
+  matières de l'équipe pédagogique qui nomment une spécialité, une langue ou une option (`source: "team"`).
+  `include=groups` : listes d'élèves des groupes du niveau de la classe (30 au plus, gardées dix minutes), puis groupe
+  des services du bulletin de la période en cours ; `groupsReason` quand rien ne répond. Mémos : `eleve` puis `Eleve`
+  sur les onglets 105, 113 et 78, la variante qui répond gardée pour la session, sinon les mémos que la fiche porte
+  (`listeMemosEleves`) et `memosReason`. Régime : celui qu'une absence d'une feuille d'appel lue dans la session nomme
+  (`regimeSource: "callsheets"`), sinon `regimeReason: "not_in_file"`.
+- **Photos** : `download_refused` quand `PageTrombinoscope` (`existePhoto`) dit qu'une photo existe.
+- Fonctions ajoutées (voir `pronote-functions.example.json`), `callFunctionAt` (lecture avec un autre onglet, refusée
+  pour une fonction qui écrit). `/reports/comments` passe en priorité « lot ».
+- Contrats : `guardian` et `studentFile` de `contracts/common.schema.json`, `requests.json`, fixtures des fiches.
+- Tests : `test/real-shapes.test.ts` (15 tests), `test/classlife.test.ts` (4 tests ajoutés), attendus des tests
+  existants mis au nouveau format des formes. `package.json` : seule la version change (aucune dépendance).
+
 ## 0.13.0 — évaluations par compétences : écriture reprise sur le client web, groupe réel de chaque évaluation, niveaux de l'établissement
 
 Premier essai réel du 20/11/2026 (6e, « SCIENCES ET TECHNOLOGIE », groupes 6-SC-601-602 et 6-SC-603) : la création

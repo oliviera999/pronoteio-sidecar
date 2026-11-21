@@ -2,10 +2,16 @@ import { ServerSideError } from "pawnote";
 import { HttpError, RateLimitedError } from "../errors.js";
 import { listOf, parsePronoteDate } from "../pronote/encoding.js";
 import { labelKey, normalise } from "../normalise.js";
-import { callFunction, isTabClosed } from "./functions.js";
+import { userData } from "../pronote/userdata.js";
+import { regimeSeen } from "./classlife.js";
+import { callFunction, callFunctionAt, functions, isTabClosed } from "./functions.js";
+import { loadPeriods, periodKey } from "./grades.js";
+import { stableId, stableIds } from "./ids.js";
+import { reportsPage } from "./reports.js";
+import { SENSITIVE, shapeOf } from "./shape.js";
 import { boolOf, dateOf, dayString, labelsOf, member, textOf, unwrap } from "./tolerant.js";
-import { rosterEntries, studentKey } from "./roster.js";
-export const INCLUDE_VALUES = ["imagerights", "guardians", "health", "photo", "contact", "school", "memos"];
+import { resolveResource, rosterEntries, studentKey } from "./roster.js";
+export const INCLUDE_VALUES = ["imagerights", "guardians", "health", "photo", "contact", "school", "memos", "groups"];
 /** Largest number of files read in one request (one Pronote call per student). */
 export const MAX_FILES = 40;
 /** Text of a string, a number, a typed value or an element (tolerant.ts textOf). */
@@ -44,41 +50,7 @@ const identityOf = (data) => {
     visit(data, 0);
     return merged;
 };
-/** Members never described, not even by name: health, support plans, memos and attestations. */
-const SENSITIVE = /(medic|allerg|sante|pai|pap|handicap|memo|attestation|projet|alimentaire|dispens)/i;
-/** Largest number of lines of a shape. */
-export const MAX_SHAPE = 150;
-/**
- * Shape of a FicheEleve answer, to validate the mapping on a real account WITHOUT any value: one line per member path
- * with its type ("Scolarite.V.classe: object"), the type code of typed values ("_T=7"), lists described by their first
- * element ("listeGroupes.V[]: object"). Sensitive members are left out (their presence alone would say something about
- * the student).
- */
-export const shapeOf = (value, path = "", depth = 0, out = [], skip = SENSITIVE) => {
-    if (out.length >= MAX_SHAPE || depth > 5)
-        return out;
-    const kind = Array.isArray(value) ? "list" : value === null ? "null" : typeof value;
-    if (path !== "")
-        out.push(`${path}: ${kind}`);
-    if (Array.isArray(value)) {
-        if (value.length > 0)
-            shapeOf(value[0], `${path}[]`, depth + 1, out, skip);
-    }
-    else if (isPlain(value)) {
-        for (const [key, member] of Object.entries(value)) {
-            if (out.length >= MAX_SHAPE)
-                break;
-            if (skip?.test(key))
-                continue;
-            const child = path === "" ? key : `${path}.${key}`;
-            if (key === "_T" && typeof member === "number")
-                out.push(`${child}=${member}`);
-            else
-                shapeOf(member, child, depth + 1, out, skip);
-        }
-    }
-    return out;
-};
+export { MAX_SHAPE, MAX_SHAPE_FULL, SENSITIVE, shapeOf } from "./shape.js";
 /** First member present among candidate names, compared without case. */
 const pick = (object, names, used) => {
     const keys = Object.keys(object);
@@ -179,6 +151,25 @@ const addressOf = (item, used) => ({
     country: text(pick(item, ["pays"], used)),
     mobile: "",
 });
+/** Levels of responsibility of a guardian (TypeGenreNiveauResponsabilite of the web client). */
+const RESPONSIBILITY = { 1: "Responsable légal", 2: "En charge", 3: "Contact" };
+/**
+ * Level of responsibility of a guardian. Its value was never seen: the web client prints it as a label, the public
+ * lists carry it as a genre (0 none, 1 legal, 2 in charge, 3 contact). A label, a number or { G, L } are read; "legal"
+ * is null when the value is not understood.
+ */
+export const responsibilityOf = (value) => {
+    const raw = unwrap(value);
+    const code = typeof raw === "number" ? raw : isPlain(raw) && typeof raw.G === "number" ? raw.G : /^\d+$/.test(text(raw)) ? Number(text(raw)) : null;
+    const written = code !== null && !isPlain(raw) ? "" : text(raw);
+    const label = written || (code !== null ? RESPONSIBILITY[code] ?? "" : "");
+    const key = labelKey(label);
+    if (code === 1 || /legal/.test(key))
+        return { label, legal: true };
+    if ((code !== null && code in { 0: 1, 2: 1, 3: 1 }) || /charge|contact|aucun/.test(key))
+        return { label, legal: false };
+    return { label, legal: null };
+};
 /** Guardian of a FicheEleve answer with the names of its members that were not read. */
 export const guardianRead = (value, index = 0) => {
     const item = (unwrap(value) ?? {});
@@ -195,22 +186,36 @@ export const guardianRead = (value, index = 0) => {
     }
     const contact = addressOf(item, used);
     const order = Number(pick(item, ["ordre", "rang", "numeroOrdre"], used));
+    const responsibility = responsibilityOf(pick(item, ["niveauResponsabilite"], used));
+    const authority = boolOf(pick(item, ["avecAutoriteParentale", "autoriteParentale", "aAutoriteParentale", "detientAutoriteParentale"], used));
+    const delegate = pick(item, ["delegueClasse"], used);
+    const email = text(pick(item, ["email", "eMail", "adresseEmail", "mail", "courriel"], used));
     const guardian = {
         name: text(pick(item, ["L", "nom", "Nom"], used)),
         relation: text(pick(item, ["lienParente", "lien", "parente", "Lien"], used)),
-        legal: typeof legal === "boolean" ? legal : null,
+        legal: typeof legal === "boolean" ? legal : responsibility.legal,
         phones: phoneDetails.map((entry) => entry.number),
-        email: text(pick(item, ["email", "eMail", "adresseEmail", "mail", "courriel"], used)),
+        email,
         address: [contact.address, contact.postcode, contact.city].filter(Boolean).join(" "),
         preferences,
         order: Number.isFinite(order) && order > 0 ? order : index + 1,
-        authority: boolOf(pick(item, ["avecAutoriteParentale", "autoriteParentale", "aAutoriteParentale", "detientAutoriteParentale"], used)),
+        // Without a member of its own, the parental authority follows the level of responsibility (legal or not).
+        authority: authority ?? responsibility.legal,
         mail: boolOf(member(item, ["autoriseCourrier", "recoitCourrier", "accepteCourrier", "destinataireCourrier"])),
         sms: boolOf(member(item, ["autoriseSMS", "accepteSMS", "recoitSMS"])),
         emailAllowed: boolOf(member(item, ["autoriseEmail", "accepteEmail", "recoitEmail"])),
         phoneDetails,
+        responsibility: responsibility.label,
+        // The web client prints the class the guardian is delegate of: any text is a yes.
+        classDelegate: delegate === undefined ? null : (boolOf(delegate) ?? text(delegate) !== ""),
+        boardMember: boolOf(pick(item, ["membreCA"], used)),
+        emergency: boolOf(pick(item, ["contactUrgence"], used)),
+        emailReason: email === "" ? "not_in_file" : "",
     };
-    for (const name of ["prenoms", "prenom", "civilite"])
+    // Known and never returned: other names of the guardian, its job and work situation (unrelated to the follow-up of
+    // the student), display colours, and the pick-up authorisation of primary schools.
+    for (const name of ["nom", "Nom", "prenoms", "prenom", "civilite", "profession", "situation", "couleurPanel", "couleurStr",
+        "autoriseRecupererEnfant"])
         pick(item, [name], used);
     return { guardian, unused: Object.keys(item).filter((key) => !used.has(key) && !SENSITIVE.test(key)) };
 };
@@ -322,9 +327,24 @@ export const fileOf = (entry, data, include) => {
     used.add("listeRessources");
     // Groups: only the members that name them (shapes never seen on a real account); none on the file read so far.
     const groups = [...new Set(labels(pick(identity, ["listeGroupes", "groupes", "ListeGroupes"], used)))];
-    const groupDetails = groups.map((label) => ({ label, kind: groupKind(label) }));
-    const options = [...new Set([...labels(pick(identity, ["listeOptions", "options", "ListeOptions"], used)),
+    const groupDetails = groups.map((label) => ({ label, kind: groupKind(label), source: "file" }));
+    // Options: a list of elements, or the text the web client prints as it is ("LATIN, SECTION EURO").
+    const rawOptions = pick(identity, ["listeOptions", "options", "ListeOptions"], used);
+    const writtenOptions = typeof unwrap(rawOptions) === "string" ? text(rawOptions).split(/\s*[,;\n]\s*/).filter(Boolean) : labels(rawOptions);
+    for (const label of writtenOptions) {
+        if (!groupDetails.some((item) => item.label === label))
+            groupDetails.push({ label, kind: "option", source: "file" });
+    }
+    // 0.14.0: the subjects of the pedagogical team whose label names a speciality, a language or an option.
+    const team = teamOf(pick(identity, ["listeEquipePeda", "equipePedagogique"], used));
+    for (const entry of team) {
+        const kind = entry.subject === "" ? "group" : groupKind(entry.subject);
+        if (kind !== "group" && !groupDetails.some((item) => item.label === entry.subject))
+            groupDetails.push({ label: entry.subject, kind, source: "team" });
+    }
+    const options = [...new Set([...writtenOptions,
             ...groupDetails.filter((item) => ["speciality", "language", "option"].includes(item.kind)).map((item) => item.label)])];
+    const regime = text(pick(identity, ["regime", "Regime", "regimeEleve", "libelleRegime"], used));
     const file = {
         id: entry.id,
         key: studentKey(entry.pronoteId),
@@ -340,10 +360,13 @@ export const fileOf = (entry, data, include) => {
         class: text(pick(identity, ["classe", "Classe"], used)),
         groups,
         options,
-        regime: text(pick(identity, ["regime", "Regime", "regimeEleve", "libelleRegime"], used)),
+        regime,
         birthplace: text(pick(identity, ["villeNaiss", "villeNaissance", "lieuNaissance"], used)),
         adult: boolOf(pick(identity, ["estMajeur", "majeur"], used)),
         groupDetails,
+        groupsReason: groupDetails.length === 0 ? "no_source" : "",
+        regimeSource: regime === "" ? "" : "file",
+        regimeReason: regime === "" ? "not_in_file" : "",
     };
     // Known members are always marked as used (their names are not "unmapped"); their values only leave on request.
     const imageRights = imageRightsOf(identity, used);
@@ -372,7 +395,7 @@ export const fileOf = (entry, data, include) => {
         aesh: ((value) => (unwrap(value) === true ? "oui" : labelsOf(value).join(", ")))(pick(identity, ["accompagnant", "listeAccompagnants", "AESH"], used)),
         tutors: [...new Set([...labelsOf(pick(identity, ["listeTuteurs"], used)), ...(typeof unwrap(tutor) === "boolean" ? [] : labelsOf(tutor))])],
         mainTeachers: [...new Set([...labelsOf(pick(identity, ["listePP"], used)), ...labelsOf(pick(identity, ["profPrincipal"], used))])],
-        team: teamOf(pick(identity, ["listeEquipePeda", "equipePedagogique"], used)),
+        team,
         communication: {
             email: boolOf(pick(identity, ["autoriseEmail"], used)),
             sms: boolOf(pick(identity, ["autoriseSMS"], used)),
@@ -387,7 +410,7 @@ export const fileOf = (entry, data, include) => {
     const plans = pick(identity, ["listeProjetsAccompagnement", "projetsAccompagnement", "ListeProjets"], used);
     const medical = pick(identity, ["infosMedicales", "informationsMedicales", "allergies", "listeAllergies", "regimeAlimentaire"], used);
     const allergies = member(identity, ["allergies", "listeAllergies"]);
-    const embeddedMemos = member(identity, ["listeMemos", "memos"]);
+    const embeddedMemos = member(identity, ["listeMemosEleves", "listeMemos", "memos"]);
     for (const key of Object.keys(identity)) {
         if (SENSITIVE.test(key))
             used.add(key);
@@ -408,25 +431,65 @@ export const fileOf = (entry, data, include) => {
     const unmapped = Object.keys(identity).filter((key) => !used.has(key)).sort();
     return { file, unmapped, unmappedGuardian: [...new Set(guardianReads.flatMap((item) => item.unused))].sort() };
 };
+/** Requests tried for the memos of a student: the tab of the list of students, then the tabs of the pages that show them. */
+export const MEMO_TABS = [105, 113, 78];
+/** Request that gave the memos of a session, or why none did: not tried again for every student. */
+const memoRoutes = new WeakMap();
+/** Forgets the memo request found for a session (tests). */
+export const resetMemoRoute = (session) => {
+    memoRoutes.delete(session);
+};
+const memoVariants = () => {
+    const tabs = [...new Set([functions.studentMemos.onglet, ...MEMO_TABS])];
+    return tabs.flatMap((onglet) => ["eleve", "Eleve"].map((member) => ({ onglet, member })));
+};
 /**
- * Memos and "valorisations" of one student (ListeMemosEleves, tab 105; NOT VALIDATED: request read from the client,
- * answer supposed). A refusal of Pronote gives the memos embedded in the file, if any; the queue errors are thrown.
+ * Memos and "valorisations" of one student (ListeMemosEleves; request read from the web client: { eleve,
+ * estValorisation }, answer listeMemosEleves). First real check of 20/11/2026: an EMPTY answer with tab 105. 0.14.0: the
+ * request is tried with "eleve" then "Eleve" (as FicheEleve) on tabs 105, 113 and 78; the first that answers is kept
+ * for the session. Nothing answers: the memos the file itself carries, and the reason. The queue errors are thrown.
  */
 export const readMemos = async (session, entry, embedded) => {
-    const memos = [];
-    for (const kind of ["memo", "valorisation"]) {
+    const eleve = { N: entry.pronoteId, G: 4, L: entry.label };
+    const ask = async (variant, valorisation) => {
         try {
-            const data = await callFunction(session, "studentMemos", { eleve: { N: entry.pronoteId, G: 4, L: entry.label },
-                estValorisation: kind === "valorisation" });
-            memos.push(...memosFrom(data, kind));
+            const data = await callFunctionAt(session, "studentMemos", variant.onglet, { [variant.member]: eleve, estValorisation: valorisation });
+            if (!data || Object.keys(data).length === 0)
+                return "access_denied";
+            return member(data, MEMO_LISTS) === undefined && !Array.isArray(unwrap(data)) ? "format_unknown" : data;
         }
         catch (error) {
             if (!(error instanceof ServerSideError))
                 throw error;
-            return kind === "memo" ? embedded : memos;
+            return /droits|insuffisant/i.test(error.message) ? "access_denied" : "pronote_error";
         }
+    };
+    let route = memoRoutes.get(session);
+    let first = null;
+    if (route === undefined) {
+        let reason = "access_denied";
+        for (const variant of memoVariants()) {
+            const answer = await ask(variant, false);
+            if (typeof answer !== "string") {
+                route = variant;
+                first = answer;
+                break;
+            }
+            if (answer === "format_unknown")
+                reason = answer;
+        }
+        route = route ?? { reason };
+        memoRoutes.set(session, route);
     }
-    return memos;
+    if ("reason" in route)
+        return { memos: embedded, reason: embedded.length > 0 ? "" : route.reason };
+    const memos = [];
+    for (const kind of ["memo", "valorisation"]) {
+        const answer = kind === "memo" && first ? first : await ask(route, kind === "valorisation");
+        if (typeof answer !== "string")
+            memos.push(...memosFrom(answer, kind));
+    }
+    return { memos: memos.length > 0 ? memos : embedded, reason: "" };
 };
 /** One FicheEleve call (and the memos when asked) for a student of the roster. */
 const readFile = async (session, entry, include) => {
@@ -436,9 +499,128 @@ const readFile = async (session, entry, include) => {
         AvecResponsables: include.includes("guardians"),
     });
     const read = fileOf(entry, data, include);
-    if (include.includes("memos"))
-        read.file.memos = await readMemos(session, entry, read.file.memos ?? []);
+    if (include.includes("memos")) {
+        const memos = await readMemos(session, entry, read.file.memos ?? []);
+        read.file.memos = memos.memos;
+        read.file.memosReason = memos.reason;
+    }
+    // 0.14.0: no member of the real file carries the regime; an absence of a call sheet read in this session names it.
+    if (read.file.regime === "") {
+        const seen = regimeSeen(session, entry.id);
+        if (seen !== "")
+            Object.assign(read.file, { regime: seen, regimeSource: "callsheets", regimeReason: "" });
+    }
     return read;
+};
+/* ---- 0.14.0: groups of a student from the lists of students of the groups of the session (include=groups) ---- */
+/** Largest number of groups whose list of students is read for one request (one Pronote call each, kept 10 minutes). */
+export const MAX_GROUP_ROSTERS = 30;
+const GROUP_TTL_MS = 10 * 60_000;
+const groupRosters = new WeakMap();
+/** Forgets the lists of students of the groups kept in memory (tests). */
+export const resetGroupRosters = (session) => {
+    groupRosters.delete(session);
+};
+/** Level of a class or group from its label: "t" (terminale) or the digit of the level ("T06", "1G3", "6-SC-601", "205"). */
+export const levelOf = (label) => {
+    const key = labelKey(label).replace(/\s/g, "");
+    if (/^(t|tle|term)/.test(key) && !/^(tr|te(?!rm))/.test(key))
+        return "t";
+    const digit = key.match(/^([1-6])/);
+    return digit ? digit[1] : "";
+};
+/**
+ * Groups of the session each student of "entries" belongs to: the list of students of every group of the level of the
+ * class is read (ListeEleves, the only function that answers for any group of the school) and kept 10 minutes. A group
+ * whose list Pronote refuses is skipped. "complete" is false when the queue towards Pronote stopped the reading.
+ */
+export const groupsFromRosters = async (session, className, entries) => {
+    const level = levelOf(className);
+    const classKey = labelKey(className);
+    const candidates = userData(session).resources
+        .filter((item) => item.genre === 2 && (level !== "" ? levelOf(item.label) === level : classKey !== "" && labelKey(item.label).includes(classKey)))
+        .slice(0, MAX_GROUP_ROSTERS);
+    const cache = groupRosters.get(session) ?? new Map();
+    groupRosters.set(session, cache);
+    const groups = new Map();
+    let complete = true;
+    let read = 0;
+    for (const group of candidates) {
+        let known = cache.get(group.label);
+        if (!known || known.expires <= Date.now()) {
+            try {
+                const roster = await rosterEntries(session, stableId("group", group.label));
+                known = { expires: Date.now() + GROUP_TTL_MS, members: new Set(roster.map((entry) => entry.pronoteId)) };
+                cache.set(group.label, known);
+            }
+            catch (error) {
+                if (error instanceof RateLimitedError) {
+                    complete = false;
+                    break;
+                }
+                if (!(error instanceof ServerSideError) && !(error instanceof HttpError && error.status === 404))
+                    throw error;
+                continue;
+            }
+        }
+        read++;
+        for (const entry of entries) {
+            if (known.members.has(entry.pronoteId))
+                groups.set(entry.id, [...(groups.get(entry.id) ?? []), group.label]);
+        }
+    }
+    return { groups, complete, read };
+};
+/**
+ * Adds to the files of a page the groups found by other means than the file (include=groups): the lists of students
+ * of the groups of the session, then, for a student still without group, the groups of the services of the report
+ * card of the current period. Nothing found: the lists stay empty with "groupsReason", never a guessed label.
+ */
+const addGroups = async (session, resourceId, selected, files) => {
+    if (files.length === 0)
+        return;
+    const resource = resolveResource(session, resourceId);
+    const className = resource.genre === 1 ? resource.label : (files[0].class || resource.label);
+    const found = await groupsFromRosters(session, className, selected);
+    const add = (file, label, source) => {
+        if (label === "" || labelKey(label) === labelKey(className) || file.groupDetails.some((item) => item.label === label))
+            return;
+        const kind = groupKind(label);
+        file.groupDetails.push({ label, kind, source });
+        if (!file.groups.includes(label))
+            file.groups.push(label);
+        if (["speciality", "language", "option"].includes(kind) && !file.options.includes(label))
+            file.options.push(label);
+    };
+    for (const file of files)
+        for (const label of found.groups.get(file.id) ?? [])
+            add(file, label, "rosters");
+    const without = files.filter((file) => file.groups.length === 0);
+    if (without.length > 0 && resource.genre === 1) {
+        try {
+            const { periods, current } = await loadPeriods(session);
+            const period = current ?? periods[0];
+            if (period) {
+                const periodId = stableIds("period", periods, periodKey)[periods.indexOf(period)];
+                for (const file of without) {
+                    const page = await reportsPage(session, resourceId, periodId, { student: file.id });
+                    if (!page.available)
+                        break;
+                    for (const subject of page.items[0]?.subjects ?? [])
+                        add(file, subject.group, "reportcard");
+                }
+            }
+        }
+        catch (error) {
+            if (error instanceof RateLimitedError)
+                found.complete = false;
+            else if (!(error instanceof ServerSideError))
+                throw error;
+        }
+    }
+    for (const file of files) {
+        file.groupsReason = file.groupDetails.length > 0 ? "" : found.complete ? "no_source" : "rate_limited";
+    }
 };
 /**
  * Files of the students of a class or group (resource stable id), or of one of them (student stable id).
@@ -481,6 +663,8 @@ export const studentFiles = async (session, resource, include, student = "", pag
         read.unmappedGuardian.forEach((key) => unmappedGuardian.add(key));
         items.push(read.file);
     }
+    if (include.includes("groups"))
+        await addGroups(session, resource, selected, items);
     return { available: true, reason: "", validated: false, items, unmappedKeys: [...unmapped].sort(),
         unmappedGuardianKeys: [...unmappedGuardian].sort(), truncated, total: entries.length, offset };
 };
@@ -533,6 +717,8 @@ export const studentFilesByIds = async (session, resource, include, ids) => {
     const remaining = todo.filter((id) => !read.includes(id));
     if (remaining.length > 0 && read.length === 0)
         throw new RateLimitedError(retryAfter || 1);
+    if (include.includes("groups"))
+        await addGroups(session, resource, read.map((id) => byId.get(id)), items);
     return { ...base, available: true, items, unmappedKeys: [...unmapped].sort(), unmappedGuardianKeys: [...unmappedGuardian].sort(),
         total: entries.length, read, remaining, notFound,
         partial: remaining.length > 0, retry_after: remaining.length > 0 ? Math.max(1, Math.ceil(retryAfter)) : 0 };

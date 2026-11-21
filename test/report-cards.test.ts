@@ -178,10 +178,12 @@ test("results of the class: a table of subjects and students, an unknown shape i
   };
   const read = resultsFromAnswer(table, students.map((item) => ({ pronoteId: item.N, label: item.L, id: `e:${item.L}` })));
   assert.ok(read);
-  assert.deepEqual(read.subjects[0], { subject: "PHILOSOPHIE", teachers: ["Mme ARNAUD C."], classAverage: 10.8, min: 4, max: 16.5 });
+  assert.deepEqual(read.subjects[0], { subject: "PHILOSOPHIE", teachers: ["Mme ARNAUD C."], classAverage: 10.8, min: 4, max: 16.5,
+    median: null, groupAverage: null, heading: "", detail: "" });
   assert.equal(read.students.length, 3);
   assert.deepEqual(read.students[2], { studentid: "e:ELEVE03 Prénom", label: "ELEVE03 Prénom", average: 14, rank: 3,
-    averages: [{ subject: "PHILOSOPHIE", value: 12.5, status: "" }, { subject: "SVT", value: null, status: "Disp" }] });
+    lateness: null, absenceHalfDays: null,
+    averages: [{ subject: "PHILOSOPHIE", column: 0, value: 12.5, status: "" }, { subject: "SVT", column: 1, value: null, status: "Disp" }] });
 
   const known = await classResults(session({ ResultatsClasses: () => table }), "c:T06", "p:Trimestre 1");
   assert.equal(known.available, true);
@@ -192,7 +194,7 @@ test("results of the class: a table of subjects and students, an unknown shape i
     "c:T06", "p:Trimestre 1");
   assert.equal(unknown.available, false);
   assert.equal(unknown.reason, "format_unknown");
-  assert.deepEqual(unknown.shape, ["tableau: object", "tableau.lignes: list", "tableau.lignes[]: object", "tableau.lignes[].nom: string",
+  assert.deepEqual(unknown.shape, ["tableau: object", "tableau.lignes: list[1]", "tableau.lignes[]: object", "tableau.lignes[].nom: string",
     "tableau.lignes[].note: string"]);
   assert.equal(JSON.stringify(unknown).includes("Secret"), false);
 

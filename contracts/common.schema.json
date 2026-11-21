@@ -336,6 +336,30 @@
             ],
             "additionalProperties": false
           }
+        },
+        "responsibility": {
+          "type": "string"
+        },
+        "classDelegate": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "boardMember": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "emergency": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "emailReason": {
+          "type": "string"
         }
       },
       "required": [
@@ -351,7 +375,12 @@
         "mail",
         "sms",
         "emailAllowed",
-        "phoneDetails"
+        "phoneDetails",
+        "responsibility",
+        "classDelegate",
+        "boardMember",
+        "emergency",
+        "emailReason"
       ],
       "additionalProperties": false
     },
@@ -563,11 +592,21 @@
                   "option",
                   "group"
                 ]
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "file",
+                  "team",
+                  "rosters",
+                  "reportcard"
+                ]
               }
             },
             "required": [
               "label",
-              "kind"
+              "kind",
+              "source"
             ],
             "additionalProperties": false
           }
@@ -756,6 +795,23 @@
             ],
             "additionalProperties": false
           }
+        },
+        "groupsReason": {
+          "type": "string"
+        },
+        "regimeSource": {
+          "type": "string",
+          "enum": [
+            "",
+            "file",
+            "callsheets"
+          ]
+        },
+        "regimeReason": {
+          "type": "string"
+        },
+        "memosReason": {
+          "type": "string"
         }
       },
       "required": [
@@ -774,7 +830,10 @@
         "regime",
         "birthplace",
         "adult",
-        "groupDetails"
+        "groupDetails",
+        "groupsReason",
+        "regimeSource",
+        "regimeReason"
       ],
       "additionalProperties": false
     }

@@ -3,7 +3,7 @@ import { requireSession } from "../session.js";
 import { RESOURCE_KINDS, resourceTimetable } from "../teacher/resourceTimetable.js";
 import { INCLUDE_VALUES, MAX_FILES, MAX_IDS, checkStudentFiles, studentFiles, studentFilesByIds } from "../teacher/students.js";
 import { MAX_PHOTOS, studentPhoto, studentPhotos } from "../teacher/photos.js";
-import { ppCheck } from "../teacher/ppcheck.js";
+import { MAX_SHAPE_PAGE, PP_GROUPS, ppCheck } from "../teacher/ppcheck.js";
 import { epochToWall } from "../time.js";
 const filesQuery = {
     type: "object",
@@ -83,7 +83,31 @@ export default async function studentsRoutes(app) {
         return studentPhotos(requireSession(request), resource, { student, offset, limit });
     });
     // 0.12.0: check of the main teacher view: status and shape of each function, never a value.
-    app.get("/pp/check", { schema: { querystring: { type: "object", required: ["resource"], properties: { resource: { type: "string", minLength: 1, maxLength: 200 } } } } }, async (request) => ppCheck(requireSession(request), request.query.resource));
+    // 0.14.0: "function" asks one function (every request variant) and returns its whole shape by pages; "groups"
+    // (core, life, reports, misc) asks some groups of probes only.
+    app.get("/pp/check", {
+        schema: {
+            querystring: {
+                type: "object",
+                required: ["resource"],
+                properties: {
+                    resource: { type: "string", minLength: 1, maxLength: 200 },
+                    function: { type: "string", maxLength: 60, pattern: "^[A-Za-z]*$" },
+                    groups: { type: "string", maxLength: 60 },
+                    shapeoffset: { type: "integer", minimum: 0, maximum: 100000 },
+                    shapelimit: { type: "integer", minimum: 1, maximum: MAX_SHAPE_PAGE },
+                },
+            },
+        },
+    }, async (request) => {
+        const { resource, function: fn, groups, shapeoffset, shapelimit } = request.query;
+        const list = (groups ?? "").split(",").map((item) => item.trim()).filter(Boolean);
+        for (const group of list) {
+            if (!PP_GROUPS.includes(group))
+                throw new HttpError(400, `invalid_groups:${group}`);
+        }
+        return ppCheck(requireSession(request), resource, { function: fn, groups: list, shapeOffset: shapeoffset, shapeLimit: shapelimit });
+    });
     app.get("/timetable/resource", { schema: { querystring: resourceTimetableQuery } }, async (request) => {
         const { kind, name, class: className = "", from, to } = request.query;
         if (to <= from || to - from > 62 * 24 * 3600)

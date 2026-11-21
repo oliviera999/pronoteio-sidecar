@@ -597,6 +597,15 @@ export type GeneralComments = {
   kinds: { name: string; rubric: boolean }[];
   /** Member paths and types of the answer that was not understood (never a value). */
   shape?: string[];
+  /**
+   * 0.14.0: where the general comments come from: "kinds" (PageAppreciationsGenerales, one call per kind) or
+   * "reportcards" (report card of each student, when no kind comes back: "reason" keeps the first cause).
+   */
+  source?: "kinds" | "reportcards";
+  /** Request that gave the kinds (see comments.ts kindRequests). */
+  variant?: string;
+  /** reportcards: page of students read (one report card each), as the other per-student routes. */
+  page?: { total: number; offset: number; read: string[]; remaining: string[]; partial: boolean; retry_after: number };
 };
 
 export type ReportComments = {

@@ -13,7 +13,9 @@ export const currentContext = () => requestContext.getStore();
 const BULK_ROUTES = new Set(["/students/files", "/grades/overview", "/notebook", "/assessments", "/jobs", "/jobs/:id",
     "/competencies/referential/subjects",
     // 0.12.0: main teacher view, one or two Pronote calls per student.
-    "/reports", "/classlife", "/students/photos", "/pp/check"]);
+    "/reports", "/classlife", "/students/photos", "/pp/check",
+    // 0.14.0: general comments read from the report cards (one call per student of the page).
+    "/reports/comments"]);
 /** Priority of a request from its method and route. */
 export const priorityOf = (method, route, query = {}) => {
     if (method !== "GET" && method !== "HEAD")

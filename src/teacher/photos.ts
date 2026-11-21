@@ -7,18 +7,27 @@
  *
  * NOT VALIDATED for students: only the teacher's own photo was downloaded on the demo server.
  */
-import type { SessionHandle } from "pawnote";
+import { ServerSideError, type SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
+import { listOf } from "../pronote/encoding.js";
 import { downloadUrl } from "../pronote/files.js";
-import { isTabClosed } from "./functions.js";
-import { rosterEntries, type RosterEntry } from "./roster.js";
-import { pageOf, type StudentPage } from "./tolerant.js";
+import { callFunction, functions, isTabClosed } from "./functions.js";
+import { loadPeriods } from "./grades.js";
+import { resolveResource, rosterEntries, type RosterEntry } from "./roster.js";
+import { boolOf, isPlain, member, pageOf, unwrap, type StudentPage } from "./tolerant.js";
 
 /** Largest picture accepted (bytes). */
 export const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 
 export type Downloaded = { contentType: string; bytes: Buffer } | null;
 export type Downloader = (url: string) => Promise<Downloaded>;
+
+/** Result of the photo of one student WITHOUT the picture (GET /pp/check): whether it came, why not, type and size. */
+export const photoProbe = async (session: SessionHandle, resource: string, entry: RosterEntry,
+  downloader: Downloader = download): Promise<{ available: boolean; reason: string; mime: string; size: number }> => {
+  const photo = await photoOf(session, entry, downloader, () => photoBoard(session, resource));
+  return { available: photo.available, reason: photo.reason, mime: photo.mime, size: photo.size };
+};
 
 export type StudentPhoto = {
   available: boolean;
@@ -46,8 +55,43 @@ export const imageType = (bytes: Buffer): string => {
   return "";
 };
 
+/**
+ * Whether Pronote holds a photo for each student of a class (0.14.0): the photo board (PageTrombinoscope, tab 77:
+ * { classe, periode } → ListeRessources[] { N, existePhoto }, as the web client reads it). It tells "no photo"
+ * ("no_photo") from a download Pronote refuses or answers with something else than a picture ("download_refused").
+ * null when the board cannot be read (group, refusal, unknown shape): the reason stays "no_photo", as before.
+ */
+export const photoBoard = async (session: SessionHandle, resourceId: string): Promise<Map<string, boolean> | null> => {
+  let resource;
+  try {
+    resource = resolveResource(session, resourceId);
+  } catch {
+    return null;
+  }
+  if (resource.genre !== 1 || !functions.classPhotos.name) return null;
+  try {
+    const { periods, current } = await loadPeriods(session);
+    const period = current ?? periods[0];
+    const data = await callFunction(session, "classPhotos", { classe: { N: resource.id, G: 1, L: resource.label },
+      ...(period ? { periode: { N: period.N, G: period.G, L: period.L } } : {}) });
+    const list = member(data, ["ListeRessources", "listeRessources"]);
+    if (list === undefined) return null;
+    const board = new Map<string, boolean>();
+    for (const raw of listOf<unknown>(list)) {
+      const item = unwrap(raw);
+      const exists = boolOf(member(item, ["existePhoto", "avecPhoto"]));
+      if (isPlain(item) && typeof item.N === "string" && exists !== null) board.set(item.N, exists);
+    }
+    return board;
+  } catch (error) {
+    if (error instanceof ServerSideError) return null;
+    throw error;
+  }
+};
+
 /** Photo of one student of the roster (never kept: the caller sends it at once). */
-const photoOf = async (session: SessionHandle, entry: RosterEntry, downloader: Downloader): Promise<StudentPhoto> => {
+const photoOf = async (session: SessionHandle, entry: RosterEntry, downloader: Downloader,
+  board: () => Promise<Map<string, boolean> | null> = async () => null): Promise<StudentPhoto> => {
   const empty: StudentPhoto = { available: false, reason: "", validated: false, student: entry.id, mime: "", size: 0, base64: "" };
   let file: Downloaded;
   try {
@@ -57,7 +101,7 @@ const photoOf = async (session: SessionHandle, entry: RosterEntry, downloader: D
   }
   // Without photo Pronote answers an HTML page ("La page demandée n'existe pas") or a 404.
   const mime = file ? imageType(file.bytes) : "";
-  if (!file || mime === "") return { ...empty, reason: "no_photo" };
+  if (!file || mime === "") return { ...empty, reason: (await board())?.get(entry.pronoteId) === true ? "download_refused" : "no_photo" };
   if (file.bytes.length > MAX_PHOTO_BYTES) return { ...empty, reason: "photo_too_large" };
   return { ...empty, available: true, mime, size: file.bytes.length, base64: file.bytes.toString("base64") };
 };
@@ -72,7 +116,7 @@ export const studentPhoto = async (
   if (isTabClosed(session, "studentFile")) return { ...empty, reason: "tab_closed:105" };
   const entry = (await rosterEntries(session, resource)).find((item) => item.id === student);
   if (!entry) throw new HttpError(404, "student_not_found");
-  return photoOf(session, entry, downloader);
+  return photoOf(session, entry, downloader, () => photoBoard(session, resource));
 };
 
 /* ---- 0.12.0: photos of a page of students ---- */
@@ -104,8 +148,11 @@ export const studentPhotos = async (
   if (isTabClosed(session, "studentFile")) return { ...base, reason: "tab_closed:105" };
   const { selected, offset, total } = pageOf(await rosterEntries(session, resource), page, MAX_PHOTOS, MAX_PHOTOS);
   const items: StudentPhotos["items"] = [];
+  // The photo board is read once, and only when a download gave no picture.
+  let board: Promise<Map<string, boolean> | null> | null = null;
+  const boardOnce = () => (board ??= photoBoard(session, resource));
   for (const entry of selected) {
-    const photo = await photoOf(session, entry, downloader);
+    const photo = await photoOf(session, entry, downloader, boardOnce);
     items.push({ student: entry.id, label: entry.label, available: photo.available, reason: photo.reason, mime: photo.mime,
       size: photo.size, base64: photo.base64 });
   }

@@ -10,6 +10,7 @@
  * PRONOTEIO_FUNCTIONS_FILE (same keys as below).
  */
 import { readFileSync } from "node:fs";
+import { isWriteFunction } from "../context.js";
 import { HttpError } from "../errors.js";
 import { answerData, callPronote } from "../pronote/request.js";
 import { tabClosed } from "../pronote/userdata.js";
@@ -82,7 +83,29 @@ const defaults = {
     studentLifeRecap: { name: "RecapitulatifVSEleve", onglet: 19 },
     studentNotebook: { name: "PageSaisieCarnetCorrespondance", onglet: 78 },
     studentMemos: { name: "ListeMemosEleves", onglet: 105 },
+    lifeAbsenceDetail: { name: "DetailAbsences", onglet: 113 },
+    lifePunishments: { name: "ListePunitions", onglet: 192 },
+    lifeFollowUp: { name: "PageSuivisAbsenceRetard", onglet: 74 },
+    lifeGrid: { name: "AbsencesGrille", onglet: 155 },
+    lifeAbsencesRecap: { name: "RecapAbsencesEleves", onglet: 138 },
+    lifeCallSheetRecap: { name: "RecapFeuilleAppel", onglet: 139 },
+    lifePunishmentsRecap: { name: "RecapPunitions", onglet: 140 },
+    lifeIncidents: { name: "Incidents", onglet: 135 },
+    regimesList: { name: "ListeRegimesEleve", onglet: 138 },
+    transcriptCommentsPage: { name: "PageApprBulletin", onglet: 30 },
+    studentComments: { name: "PageAppreciationsBulletinParEleve", onglet: 246 },
+    pastReportStudents: { name: "ListeElevesBIA", onglet: 227 },
+    pastReports: { name: "BulletinBIA", onglet: 227 },
+    schoolingRecap: { name: "RecapitulatifScolarite", onglet: 161 },
+    schoolRecord: { name: "LivretScolaire", onglet: 83 },
+    studentFolders: { name: "PageDossiers", onglet: 20 },
+    multiYear: { name: "PageSuiviPluriannuel", onglet: 44 },
+    classPhotos: { name: "PageTrombinoscope", onglet: 77 },
+    supportPlanDetails: { name: "DetailsPIEleve", onglet: 105 },
+    teacherOpinions: { name: "ListeAvisProfesseurs", onglet: 260 },
 };
+/** Keys of the configured functions (GET /pp/check?function=…). */
+export const FUNCTION_KEYS = Object.keys(defaults);
 const load = () => {
     const file = process.env.PRONOTEIO_FUNCTIONS_FILE;
     if (!file)
@@ -109,6 +132,17 @@ export const assertTabOpen = (session, key) => {
 export const callFunction = async (session, key, data) => {
     const fn = requireFunction(key);
     const answer = await callPronote(session, { name: fn.name, data, signature: fn.onglet !== null ? { onglet: fn.onglet } : undefined });
+    return answerData(session, answer);
+};
+/**
+ * Sends a READ function with another tab than the configured one (variants of GET /pp/check, memos read from the tab
+ * of the page that shows them). A function that writes is refused before any call.
+ */
+export const callFunctionAt = async (session, key, onglet, data) => {
+    const fn = requireFunction(key);
+    if (isWriteFunction(fn.name))
+        throw new HttpError(500, "internal", { reason: "read_call_of_a_write_function" });
+    const answer = await callPronote(session, { name: fn.name, data, signature: onglet !== null ? { onglet } : undefined });
     return answerData(session, answer);
 };
 /** Configured function, or HTTP 501 when the capture has not been done yet. */
