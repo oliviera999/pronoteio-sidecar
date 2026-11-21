@@ -549,7 +549,7 @@ export const fileOf = (
     aesh: ((value: unknown) => (unwrap(value) === true ? "oui" : labelsOf(value).join(", ")))(
       pick(identity, ["accompagnant", "listeAccompagnants", "AESH"], used)),
     tutors: [...new Set([...labelsOf(pick(identity, ["listeTuteurs"], used)), ...(typeof unwrap(tutor) === "boolean" ? [] : labelsOf(tutor))])],
-    mainTeachers: [...new Set([...labelsOf(pick(identity, ["listePP"], used)), ...labelsOf(pick(identity, ["profPrincipal"], used))])],
+    mainTeachers: samePeople([...labelsOf(pick(identity, ["listePP"], used)), ...labelsOf(pick(identity, ["profPrincipal"], used))]),
     team,
     communication: {
       email: boolOf(pick(identity, ["autoriseEmail"], used)),
@@ -669,6 +669,19 @@ const readFile = async (session: Session, entry: RosterEntry, include: Include[]
   return read;
 };
 
+/**
+ * Labels of people without the same person twice. 0.14.1: the real file names the main teacher in two members, once
+ * with the initial of the first name ("M. DUPONT J.") and once in full ("M. DUPONT Jean"): the full form is kept.
+ */
+export const samePeople = (labels: string[]): string[] => {
+  const unique = [...new Set(labels.map((label) => label.trim()).filter((label) => label !== ""))];
+  return unique.filter((label) => {
+    const short = label.match(/^(.*\s)(\p{L})\.$/u);
+    if (!short) return true;
+    return !unique.some((other) => other !== label && other.length > label.length && other.startsWith(short[1] + short[2]));
+  });
+};
+
 /* ---- 0.14.0: groups of a student from the lists of students of the groups of the session (include=groups) ---- */
 
 /** Largest number of groups whose list of students is read for one request (one Pronote call each, kept 10 minutes). */
@@ -743,12 +756,15 @@ const addGroups = async (session: Session, resourceId: string, selected: RosterE
   const resource = resolveResource(session, resourceId);
   const className = resource.genre === 1 ? resource.label : (files[0].class || resource.label);
   const found = await groupsFromRosters(session, className, selected);
+  // 0.14.1: a file that lists its options itself keeps them: the label of a group ("T-ANG LVA-05-06") is not one more
+  // option beside the option it teaches ("ANGLAIS LVA").
+  const listed = new Set(files.filter((file) => file.options.length > 0).map((file) => file.id));
   const add = (file: StudentFile, label: string, source: GroupSource) => {
     if (label === "" || labelKey(label) === labelKey(className) || file.groupDetails.some((item) => item.label === label)) return;
     const kind = groupKind(label);
     file.groupDetails.push({ label, kind, source });
     if (!file.groups.includes(label)) file.groups.push(label);
-    if (["speciality", "language", "option"].includes(kind) && !file.options.includes(label)) file.options.push(label);
+    if (!listed.has(file.id) && ["speciality", "language", "option"].includes(kind) && !file.options.includes(label)) file.options.push(label);
   };
   for (const file of files) for (const label of found.groups.get(file.id) ?? []) add(file, label, "rosters");
   const without = files.filter((file) => file.groups.length === 0);
@@ -770,7 +786,10 @@ const addGroups = async (session: Session, resourceId: string, selected: RosterE
     }
   }
   for (const file of files) {
-    file.groupsReason = file.groupDetails.length > 0 ? "" : found.complete ? "no_source" : "rate_limited";
+    // 0.14.1: a reading the queue stopped is said even when some groups were found ("partial"): asked again, it goes
+    // further (the lists read stay 10 minutes in memory).
+    const fromGroups = file.groupDetails.some((item) => item.source !== "file" && item.source !== "team");
+    file.groupsReason = !found.complete ? (fromGroups ? "partial" : "rate_limited") : file.groupDetails.length > 0 ? "" : "no_source";
   }
 };
 

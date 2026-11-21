@@ -110,7 +110,10 @@ export default async function studentsRoutes(app: FastifyInstance): Promise<void
   // 0.12.0: check of the main teacher view: status and shape of each function, never a value.
   // 0.14.0: "function" asks one function (every request variant) and returns its whole shape by pages; "groups"
   // (core, life, reports, misc) asks some groups of probes only.
-  app.get<{ Querystring: CheckQuery & { function?: string; groups?: string; shapeoffset?: number; shapelimit?: number } }>(
+  // 0.14.1: a whole check stops starting probes after "budget" seconds and names the first one not run ("next"), to
+  // be asked again with "from".
+  app.get<{ Querystring: CheckQuery & { function?: string; groups?: string; shapeoffset?: number; shapelimit?: number;
+    from?: string; budget?: number } }>(
     "/pp/check",
     {
       schema: {
@@ -123,17 +126,20 @@ export default async function studentsRoutes(app: FastifyInstance): Promise<void
             groups: { type: "string", maxLength: 60 },
             shapeoffset: { type: "integer", minimum: 0, maximum: 100000 },
             shapelimit: { type: "integer", minimum: 1, maximum: MAX_SHAPE_PAGE },
+            from: { type: "string", maxLength: 60, pattern: "^[A-Za-z]*$" },
+            budget: { type: "integer", minimum: 1, maximum: 50 },
           },
         },
       },
     },
     async (request) => {
-      const { resource, function: fn, groups, shapeoffset, shapelimit } = request.query;
+      const { resource, function: fn, groups, shapeoffset, shapelimit, from, budget } = request.query;
       const list = (groups ?? "").split(",").map((item) => item.trim()).filter(Boolean);
       for (const group of list) {
         if (!(PP_GROUPS as readonly string[]).includes(group)) throw new HttpError(400, `invalid_groups:${group}`);
       }
-      return ppCheck(requireSession(request), resource, { function: fn, groups: list as PpGroup[], shapeOffset: shapeoffset, shapeLimit: shapelimit });
+      return ppCheck(requireSession(request), resource, { function: fn, groups: list as PpGroup[], shapeOffset: shapeoffset, shapeLimit: shapelimit,
+        from, ...(budget !== undefined ? { budgetMs: budget * 1000 } : {}) });
     },
   );
 

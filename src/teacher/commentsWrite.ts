@@ -91,7 +91,8 @@ export const generalCells = (page: Record<string, any>): { cells: Cell[]; closed
     if (app.cloture === true) closed = true;
     cells.push({
       student: { N: String(student.N), L: String(student.L ?? "").trim() },
-      appreciation: { N: String(app.N ?? "0"), G: Number(app.G ?? 0), L: String(app.L ?? "") },
+      // 0.14.1: the real element has no "L" while nothing is entered (its text is then in "appreciation", empty).
+      appreciation: { N: String(app.N ?? "0"), G: Number(app.G ?? 0), L: String(app.L ?? (typeof app.appreciation === "string" ? app.appreciation : "")) },
     });
   }
   return { cells, closed };

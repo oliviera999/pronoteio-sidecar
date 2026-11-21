@@ -15,9 +15,10 @@
  * only, so that a caller can stay inside the deadline of a request.
  */
 import { ServerSideError, translateToWeekNumber, type SessionHandle } from "pawnote";
-import { isWriteFunction } from "../context.js";
+import { currentContext, isWriteFunction } from "../context.js";
 import { HttpError, RateLimitedError } from "../errors.js";
 import { pronoteDate } from "../pronote/encoding.js";
+import { limiterOptions } from "../pronote/limiter.js";
 import { userData } from "../pronote/userdata.js";
 import { wallNow } from "../time.js";
 import { decodeRecap, eventsFromNotebook, eventsFromSummary } from "./classlife.js";
@@ -61,6 +62,8 @@ export type PpCheckResult = {
   shapeTotal?: number;
   shapeOffset?: number;
   shapeMore?: boolean;
+  /** 0.14.1: key of the first probe NOT run because the time of the check was spent: ask again with from=<key>. */
+  next?: PpKey;
 };
 
 export type PpCheckOptions = {
@@ -70,12 +73,29 @@ export type PpCheckOptions = {
   shapeOffset?: number;
   shapeLimit?: number;
   downloader?: Downloader;
+  /** 0.14.1: key of the probe to resume from (the "next" of the previous answer); the probes before it are not run. */
+  from?: string;
+  /** 0.14.1: time (ms) after which no further probe is started (a whole check; "function" is never cut). */
+  budgetMs?: number;
+  /** Clock of the budget (tests). */
+  now?: () => number;
 };
 
 /** Lines of the shape of an answer that is understood, of one that is not, and of a page of one function. */
 export const MAX_CHECK_SHAPE = 80;
 export const MAX_UNKNOWN_SHAPE = MAX_SHAPE;
 export const MAX_SHAPE_PAGE = 300;
+
+/**
+ * 0.14.1, after the first check in production (21/11/2026): the 45 probes of a whole check do not fit in one request.
+ * Each Pronote call of the web session takes seconds, and the queue refuses every call asked after the deadline of the
+ * request (20 s after it arrived): 28 probes out of 43 came back "rate_limited" although no call was in excess. Now
+ * each probe has its own wait in the queue, and the check stops STARTING probes once its time is spent: the answer
+ * names the first probe not run ("next"), to be asked again with "from".
+ */
+export const PP_BUDGET_MS = 25_000;
+export const PP_BUDGET_MIN_MS = 1_000;
+export const PP_BUDGET_MAX_MS = 50_000;
 
 const GENRE_CLASS = 1;
 const GENRE_STUDENT = 4;
@@ -138,7 +158,38 @@ export const ppCheck = async (session: SessionHandle, resourceId: string, option
   const domaine = { _T: TYPE_DOMAIN, V: `[1..${week}]` };
   const me = session.user?.resources?.[0];
   const max = only !== "" ? MAX_SHAPE_FULL : MAX_UNKNOWN_SHAPE;
-  const wanted = (key: PpKey, group: PpGroup) => (only !== "" ? key === only : groups.includes(group));
+  const clock = options.now ?? Date.now;
+  const started = clock();
+  const budget = Math.min(PP_BUDGET_MAX_MS, Math.max(PP_BUDGET_MIN_MS, options.budgetMs ?? PP_BUDGET_MS));
+  // Probe to resume from: every key met before it is skipped. An unknown key resumes nothing (whole check).
+  let from = options.from && ((FUNCTION_KEYS as string[]).includes(options.from) || (PP_EXTRA_KEYS as readonly string[]).includes(options.from))
+    ? options.from : "";
+  let next: PpKey | "" = "";
+  // One decision per key, taken when it is first met: the variants of a function are never cut in two.
+  const decided = new Map<PpKey, boolean>();
+  const wanted = (key: PpKey, group: PpGroup): boolean => {
+    if (only !== "") return key === only;
+    if (!groups.includes(group)) return false;
+    const known = decided.get(key);
+    if (known !== undefined) return known;
+    let run = true;
+    if (from !== "") {
+      if (key === from) from = "";
+      else run = false;
+    }
+    if (run && next !== "") run = false;
+    if (run && clock() - started > budget) {
+      next = key;
+      run = false;
+    }
+    decided.set(key, run);
+    return run;
+  };
+  /** A check is a sequence of independent probes: each has its own wait in the queue of the Pronote calls. */
+  const ownWait = () => {
+    const context = currentContext();
+    if (context) context.deadline = Math.max(context.deadline, Date.now() + limiterOptions().maxWaitMs);
+  };
 
   /** Calls one probe; never throws for a refusal or an error of Pronote. */
   const run = async (probe: Probe): Promise<{ check: PpCheck; answer: Record<string, any> | null }> => {
@@ -151,6 +202,7 @@ export const ppCheck = async (session: SessionHandle, resourceId: string, option
     if (probe.data === null) return { check: { ...base, detail: "not_applicable" }, answer: null };
     let answer: Record<string, any>;
     try {
+      ownWait();
       answer = await callFunctionAt(session, probe.key, onglet, probe.data);
     } catch (error) {
       if (error instanceof RateLimitedError) return { check: { ...base, detail: "rate_limited" }, answer: null };
@@ -249,6 +301,7 @@ export const ppCheck = async (session: SessionHandle, resourceId: string, option
     const base: PpCheck = { key: "studentPhoto", function: "FichiersExternes", onglet: null, variant: "", group: "core", status: "error",
       detail: "", shape: [] };
     try {
+      ownWait();
       const photo = await photoProbe(session, resourceId, first, options.downloader);
       // Whether a picture came, why not, its type and its size: never the picture.
       checks.push({ ...base, status: photo.available ? "ok" : photo.reason === "download_refused" ? "access_denied" : "error",
@@ -279,6 +332,7 @@ export const ppCheck = async (session: SessionHandle, resourceId: string, option
   let service: { N: string } | null = null;
   if (isClass && period && (wanted("commentsPage", "reports") || wanted("transcriptCommentsPage", "reports"))) {
     try {
+      ownWait();
       const found = (await loadServices(session, period)).find((item) => String(resourceOf(item)?.L ?? "") === resource.label);
       service = found ? { N: found.N } : null;
     } catch (error) {
@@ -305,7 +359,7 @@ export const ppCheck = async (session: SessionHandle, resourceId: string, option
     recognise: (answer) => (member(answer, ["ListeRessources", "listeRessources"]) !== undefined ? "" : null) });
   await push("supportPlanDetails", "misc", { data: { eleve } });
 
-  if (only === "") return { students: entries.length, groups, checks };
+  if (only === "") return { students: entries.length, groups, checks, ...(next !== "" ? { next } : {}) };
   // One function: its whole shape by pages of MAX_SHAPE_PAGE lines (the same lines of every variant are paged alike).
   const offset = Math.max(0, Math.floor(options.shapeOffset ?? 0));
   const limit = Math.min(MAX_SHAPE_PAGE, Math.max(1, Math.floor(options.shapeLimit ?? MAX_SHAPE_PAGE)));
