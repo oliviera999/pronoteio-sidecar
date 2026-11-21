@@ -341,14 +341,19 @@ const gridFromAnswer = (data, students) => {
     const foot = listOf(member(data, ["moyennes"])).map(unwrap);
     const cellsOf = (row) => listOf(member(row, ["notesEleve"])).map(unwrap);
     const width = Math.max(titles.length, foot.length, ...rows.map((row) => cellsOf(row).length), 0);
-    const subjects = [];
+    const every = [];
     for (let index = 0; index < width; index++) {
         const title = titles[index];
         const column = (unwrap(member(title, ["ColMoy"])) ?? title);
         const lines = [titleText(member(column, ["titre2"])), titleText(member(column, ["titre3"])), titleText(member(column, ["titre1"]))];
-        const subject = lines[0] || titleText(member(column, ["hint"])) || (isPlain(column) ? subjectLabel(column) : "");
-        subjects.push({
+        const hint = titleText(member(column, ["hint"]));
+        // A column of grouping averages is titled by its first and third lines (the client draws no second line for it).
+        const grouping = member(column, ["estMoyenneRegroupement"]) === true ? lines[2] || lines[1] : "";
+        const subject = lines[0] || hint || grouping || (isPlain(column) ? subjectLabel(column) : "");
+        every.push({
             subject,
+            // The long title of the column (its tooltip in the client): what tells two columns of the same short title apart.
+            title: hint === subject ? "" : hint,
             heading: lines[2],
             detail: lines[1] === subject ? "" : lines[1],
             teachers: [...new Set(teachersOf(title))],
@@ -359,6 +364,17 @@ const gridFromAnswer = (data, students) => {
             groupAverage: reportNumber(member(foot[index], ["moyenneGroupeService"])),
         });
     }
+    // 0.14.1 (first real read, 21/11/2026): the client draws one column per title, and only the visible ones; the foot and
+    // the cells may count more entries than there are titles (four of them on a class of terminale). Once Pronote names
+    // columns, the ones it does not name or hides are not columns of the grid: they were returned as "#37"…"#40".
+    const named = every.some((item) => item.subject !== "");
+    const kept = every.map((item, index) => index).filter((index) => {
+        if (!named)
+            return true;
+        const column = unwrap(member(titles[index], ["ColMoy"])) ?? titles[index];
+        return every[index].subject !== "" && member(column, ["visible"]) !== false;
+    });
+    const subjects = kept.map((index) => every[index]);
     const byLabel = new Map();
     for (const entry of students)
         byLabel.set(entry.label, byLabel.has(entry.label) ? null : entry);
@@ -385,10 +401,11 @@ const gridFromAnswer = (data, students) => {
             rank: positive(member(main, ["rang"])),
             lateness: numberOf(member(main, ["nbRetard"])),
             absenceHalfDays: numberOf(member(main, ["demiJourneesAbs"])),
-            averages: subjects.map((subject, index) => {
-                const cell = cells[index];
+            // "column" is the rank of the column among the ones returned (subjects[column]).
+            averages: kept.map((source, index) => {
+                const cell = cells[source];
                 const value = member(unwrap(member(cell, ["ColMoy"])) ?? cell, ["moyenne", "MoyenneEleve", "note", "valeur"]);
-                return { subject: subject.subject, column: index, value: reportNumber(value), status: reportStatus(value) };
+                return { subject: every[source].subject, column: index, value: reportNumber(value), status: reportStatus(value) };
             }),
             ...(periods.length > 0 ? { periods } : {}),
         });
@@ -399,7 +416,7 @@ const gridFromAnswer = (data, students) => {
         subjects,
         students: result,
         ...(Object.values(general).some((value) => value !== null) ? { general } : {}),
-        ...(width > 0 && subjects.every((item) => item.subject === "") ? { columnsUnnamed: true } : {}),
+        ...(width > 0 && !named ? { columnsUnnamed: true } : {}),
     };
 };
 /**

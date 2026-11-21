@@ -59,7 +59,19 @@ const GENERAL_TEXTS = ["appreciationGle", "appreciationGenerale", "appGenerale",
  */
 export const generalFromPage = (data) => new Map(listOf(member(data, LINE_LISTS))
     .filter((line) => line?.eleve && line?.estPere !== true)
-    .map((line) => [String(line.eleve?.V?.L ?? line.eleve?.L ?? "").trim(), text(member(line, GENERAL_TEXTS))]));
+    .map((line) => [String(line.eleve?.V?.L ?? line.eleve?.L ?? "").trim(), generalText(member(line, GENERAL_TEXTS))]));
+/**
+ * Text of a general comment. 0.14.1, real shape of 21/11/2026: the element of a line carries { N, G, titre, appreciation,
+ * editable, cloture } and no "L" while nothing is entered; the text is read from "L", then from "appreciation".
+ */
+const generalText = (value) => {
+    const read = text(value);
+    if (read !== null)
+        return read;
+    const raw = value !== null && typeof value === "object" && "V" in value ? value.V : value;
+    const other = raw !== null && typeof raw === "object" ? raw.appreciation : null;
+    return typeof other === "string" && other !== "" ? other : null;
+};
 /** Whether a PageAppreciationsGenerales answer carries its list of lines (even empty). */
 const hasLines = (data) => member(data, LINE_LISTS) !== undefined;
 /**

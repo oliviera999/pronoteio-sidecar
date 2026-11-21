@@ -3,14 +3,14 @@ import { test } from "node:test";
 import { isWriteFunction } from "../src/context.js";
 import { HttpError } from "../src/errors.js";
 import { rememberUserData } from "../src/pronote/userdata.js";
-import { kindsFromAnswer, reportComments } from "../src/teacher/comments.js";
+import { generalFromPage, kindsFromAnswer, reportComments } from "../src/teacher/comments.js";
 import { generalKindFor, writeComments } from "../src/teacher/commentsWrite.js";
 import { functions, FUNCTION_KEYS } from "../src/teacher/functions.js";
 import { studentPhotos } from "../src/teacher/photos.js";
 import { MAX_SHAPE_PAGE, MAX_UNKNOWN_SHAPE, ppCheck } from "../src/teacher/ppcheck.js";
 import { classResults, resultsFromAnswer, titleText } from "../src/teacher/reports.js";
 import { MAX_SHAPE, shapeOf } from "../src/teacher/shape.js";
-import { fileOf, guardianRead, levelOf, readMemos, resetGroupRosters, resetMemoRoute, responsibilityOf, studentFiles } from "../src/teacher/students.js";
+import { fileOf, guardianRead, levelOf, readMemos, resetGroupRosters, resetMemoRoute, responsibilityOf, samePeople, studentFiles } from "../src/teacher/students.js";
 import { fakeSession, type FakeCall } from "./fake-session.js";
 
 /*
@@ -196,8 +196,8 @@ test("results of the class: the real grid, 31 students and 12 columns of which 3
   const read = resultsFromAnswer(grid(), entries)!;
   assert.equal(read.students.length, 31, "the line of a sub-period is not a student");
   assert.deepEqual(read.subjects.map((item) => item.subject), SUBJECTS);
-  assert.deepEqual(read.subjects[0], { subject: "PHILOSOPHIE", heading: "", detail: "Moy.", teachers: [], classAverage: 9.2, min: 3.5, max: 18,
-    median: 9, groupAverage: null });
+  assert.deepEqual(read.subjects[0], { subject: "PHILOSOPHIE", title: "PHILOSOPHIE - M. PROF0", heading: "", detail: "Moy.", teachers: [],
+    classAverage: 9.2, min: 3.5, max: 18, median: 9, groupAverage: null });
   assert.equal(read.subjects[9].groupAverage, 10.4);
   assert.deepEqual(read.general, { average: 12.1, min: 6, max: 17.5, median: 12 });
   const [first, second, third] = read.students;
@@ -486,4 +486,83 @@ test("photos: a download without picture is 'no photo' or 'download refused' acc
   assert.equal(served.calls.some((call) => call.name === "PageTrombinoscope"), false);
   // The board refused: "no photo", as before.
   assert.deepEqual((await studentPhotos(session(), "c:T06", { offset: 0, limit: 2 }, none)).items.map((item) => item.reason), ["no_photo", "no_photo"]);
+});
+
+/* ---- 0.14.1: first reads in production (21/11/2026) ---- */
+
+test("check 0.14.1: a whole check stops starting probes once its time is spent and resumes from the probe it names", async () => {
+  const fake = checkSession();
+  let time = 0;
+  // Each look at the clock costs one second: the budget of 3 s is spent after a few probes.
+  const first = await ppCheck(fake, "c:T06", { budgetMs: 3000, now: () => (time += 1000), downloader: async () => null });
+  assert.ok(first.next, "the probe not run is named");
+  assert.ok(first.checks.length > 0 && first.checks.length < 10);
+  assert.equal(first.checks.some((check) => check.detail === "rate_limited"), false, "a probe not run is not an error");
+  assert.equal(first.checks.some((check) => check.key === first.next), false);
+  // Resumed: nothing of the first answer is run again, and the whole list is covered in the end.
+  const keys = first.checks.map((check) => check.key);
+  let next = first.next as string | undefined;
+  let rounds = 0;
+  while (next && rounds++ < 60) {
+    const more = await ppCheck(fake, "c:T06", { from: next, budgetMs: 3000, now: () => (time += 1000), downloader: async () => null });
+    assert.equal(more.checks[0]?.key, next, "the answer starts at the probe asked");
+    for (const check of more.checks) assert.equal(keys.slice(0, keys.lastIndexOf(more.checks[0].key)).includes(check.key) && check.key !== more.checks[0].key, false, check.key);
+    keys.push(...more.checks.map((check) => check.key));
+    next = more.next;
+  }
+  const whole = await ppCheck(checkSession(), "c:T06", { budgetMs: 50_000, downloader: async () => null });
+  assert.equal(whole.next, undefined);
+  assert.deepEqual(keys, whole.checks.map((check) => check.key), "same probes, same order, variants never cut in two");
+  // One function is never cut, an unknown key resumes nothing.
+  const one = await ppCheck(checkSession(), "c:T06", { function: "studentMemos", budgetMs: 1000, now: () => (time += 10_000) });
+  assert.equal(one.checks.length, 6);
+  const all = await ppCheck(checkSession(), "c:T06", { from: "nope", budgetMs: 50_000, downloader: async () => null });
+  assert.equal(all.checks.length, whole.checks.length);
+});
+
+test("results of the class 0.14.1: entries beyond the titles and hidden columns are not columns; two columns of one title both kept", () => {
+  const real = grid() as any;
+  // Two groups of the same subject in the class: same short title, told apart by the long one.
+  real.titresColonnes.V[10].ColMoy.titre2 = real.titresColonnes.V[9].ColMoy.titre2;
+  // A hidden column, and four entries of the foot and of the cells without any title.
+  real.titresColonnes.V[11].ColMoy.visible = false;
+  for (let extra = 0; extra < 4; extra++) {
+    real.moyennes.V.push(real.moyennes.V[extra]);
+    for (const line of real.resultats.V) if (line.lignePere === 0) line.notesEleve.V.push({ ColMoy: { moyenne: note("") } });
+  }
+  const read = resultsFromAnswer(real, entries)!;
+  assert.deepEqual(read.subjects.map((item) => item.subject), [...SUBJECTS.slice(0, 9), "ESPAGNOL LV2", "ESPAGNOL LV2"]);
+  assert.deepEqual(read.subjects.slice(9).map((item) => item.title), ["ESPAGNOL LV2 - M. PROF9", "ALLEMAND LV2 - M. PROF10"]);
+  assert.equal(read.columnsUnnamed, undefined);
+  // The cells follow the columns kept: rank among them, value of their own column.
+  const [first, second] = read.students;
+  assert.equal(first.averages.length, 11);
+  assert.deepEqual(first.averages.slice(9).map((cell) => [cell.subject, cell.column, cell.value]), [["ESPAGNOL LV2", 9, 17], ["ESPAGNOL LV2", 10, null]]);
+  assert.deepEqual(second.averages.slice(9).map((cell) => [cell.column, cell.value]), [[9, null], [10, 18]]);
+});
+
+test("student file 0.14.1: the main teacher named twice is one person; the options of the file are not completed by group labels", async () => {
+  assert.deepEqual(samePeople(["M. DUPONT J.", "M. DUPONT Jean", "Mme MARTIN A.", "Mme MARTINEZ Anne", ""]), ["M. DUPONT Jean", "Mme MARTIN A.", "Mme MARTINEZ Anne"]);
+  assert.deepEqual(samePeople(["M. DUPONT J.", "M. DUPONT J."]), ["M. DUPONT J."]);
+  const groups = [{ id: "2#g1", label: "T-ANG LVA-05-06", genre: 2 as const, taught: true, principal: false }];
+  const fake = session({
+    ListeEleves: (data) => ({ listeEleves: typed(data?.ressource?.L === "T06" ? students : [students[0], students[1]]) }),
+    FicheEleve: (data) => ({ Identite: { _T: 24, V: { nom: "X", listePP: typed([{ L: "M. PP J." }]) } },
+      Scolarite: { classe: "T06", profPrincipal: "M. PP Jean", options: data?.Eleve?.L === students[0].L ? "ANGLAIS LVA, SPE MATHS" : "" } }),
+  }, [classT06, ...groups]);
+  resetGroupRosters(fake);
+  const result = await studentFiles(fake, "c:T06", ["groups", "school"], "", { offset: 0, limit: 2 });
+  const [listed, bare] = result.items;
+  assert.deepEqual(listed.school?.mainTeachers, ["M. PP Jean"]);
+  assert.deepEqual([listed.groups, listed.options], [["T-ANG LVA-05-06"], ["ANGLAIS LVA", "SPE MATHS"]]);
+  // A file without options still gets them from its groups.
+  assert.deepEqual([bare.groups, bare.options], [["T-ANG LVA-05-06"], ["T-ANG LVA-05-06"]]);
+});
+
+test("general comments 0.14.1: the real line, without 'L' while nothing is entered, text in 'L' or in 'appreciation'", () => {
+  const line = (index: number, app: Record<string, unknown>) => ({ eleve: { _T: 24, V: { N: students[index].N, G: 4, L: students[index].L, avecPhoto: true } },
+    moyEleve: "12,00", strHAbs: "2h00", strNbRetards: "1", appreciationGle: { _T: 24, V: { N: "0", G: 2, titre: "Appréciation générale", editable: true, cloture: false, ...app } } });
+  const read = generalFromPage({ strInfoCloture: "", listeLignes: typed([line(0, { appreciation: "" }), line(1, { appreciation: "Bon trimestre" }),
+    line(2, { L: "Ensemble solide", appreciation: "" })]), listeMentions: typed([{ L: "Félicitations", N: "1", imprimee: true }]) });
+  assert.deepEqual([...read.entries()], [[students[0].L, null], [students[1].L, "Bon trimestre"], [students[2].L, "Ensemble solide"]]);
 });

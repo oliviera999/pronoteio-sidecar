@@ -1,5 +1,40 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.14.1 — vue du professeur principal : corrections d'après les premières lectures en production
+
+Premières lectures réelles du 21/11/2026 (0.14.0 en production, classe de terminale de 31 élèves) : bulletin, grille
+`ResultatsClasses`, récapitulatif de vie scolaire, fiche, photo et page des appréciations générales se lisent. Cinq
+défauts relevés, corrigés ici. Client : `local_pronoteio` 0.22.1.
+
+- **Contrôle complet** (`GET /pp/check`) : 28 sondes sur 43 revenaient `rate_limited` sans qu'aucun appel ne soit en
+  trop. La file refusait tout appel demandé après l'échéance de la requête (20 s), et une quarantaine de lectures de la
+  session web n'y tiennent pas. Chaque sonde a maintenant sa propre attente dans la file, et le contrôle cesse de
+  LANCER des sondes quand son temps est écoulé (`budget`, 25 s par défaut, 1 à 50) : la réponse nomme la première sonde
+  non faite (`next`), à redemander avec `from`. Les variantes d'une fonction ne sont jamais coupées en deux ;
+  `function` n'est pas borné.
+- **Résultats de la classe** : les entrées du pied et des cellules au-delà des titres, et les colonnes que Pronote
+  masque (`visible: false`) ou ne nomme pas, ne sont plus des colonnes (elles sortaient « #37 » à « #40 ») ; `column`
+  est le rang parmi les colonnes rendues. `title` : titre long de la colonne (son info-bulle), ce qui distingue deux
+  colonnes de même titre court (deux groupes d'une matière). Une colonne de regroupement est nommée par ses lignes 1
+  ou 3.
+- **Appréciations générales** : l'élément réel d'une ligne (`N`, `G`, `titre`, `appreciation`, `editable`, `cloture`)
+  n'a pas de `L` tant que rien n'est saisi ; le texte est lu dans `L`, puis dans `appreciation`.
+- **Fiche** : le professeur principal nommé deux fois (« M. X J. » dans `listePP`, « M. X Jean » dans
+  `profPrincipal`) n'est rendu qu'une fois, sous sa forme longue ; les options que la fiche liste elle-même ne sont
+  plus complétées par des libellés de groupes ; `groupsReason: "partial"` quand la file a arrêté la lecture des listes
+  de groupes après en avoir trouvé (redemandée, elle va plus loin).
+
+**Relevé du 21/11/2026** (sondes une à une, session web saine, aucune valeur) : répondent et sont lues `PageBulletins`,
+`PageReleve`, `ResultatsClasses`, `ListeAppreciations` (variantes `ressource+periode` et avec `listeRessources`),
+`PageAppreciationsGenerales`, `RecapitulatifVSEleve` (deux variantes), `PageSaisieCarnetCorrespondance`, `FicheEleve`
+(aucune clé non associée), la photo, `DetailAbsences`, `PageApprBulletin` (25 et 30), `PageTrombinoscope`. Répondent
+sans décodeur : `RecapAbsencesEleves` (`ListeLignes`, `LigneCumul`), `LivretScolaire`, `PageSuiviPluriannuel`,
+`ListeElevesBIA`, `DetailsPIEleve`. Refusées par le profil : `ListePunitions`, `PageSuivisAbsenceRetard`,
+`AbsencesGrille`, `RecapPunitions`, `ListeRegimesEleve`, `PageDossiers`, `Incidents`, `BulletinBIA` ;
+`ListeMemosEleves` répond vide sous ses six variantes. Erreur de Pronote avec la requête essayée : `RecapFeuilleAppel`,
+`PageAppreciationsBulletinParEleve`, `RecapitulatifScolarite`, `ListeAvisProfesseurs`. Ne jamais lancer deux
+contrôles en même temps sur un compte : chacun rouvre la session web et ferme celle de l'autre.
+
 ## 0.14.0 — vue du professeur principal : corrections d'après le premier contrôle réel
 
 Premier contrôle réel du 20/11/2026 (`GET /pp/check`, classe de 31 élèves, sessions mobile et web) : `ResultatsClasses`,

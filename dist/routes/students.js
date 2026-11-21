@@ -85,6 +85,8 @@ export default async function studentsRoutes(app) {
     // 0.12.0: check of the main teacher view: status and shape of each function, never a value.
     // 0.14.0: "function" asks one function (every request variant) and returns its whole shape by pages; "groups"
     // (core, life, reports, misc) asks some groups of probes only.
+    // 0.14.1: a whole check stops starting probes after "budget" seconds and names the first one not run ("next"), to
+    // be asked again with "from".
     app.get("/pp/check", {
         schema: {
             querystring: {
@@ -96,17 +98,20 @@ export default async function studentsRoutes(app) {
                     groups: { type: "string", maxLength: 60 },
                     shapeoffset: { type: "integer", minimum: 0, maximum: 100000 },
                     shapelimit: { type: "integer", minimum: 1, maximum: MAX_SHAPE_PAGE },
+                    from: { type: "string", maxLength: 60, pattern: "^[A-Za-z]*$" },
+                    budget: { type: "integer", minimum: 1, maximum: 50 },
                 },
             },
         },
     }, async (request) => {
-        const { resource, function: fn, groups, shapeoffset, shapelimit } = request.query;
+        const { resource, function: fn, groups, shapeoffset, shapelimit, from, budget } = request.query;
         const list = (groups ?? "").split(",").map((item) => item.trim()).filter(Boolean);
         for (const group of list) {
             if (!PP_GROUPS.includes(group))
                 throw new HttpError(400, `invalid_groups:${group}`);
         }
-        return ppCheck(requireSession(request), resource, { function: fn, groups: list, shapeOffset: shapeoffset, shapeLimit: shapelimit });
+        return ppCheck(requireSession(request), resource, { function: fn, groups: list, shapeOffset: shapeoffset, shapeLimit: shapelimit,
+            from, ...(budget !== undefined ? { budgetMs: budget * 1000 } : {}) });
     });
     app.get("/timetable/resource", { schema: { querystring: resourceTimetableQuery } }, async (request) => {
         const { kind, name, class: className = "", from, to } = request.query;
