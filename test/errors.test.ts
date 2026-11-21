@@ -30,6 +30,8 @@ const cases: [number, string, string, Record<string, unknown>?][] = [
   [409, "web_session_required_after_write", "web_session_required", { onglet: 56, function: "SaisieEvaluations" }],
   [401, "web_session_expired", "web_session_expired"],
   [401, "web_token_refused", "login_failed"],
+  [429, "web_login_backoff", "web_login_backoff", { retry_after: 60, backoff_until: 1795249520 }],
+  [409, "web_session_required", "web_session_required", { onglet: 56, function: "ListeEvaluations", retry_after: 60, backoff_until: 1795249520 }],
   [500, "boom", "internal"],
   [501, "not_implemented:x", "internal"],
 ];

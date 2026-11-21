@@ -4,7 +4,11 @@
   "title": "POST /session/login",
   "method": "POST",
   "url": "/session/login",
-  "fixture": "fixtures/session-login-reused.json",
+  "fixture": [
+    "fixtures/session-login-reused.json",
+    "fixtures/session-login-web.json",
+    "fixtures/session-login-web-reused.json"
+  ],
   "properties": {
     "response": {
       "type": "object",
@@ -22,7 +26,8 @@
           "type": "string"
         },
         "reused": {
-          "const": true
+          "const": true,
+          "description": "Session ouverte du compte rendue sans nouvelle connexion à Pronote : connexion par jeton de l'espace mobile (0.9.0), connexion web sans PIN (0.15.0)."
         },
         "space": {
           "enum": [
@@ -44,6 +49,13 @@
             "type": "integer"
           },
           "description": "0.10.0 : onglets de la session (listeOnglets)."
+        },
+        "navigator": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "0.11.1 : identifiant de navigateur donné par Pronote à la session web, à renvoyer à la prochaine connexion web."
         }
       },
       "required": [
@@ -52,7 +64,7 @@
         "version"
       ],
       "additionalProperties": false,
-      "description": "« token » (jeton à usage unique, à conserver) est toujours renvoyé pour l'espace mobile ; une session de l'Espace Professeurs web (space: web, 0.10.0) n'en donne pas."
+      "description": "« token » (jeton à usage unique, à conserver) est toujours renvoyé pour l'espace mobile ; une session de l'Espace Professeurs web (space: web, 0.10.0) n'en donne pas. 0.15.0 : pendant le délai de reprise d'un compte, une connexion web sans PIN reçoit 429 web_login_backoff (retry_after, backoff_until) sans appel à Pronote."
     }
   }
 }

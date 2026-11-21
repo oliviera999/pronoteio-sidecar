@@ -1,5 +1,65 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.15.0 — connexions à l'Espace Professeurs web : garde par compte, origine de chaque requête
+
+Incident du 21/11/2026 (08:24:20 à 08:27:03 UTC, `logs/pronoteio-sidecar.log`) : toutes les 3 à 4 secondes, la même
+suite `GET /health`, `GET /session/info`, `GET /messages/preferences`, `GET /pp/check` (409 `web_session_required`),
+puis `POST /session/login` de l'Espace Professeurs web (mot de passe) refusé par Pronote (502 `pronote_unavailable`,
+`kind=RateLimitedError`, `step=web:login`), livré deux fois. Une rafale de connexions par mot de passe peut bloquer le
+compte de l'enseignant, et le journal ne disait pas qui appelait. Le sidecar ne se connectait pas de lui-même : chaque
+`POST /session/login` reçu devenait une connexion envoyée à Pronote, et des requêtes simultanées en faisaient autant.
+Client : `local_pronoteio` (la chaîne d'appel côté Moodle est corrigée séparément).
+
+- **Garde des connexions web, par compte** (`src/webLoginGuard.ts`, clé `accountKey`), quel que soit l'appelant :
+  - *une seule connexion en vol* : les demandes simultanées de la même connexion attendent la première et reçoivent la
+    même réponse (même `sessionid`, ou la même erreur). 20 demandes simultanées : une seule connexion envoyée à
+    Pronote (20 auparavant, mises en file). Une demande avec `pin` (l'enseignant saisit le code de double
+    authentification) n'est jamais fusionnée avec une demande sans `pin`, ni l'inverse : elle passe après ;
+  - *session rendue* : une connexion web **sans `pin`** d'un compte dont la session web est encore ouverte dans le
+    sidecar la reçoit telle quelle (`"reused": true`, même forme sinon), sans appel à Pronote, comme une connexion par
+    jeton de l'espace mobile. Avec `pin` : toujours une vraie connexion, qui remplace la session. Avec un **autre mot
+    de passe** que celui qui a ouvert la session : vraie connexion aussi (Pronote le vérifie ; sinon Moodle
+    enregistrerait un mot de passe jamais contrôlé) ;
+  - *reprise prudente* : après un refus de Pronote (limitation `RateLimitedError`, adresse suspendue
+    `SuspendedIPError`, page indisponible, compte désactivé, erreur réseau ou de décodage : tout échec de la connexion
+    répondu en 5xx), **aucune** connexion web sans `pin` n'est envoyée à Pronote pour ce compte avant 60 s, puis 2 min,
+    5 min et 15 min (plafond). Pendant ce délai : `429 web_login_backoff` immédiat, `retry_after` (secondes),
+    `backoff_until` (secondes Unix), en-tête `Retry-After`. Une connexion avec `pin` passe (geste de l'enseignant) ;
+    refusée elle aussi, elle allonge le délai. Les issues interactives (`pin_required`, `bad_pin`,
+    `security_setup_required`, `double_auth_required`, `web_token_refused`, `bad_credentials`) ne déclenchent aucun
+    délai. Une connexion réussie efface le délai et le compteur ;
+  - pendant le délai, `409 web_session_required` porte aussi `retry_after` et `backoff_until` : le client sait qu'il ne
+    doit pas tenter de connexion web. Sans délai, la réponse est inchangée ;
+  - l'état (compteurs, instants, nom de l'erreur : aucune donnée personnelle, compte désigné par une empreinte SHA-256
+    de sa clé) est écrit dans `var/state.json` dès un refus : un redémarrage par Passenger n'efface pas un délai de
+    15 minutes. Un compte sans échec depuis 24 h est oublié (le barème repart de 60 s).
+- **Session web perdue** : une session web que Pronote déclare expirée ou fermée (rejeu d'une requête, session web
+  envoyée comme session principale, requête de présence) est oubliée aussitôt ; la connexion web suivante est une
+  vraie connexion, jamais la session morte.
+- **Origine de chaque requête dans le journal d'accès** : deux en-têtes facultatifs de `local_pronoteio`, hors
+  signature (ce ne sont que des étiquettes de journal, d'où des formats stricts ; toute autre valeur est ignorée) :
+  `X-Pronoteio-Origin` (`mcp:get_pronote_health`, `task:sync_task`, `page:local/pronoteio/push.php` ;
+  `^[a-z0-9][a-z0-9_.:/-]{0,79}$`) et `X-Pronoteio-Account` (identifiant de compte haché par Moodle,
+  `^[0-9a-f]{8,32}$`). Chaque ligne porte `origin` et `account`, y compris `/session/login` et les secondes livraisons.
+  Sans `X-Pronoteio-Account` valide, `account` porte 12 caractères hexadécimaux dérivés de la clé de compte du sidecar
+  (compte de la connexion pour `/session/login`, compte de la session pour les autres routes) ; absent quand aucun
+  compte n'est connu. Jamais d'identifiant de connexion ni d'adresse.
+- **État exposé** : `GET /session/info` → `weblogin: {failures, recentFailures, backoffUntil, retryAfter,
+  lastFailureAt, lastKind}` pour le compte de la session ; `GET /health` signé → `webLogin: {accountsInBackoff,
+  failuresLast10Min}` (aucune identité de compte).
+- **Code d'erreur** : `web_login_backoff` (429) dans le tableau des codes stables (`GET /errors`).
+- Contrats : `backoff_until` et `web_login_backoff` dans `common.schema.json`, `webLogin` dans `health.schema.json`,
+  `navigator` dans `session-login.schema.json` ; fixtures `session-login-web`, `session-login-web-reused`,
+  `error-web-login-backoff`, `error-web-session-required-backoff`.
+- Tests : `test/web-login-guard.test.ts` (connexion web de Pawnote remplacée par un bouchon, horloge injectée ; jamais
+  de connexion à Pronote).
+
+**Limites connues** : une suite d'issues interactives (par exemple `pin_required` à chaque connexion sans `pin`)
+n'est pas retardée par le sidecar : chaque demande distincte reste une connexion envoyée à Pronote (les demandes
+simultanées sont fusionnées) ; c'est au client d'arrêter ses connexions automatiques sur ces réponses, et
+`weblogin.recentFailures` les compte. La reprise prudente ne concerne que l'Espace Professeurs web : les connexions de
+l'espace mobile (jeton, mot de passe) gardent le comportement de 0.9.0.
+
 ## 0.14.1 — vue du professeur principal : corrections d'après les premières lectures en production
 
 Premières lectures réelles du 21/11/2026 (0.14.0 en production, classe de terminale de 31 élèves) : bulletin, grille

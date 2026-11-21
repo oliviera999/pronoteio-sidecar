@@ -4,7 +4,9 @@
   "title": "Réponse d'erreur (toutes routes)",
   "fixture": [
     "fixtures/error-validation.json",
-    "fixtures/error-session.json"
+    "fixtures/error-session.json",
+    "fixtures/error-web-login-backoff.json",
+    "fixtures/error-web-session-required-backoff.json"
   ],
   "properties": {
     "response": {

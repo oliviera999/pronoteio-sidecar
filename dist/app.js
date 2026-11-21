@@ -5,7 +5,7 @@ import { addressAllowed } from "./address.js";
 import { registerJobs } from "./jobs.js";
 import { config } from "./config.js";
 import { currentContext, PRIORITY, priorityOf, requestContext } from "./context.js";
-import { lostSessionReason, reconnect, sessionEntry, sessionLostError, webSessionEntry, webSessionIdOf } from "./session.js";
+import { forgetSession, lostSessionReason, reconnect, sessionEntry, sessionLostError, webSessionEntry, webSessionIdOf } from "./session.js";
 import { announcesWeb, WebSessionRequired } from "./space.js";
 import { HttpError, toHttp } from "./errors.js";
 import { ERROR_CODES, errorBody } from "./errorCodes.js";
@@ -18,6 +18,9 @@ import { registerHealth } from "./health.js";
 import { registerAdmin } from "./admin.js";
 import { accessLog as defaultAccessLog } from "./logs.js";
 import { assertWritable, isValidated, pronoteVersion } from "./pronote/formats.js";
+import { pronoteBaseUrl } from "./pronote/compat.js";
+import { accountKey } from "./tokenStore.js";
+import { accountTag, webLoginGuard } from "./webLoginGuard.js";
 import absencesRoutes from "./routes/absences.js";
 import assessmentsRoutes from "./routes/assessments.js";
 import classLifeRoutes from "./routes/classlife.js";
@@ -72,6 +75,53 @@ const unverifiedResult = (request, error) => {
     return { written: context?.writeSent === true, dryRun: false, verified: false, differences: [error.code], after: error.extra.after ?? null,
         ...(typeof error.extra.detail === "string" ? { detail: error.extra.detail } : {}) };
 };
+/**
+ * 0.15.0: who triggered a request, for the access log. Case of 21/11/2026: a burst of web logins whose caller could not
+ * be named from the log. Two optional headers of local_pronoteio, outside the signature (they are only log tags, hence
+ * the strict formats: anything else is logged as absent):
+ * - X-Pronoteio-Origin: "mcp:get_pronote_health", "task:sync_task", "page:local/pronoteio/push.php";
+ * - X-Pronoteio-Account: account identifier hashed by Moodle (hexadecimal), never a name.
+ */
+const ORIGIN = /^[a-z0-9][a-z0-9_.:/-]{0,79}$/;
+const ACCOUNT = /^[0-9a-f]{8,32}$/;
+export const originOf = (headers) => {
+    const value = headers["x-pronoteio-origin"];
+    return typeof value === "string" && ORIGIN.test(value) ? value : undefined;
+};
+export const accountOf = (headers) => {
+    const value = headers["x-pronoteio-account"];
+    return typeof value === "string" && ACCOUNT.test(value) ? value : undefined;
+};
+/**
+ * Account tag of a login without X-Pronoteio-Account: 12 hexadecimal characters derived from the account key of the
+ * sidecar (itself a fingerprint), so that every login line names an account. Never the user name nor the address.
+ * The other routes get the same tag from the account of their session.
+ */
+const loginAccountTag = (request) => {
+    if (request.routeOptions.url !== "/session/login")
+        return undefined;
+    const body = request.body;
+    if (!body || typeof body.url !== "string" || typeof body.username !== "string" || typeof body.deviceuuid !== "string")
+        return undefined;
+    try {
+        return accountTag(accountKey(pronoteBaseUrl(body.url), body.username, body.deviceuuid));
+    }
+    catch {
+        return undefined;
+    }
+};
+/**
+ * 0.15.0: during the web login back-off of the account, 409 web_session_required carries retry_after (seconds) and
+ * backoff_until (epoch seconds): the client must not try a web login before. Unchanged without back-off.
+ */
+const withWebLoginHint = (account, error) => {
+    if (error instanceof HttpError && error.status === 409 && error.code.split(":")[0].startsWith("web_session_required")) {
+        const hint = webLoginGuard.hint(account);
+        if (hint)
+            Object.assign(error.extra, hint);
+    }
+    return error;
+};
 const routeTables = new WeakMap();
 export const routesOf = (app) => routeTables.get(app) ?? [];
 export const buildApp = async (options = {}) => {
@@ -93,6 +143,7 @@ export const buildApp = async (options = {}) => {
         },
     });
     // Structured access log without personal data (P8): route pattern, status, code, duration, size.
+    // 0.15.0: origin and account tags of the request (X-Pronoteio-Origin, X-Pronoteio-Account).
     app.addHook("onSend", async (request, reply, payload) => {
         if (reply.statusCode >= 400 && typeof payload === "string") {
             try {
@@ -109,10 +160,18 @@ export const buildApp = async (options = {}) => {
         if (request.internal)
             return;
         const context = currentContext();
+        const headers = request.headers;
+        const origin = originOf(headers);
+        // Without a valid X-Pronoteio-Account: tag derived from the account of the login, or of the session of the request.
+        const sessionAccount = sessionEntry(request)?.account;
+        const account = accountOf(headers) ?? loginAccountTag(request) ?? (sessionAccount ? accountTag(sessionAccount) : undefined);
         accessLog.write({
             method: request.method,
             route: request.routeOptions.url ?? "(unknown)",
             status: reply.statusCode,
+            // 0.15.0: caller and account of every request (validated log tags, see originOf).
+            ...(origin ? { origin } : {}),
+            ...(account ? { account } : {}),
             ...(request.errorCode ? { code: request.errorCode } : {}),
             ...(request.errorKind ? { kind: request.errorKind } : {}),
             ...(request.errorStep ? { step: request.errorStep } : {}),
@@ -236,8 +295,12 @@ export const buildApp = async (options = {}) => {
                 if (unverified)
                     return unverified;
                 // The web session has no token chain: Moodle logs in again on web_session_expired (the main session is kept).
-                if (lostSessionReason(replayError))
+                if (lostSessionReason(replayError)) {
+                    // 0.15.0: forgotten, so that the next web login is a real one (a live web session is given back, see
+                    // webLoginGuard.ts).
+                    forgetSession(webSessionEntry(request));
                     throw new HttpError(401, "web_session_expired");
+                }
                 throw replayError;
             }
         };
@@ -248,19 +311,32 @@ export const buildApp = async (options = {}) => {
                 return verifiedResult(request, await handler.call(this, request, reply));
             }
             catch (error) {
-                if (error instanceof WebSessionRequired)
-                    return onWeb.call(this, request, reply, error);
+                if (error instanceof WebSessionRequired) {
+                    try {
+                        return await onWeb.call(this, request, reply, error);
+                    }
+                    catch (webError) {
+                        throw withWebLoginHint(entry?.account, webError);
+                    }
+                }
                 // P12: a write re-read with a difference ("*_not_saved"): a client of contract 2 gets verified: false.
                 const unverified = unverifiedResult(request, error);
                 if (unverified)
                     return unverified;
                 const reason = lostSessionReason(error);
                 if (!reason)
-                    throw error;
+                    throw withWebLoginHint(entry?.account, error);
                 const context = currentContext();
                 // The web session has no token chain: Moodle logs in again on web_session_expired.
-                if (context?.webActive)
+                if (context?.webActive) {
+                    forgetSession(webSessionEntry(request));
                     throw new HttpError(401, "web_session_expired");
+                }
+                // 0.15.0: a web session sent as the main one is never reconnected either: forgotten once lost.
+                if (entry?.space === "web") {
+                    forgetSession(entry);
+                    throw sessionLostError(reason);
+                }
                 if (!entry || context?.writeSent || context?.replayed)
                     throw sessionLostError(reason);
                 if (!(await reconnect(entry, reason, generation)))

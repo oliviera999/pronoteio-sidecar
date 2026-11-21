@@ -9,6 +9,25 @@ import { dirname, join } from "node:path";
 
 export type RecentError = { code: string; error: string; route: string; status: number; at: string };
 
+/**
+ * 0.15.0: web login guard of one account (webLoginGuard.ts). Times in milliseconds. No personal data: the key of the
+ * record is a SHA-256 fingerprint, lastKind an error name or code (never a message).
+ */
+export type WebLoginRecord = {
+  /** Consecutive refusals by Pronote (cleared by a successful web login). */
+  failures: number;
+  /** No web login is sent to Pronote before this instant (0: no back-off). */
+  backoffUntil: number;
+  lastFailureAt: number | null;
+  lastKind: string | null;
+  /** Instants of the recent failed web logins of any kind (10 minutes). */
+  recent: number[];
+};
+
+/** Accounts kept in the web login guard, and recent failures kept per account. */
+export const MAX_WEB_LOGIN_ACCOUNTS = 100;
+export const MAX_WEB_LOGIN_RECENT = 50;
+
 export type PersistedState = {
   savedAt: string | null;
   limiter: { served: number; refused: number };
@@ -16,6 +35,8 @@ export type PersistedState = {
   reconnects: { total: number; expired: number; replaced: number; failed: number; lastAt: string | null };
   pronote: { version: string | null; validated: boolean | null; seenAt: string | null };
   starts: number;
+  /** 0.15.0: back-off of the web logins, by fingerprint of the account (a restart must not erase a back-off). */
+  webLogin: Record<string, WebLoginRecord>;
 };
 
 export const MAX_ERRORS = 20;
@@ -27,6 +48,7 @@ const empty = (): PersistedState => ({
   reconnects: { total: 0, expired: 0, replaced: 0, failed: 0, lastAt: null },
   pronote: { version: null, validated: null, seenAt: null },
   starts: 0,
+  webLogin: {},
 });
 
 export const resolveStateFile = (env: Record<string, string | undefined> = process.env, cwd = process.cwd()): string | null => {
@@ -54,6 +76,18 @@ const sanitize = (raw: any): PersistedState => {
   state.pronote = { version: str(raw?.pronote?.version, 20), validated: typeof raw?.pronote?.validated === "boolean" ? raw.pronote.validated : null,
     seenAt: str(raw?.pronote?.seenAt) };
   state.starts = num(raw?.starts);
+  const logins = raw?.webLogin && typeof raw.webLogin === "object" && !Array.isArray(raw.webLogin) ? raw.webLogin : {};
+  for (const [key, item] of Object.entries(logins as Record<string, any>).slice(0, MAX_WEB_LOGIN_ACCOUNTS)) {
+    if (!/^[0-9a-f]{64}$/.test(key)) continue;
+    const kind = str(item?.lastKind, 60);
+    state.webLogin[key] = {
+      failures: Math.min(1000, Math.floor(num(item?.failures))),
+      backoffUntil: num(item?.backoffUntil),
+      lastFailureAt: num(item?.lastFailureAt) > 0 ? num(item?.lastFailureAt) : null,
+      lastKind: kind !== null && /^[\w.-]{1,60}$/.test(kind) ? kind : null,
+      recent: (Array.isArray(item?.recent) ? item.recent : []).map(num).filter((at: number) => at > 0).slice(-MAX_WEB_LOGIN_RECENT),
+    };
+  }
   return state;
 };
 

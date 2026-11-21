@@ -8,6 +8,7 @@ import { limiterOptions, limiterStats } from "./pronote/limiter.js";
 import { sessionStats } from "./session.js";
 import { stateStore } from "./state.js";
 import { timeInfo } from "./time.js";
+import { webLoginGuard } from "./webLoginGuard.js";
 import { COMMIT, SIDECAR_VERSION, STARTED_AT } from "./version.js";
 /** Public view: ok, version and short commit (the update script tells the new code from the old one with it). */
 export const publicHealth = () => ({ ok: true, version: SIDECAR_VERSION, commit: COMMIT ? COMMIT.slice(0, 7) : "" });
@@ -28,6 +29,8 @@ export const fullHealth = (now = Date.now()) => {
         time: timeInfo(now),
         writeMode: config.writeMode,
         session: { ...sessionStats(now), reconnects: state.reconnects },
+        // 0.15.0: guard of the web logins (webLoginGuard.ts): accounts in back-off, failed web logins of the last 10 minutes.
+        webLogin: webLoginGuard.stats(),
         queue: {
             size: queue.queued,
             averageWaitMs: queue.averageWaitMs,

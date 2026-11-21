@@ -85,10 +85,10 @@ l'hôte d'origine (`hostTimezone`, `hostTzEnv`) : ce dernier confirme la cause d
 | Fichier | Contenu | Données personnelles |
 | --- | --- | --- |
 | `var/tokens.json` | chaîne des jetons Pronote, chiffrée (déjà en 0.6.0) | jetons chiffrés |
-| `var/state.json` | compteurs de débit, 20 dernières erreurs (code, route, heure), reconnexions, version de Pronote | non |
+| `var/state.json` | compteurs de débit, 20 dernières erreurs (code, route, heure), reconnexions, version de Pronote ; 0.15.0 : délai de reprise des connexions web par compte (empreinte SHA-256 du compte, compteurs, instants, nom de l'erreur), écrit dès un refus de Pronote pour survivre à un redémarrage | non |
 | `var/update-result.json` | résultat de la dernière mise à jour | non |
 | `~/tmp/pronoteio-sidecar.lock` | PID et heure de démarrage | non |
-| `~/logs/pronoteio-sidecar.log` (+ `.1` … `.4`) | une ligne JSON par requête : route-modèle, statut, code, durée, taille | non (jamais d'URL ni de corps) |
+| `~/logs/pronoteio-sidecar.log` (+ `.1` … `.4`) | une ligne JSON par requête : route-modèle, statut, code, durée, taille ; 0.15.0 : `origin` (appelant : outil, tâche ou page de Moodle) et `account` (empreinte hachée du compte) | non (jamais d'URL ni de corps ; `account` est une empreinte, jamais un identifiant) |
 | `~/logs/pronoteio-sidecar-update.log` | journal des mises à jour | non |
 
 Le cache des lectures, les sessions Pronote et les résultats des tâches restent **en mémoire uniquement** et sont

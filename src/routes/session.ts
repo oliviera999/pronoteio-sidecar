@@ -31,10 +31,12 @@ import {
   setPresenceSender,
   setReconnector,
   webSessionEntry,
+  webSessionOfAccount,
 } from "../session.js";
 import { limiterOf } from "../pronote/limiter.js";
 import { PRIORITY } from "../context.js";
 import { accountKey, chainedTokenLogin, serializeLogin, TokenStore } from "../tokenStore.js";
+import { flightKey, webLoginGuard } from "../webLoginGuard.js";
 import { functions } from "../teacher/functions.js";
 import { stableId } from "../teacher/ids.js";
 
@@ -61,7 +63,13 @@ type WebLogin = (
   handle: SessionHandle,
   options: { url: string; username: string; kind: AccountKind; deviceUUID: string; password: string; navigatorIdentifier?: string },
 ) => Promise<RefreshInformation>;
-const loginWeb = (pawnote as unknown as { pronoteioLoginWeb?: WebLogin }).pronoteioLoginWeb;
+const patchedLoginWeb = (pawnote as unknown as { pronoteioLoginWeb?: WebLogin }).pronoteioLoginWeb;
+let loginWeb = patchedLoginWeb;
+
+/** Replaces the web login of Pawnote (tests: a stub, never a connection to Pronote); null restores the real one. */
+export const setWebLogin = (fn: WebLogin | null): void => {
+  loginWeb = fn ?? patchedLoginWeb;
+};
 
 /** Chain of the single-use tokens (see tokenStore.ts); null when PRONOTEIO_TOKEN_STORE=off. */
 const tokenStore = config.tokenStoreFile === null ? null : new TokenStore(config.tokenStoreFile, config.secret, Date.now, config.secrets.slice(1));
@@ -204,58 +212,104 @@ export const navigatorOf = (handle: SessionHandle): string | null => {
 };
 
 /**
+ * Fingerprint (flightKey: keyed, in memory only) of the password that opened each web session. A web session is given
+ * back only to a login with the same password: another one (changed, mistyped) must be checked by Pronote, otherwise
+ * Moodle would record a password never verified.
+ */
+const openedWith = new WeakMap<SessionHandle, string>();
+
+/** Answer of a web login; "reused" when the web session of the account, still alive, was given back (0.15.0). */
+type WebLoginAnswer = {
+  sessionid: string;
+  displayname: string;
+  version: string;
+  space: "web";
+  login: "credentials";
+  tabs: number[];
+  navigator: string | null;
+  reused?: true;
+};
+
+const webLoginAnswer = (sessionid: string, handle: SessionHandle): WebLoginAnswer => ({
+  sessionid,
+  displayname: handle.user.name,
+  version: handle.instance.version.join("."),
+  space: "web",
+  login: "credentials",
+  tabs: userData(handle).tabs ?? [],
+  // To send back at the next web login (0.11.1): the device trusted after the PIN is this browser identifier.
+  navigator: navigatorOf(handle),
+});
+
+/**
  * Login of the web Espace Professeurs (0.10.0): professeur.html in "Domicile" mode, with the password only. The mobile
  * token is not accepted by this space (and a refused try would consume it): web_token_refused, without any call to
  * Pronote. A double authentication asks the PIN as for the mobile space (pin_required, bad_pin). The session is kept
  * beside the main one (one web session per account), never reconnected. The password is neither logged nor returned.
  * 0.11.1: the navigator identifier of the previous web login is sent again (see LoginBody.navigator) and the new one
  * returned.
+ * 0.15.0: every web login goes through the guard of the account (webLoginGuard.ts), whatever the caller: one login in
+ * flight (the concurrent requests share its answer), the web session still alive given back without a call to Pronote
+ * ("reused": true) unless a PIN or another password is sent, and no login sent to Pronote during the back-off that
+ * follows a refusal (429 web_login_backoff). Case of 21/11/2026: a burst of web logins every 3 to 4 seconds, all
+ * refused by Pronote.
  */
-const webLogin = async (body: LoginBody) => {
+const webLogin = async (body: LoginBody): Promise<WebLoginAnswer> => {
   const { url, username, deviceuuid, password, pin, devicename, navigator } = body;
-  if (password === undefined) throw new HttpError(401, "web_token_refused");
-  if (!loginWeb) throw new HttpError(501, "not_implemented:web_space");
+  if (password === undefined) {
+    const refused = new HttpError(401, "web_token_refused");
+    try {
+      // Counted in the recent failures of the account (health), without back-off: nothing was sent to Pronote.
+      webLoginGuard.recordFailure(accountKey(pronoteBaseUrl(url), username, deviceuuid), refused);
+    } catch {
+      // Address that cannot be parsed: the refusal is answered as before.
+    }
+    throw refused;
+  }
+  const login = loginWeb;
+  if (!login) throw new HttpError(501, "not_implemented:web_space");
   assertPrimary();
-  const handle = createCapturingHandle(webFetcher());
   const base = { url: pronoteBaseUrl(url), username, kind: AccountKind.TEACHER, deviceUUID: deviceuuid };
   const account = accountKey(base.url, username, deviceuuid);
-  // 0.11.3: step reached by an unexpected error (login, security, session), written to the access log.
-  let step = "login";
-  const sessionid = await serializeLogin(`${account}|web`, async () => {
-    try {
+  return webLoginGuard.run<WebLoginAnswer>(account, {
+    key: flightKey([password, pin, navigator]),
+    interactive: pin !== undefined,
+    reuse: () => {
+      const open = webSessionOfAccount(account);
+      return open && openedWith.get(open.handle) === flightKey([password])
+        ? { ...webLoginAnswer(open.id, open.handle), reused: true } : null;
+    },
+    attempt: async () => {
+      const handle = createCapturingHandle(webFetcher());
+      // 0.11.3: step reached by an unexpected error (login, security, session), written to the access log.
+      let step = "login";
       try {
-        await loginWeb(handle, { ...base, password, ...(navigator ? { navigatorIdentifier: navigator } : {}) });
-      } catch (error) {
-        if (error instanceof TypeError && handle.information && tolerantUser(handle)) {
-          // 0.11.4: trusted device, no PIN asked, but the same decoding of the user failed at the end of the login.
-          step = `login-tolerant:${typeErrorDetail(error)}`;
-        } else {
-          if (!(error instanceof SecurityError)) throw error;
-          step = "security";
-          await completeSecurity(handle, error, pin, devicename ?? DEFAULT_DEVICE_NAME, (reached) => { step = reached; }, true);
+        try {
+          await login(handle, { ...base, password, ...(navigator ? { navigatorIdentifier: navigator } : {}) });
+        } catch (error) {
+          if (error instanceof TypeError && handle.information && tolerantUser(handle)) {
+            // 0.11.4: trusted device, no PIN asked, but the same decoding of the user failed at the end of the login.
+            step = `login-tolerant:${typeErrorDetail(error)}`;
+          } else {
+            if (!(error instanceof SecurityError)) throw error;
+            step = "security";
+            await completeSecurity(handle, error, pin, devicename ?? DEFAULT_DEVICE_NAME, (reached) => { step = reached; }, true);
+          }
         }
+        step = "session";
+        const sessionid = createSession(handle, { key: account, login: { url: base.url, username, deviceuuid } },
+          { space: "web", loginMode: "credentials" });
+        openedWith.set(handle, flightKey([password]));
+        return webLoginAnswer(sessionid, handle);
+      } catch (error) {
+        const detail = typeErrorDetail(error);
+        if (error !== null && typeof error === "object") {
+          Object.assign(error, { loginStep: `web:${step}${detail ? `:${detail}` : ""}` });
+        }
+        throw error;
       }
-      step = "session";
-      return createSession(handle, { key: account, login: { url: base.url, username, deviceuuid } },
-        { space: "web", loginMode: "credentials" });
-    } catch (error) {
-      const detail = typeErrorDetail(error);
-      if (error !== null && typeof error === "object") {
-        Object.assign(error, { loginStep: `web:${step}${detail ? `:${detail}` : ""}` });
-      }
-      throw error;
-    }
+    },
   });
-  return {
-    sessionid,
-    displayname: handle.user.name,
-    version: handle.instance.version.join("."),
-    space: "web" as const,
-    login: "credentials" as const,
-    tabs: userData(handle).tabs ?? [],
-    // To send back at the next web login (0.11.1): the device trusted after the PIN is this browser identifier.
-    navigator: navigatorOf(handle),
-  };
 };
 
 export default async function sessionRoutes(app: FastifyInstance): Promise<void> {
@@ -360,7 +414,8 @@ export default async function sessionRoutes(app: FastifyInstance): Promise<void>
 
   /**
    * Information on the open session (version, tabs, rights, functions, write mode), for the health check. 0.10.0: space
-   * and login mode of the session, tabs of the web session sent in X-Pronoteio-Web-Session (webtabs).
+   * and login mode of the session, tabs of the web session sent in X-Pronoteio-Web-Session (webtabs). 0.15.0: state of
+   * the web login guard of the account (weblogin).
    */
   app.get("/session/info", async (request) => {
     const info = sessionInfo(requireSession(request));
@@ -371,6 +426,8 @@ export default async function sessionRoutes(app: FastifyInstance): Promise<void>
       space: entry?.space ?? "mobile",
       login: entry?.loginMode ?? "token",
       ...(web ? { webtabs: userData(web.handle).tabs ?? [] } : {}),
+      // 0.15.0: guard of the web logins of the account (failures, back-off): the client must not log in before.
+      weblogin: webLoginGuard.status(entry?.account),
     };
   });
 

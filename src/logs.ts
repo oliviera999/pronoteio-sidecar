@@ -4,6 +4,8 @@
  * Logged: time, method, route PATTERN (never the URL: its query may name a student, "student=e:NOM Prénom"), status,
  * stable error code, duration, answer size, cache (hit/miss), Pronote calls, priority. Never: query, body, headers,
  * session id, Pronote messages.
+ * 0.15.0: "origin" (who triggered the request: "mcp:get_pronote_health", "task:sync_task"…) and "account" (hashed tag
+ * of the account), from the headers X-Pronoteio-Origin and X-Pronoteio-Account checked against strict formats.
  * File: PRONOTEIO_LOG_FILE (default ~/logs/pronoteio-sidecar.log, "off" to disable), rotated beyond
  * PRONOTEIO_LOG_MAX_MB (5) into .1 … .N (PRONOTEIO_LOG_FILES, 5 files kept).
  */
@@ -16,12 +18,21 @@ export type AccessEntry = {
   route: string;
   status: number;
   code?: string;
+  /** 0.11.3: name of an unexpected error and step of a web login (never a message). */
+  kind?: string;
+  step?: string;
+  /** 0.15.0: who triggered the request (X-Pronoteio-Origin, strict format), absent when not sent or malformed. */
+  origin?: string;
+  /** 0.15.0: hashed account tag (X-Pronoteio-Account, or 12 hexadecimal characters derived by the sidecar at a login). */
+  account?: string;
   ms: number;
   bytes: number;
   cache?: string;
   calls?: number;
   priority?: number;
   duplicate?: boolean;
+  /** 0.11.5: member names (never values) of an answer whose shape was not understood. */
+  shape?: string;
 };
 
 export const resolveLogFile = (env: Record<string, string | undefined> = process.env): string | null => {
