@@ -229,6 +229,25 @@
           ],
           "additionalProperties": false
         },
+        "webLogin": {
+          "type": "object",
+          "description": "0.15.0 : garde des connexions à l'Espace Professeurs web (aucune identité de compte).",
+          "properties": {
+            "accountsInBackoff": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failuresLast10Min": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "accountsInBackoff",
+            "failuresLast10Min"
+          ],
+          "additionalProperties": false
+        },
         "queue": {
           "type": "object",
           "properties": {
@@ -504,6 +523,7 @@
         "time",
         "writeMode",
         "session",
+        "webLogin",
         "queue",
         "cache",
         "jobs",

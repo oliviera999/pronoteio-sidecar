@@ -1,13 +1,13 @@
 {
   "ok": true,
-  "version": "0.14.0",
-  "commit": "badc364db91b831aaa9c0cc62acc3cb4d58966c6",
+  "version": "0.15.0",
+  "commit": "d0c42792584d01f963cb7f5cf2b29ac3bc8b56c1",
   "node": "22.23.5",
-  "startedAt": "2026-11-20T23:09:01.795Z",
+  "startedAt": "2026-11-21T11:01:16.603Z",
   "uptimeSeconds": 2,
   "starts": 0,
   "process": {
-    "pid": 13962,
+    "pid": 5298,
     "primary": true,
     "holder": null,
     "lockFile": "off",
@@ -24,17 +24,33 @@
     "icu": "78.3",
     "hostTimezone": "UTC",
     "hostTzEnv": null,
-    "localNow": "2026-11-20 23:09"
+    "localNow": "2026-11-21 11:01"
   },
   "writeMode": "simulate",
   "session": {
-    "open": 1,
+    "open": 3,
     "states": [
       {
         "state": "open",
         "space": "mobile",
         "ageSeconds": 2,
         "idleSeconds": 1,
+        "reconnects": 0,
+        "lastReconnect": null
+      },
+      {
+        "state": "open",
+        "space": "web",
+        "ageSeconds": 0,
+        "idleSeconds": 0,
+        "reconnects": 0,
+        "lastReconnect": null
+      },
+      {
+        "state": "open",
+        "space": "mobile",
+        "ageSeconds": 0,
+        "idleSeconds": 0,
         "reconnects": 0,
         "lastReconnect": null
       }
@@ -47,9 +63,13 @@
       "lastAt": null
     }
   },
+  "webLogin": {
+    "accountsInBackoff": 1,
+    "failuresLast10Min": 1
+  },
   "queue": {
     "size": 0,
-    "averageWaitMs": 127,
+    "averageWaitMs": 126,
     "tokens": 22.8,
     "lastMinute": 7,
     "served": 7,
@@ -65,8 +85,8 @@
     "entries": 3,
     "bytes": 3373,
     "hits": 1,
-    "misses": 4,
-    "hitRate": 0.2,
+    "misses": 5,
+    "hitRate": 0.167,
     "invalidations": 0,
     "maxBytes": 20971520
   },
@@ -103,18 +123,39 @@
   },
   "errors": [
     {
+      "code": "web_session_required",
+      "error": "web_session_required",
+      "route": "/competencies",
+      "status": 409,
+      "at": "2026-11-21T11:01:18.747Z"
+    },
+    {
+      "code": "web_login_backoff",
+      "error": "web_login_backoff",
+      "route": "/session/login",
+      "status": 429,
+      "at": "2026-11-21T11:01:18.746Z"
+    },
+    {
+      "code": "pronote_unavailable",
+      "error": "pronote_error",
+      "route": "/session/login",
+      "status": 502,
+      "at": "2026-11-21T11:01:18.745Z"
+    },
+    {
       "code": "session_expired",
       "error": "session_expired",
       "route": "/roster",
       "status": 401,
-      "at": "2026-11-20T23:09:03.006Z"
+      "at": "2026-11-21T11:01:17.726Z"
     },
     {
       "code": "validation_failed",
       "error": "invalid_request",
       "route": "/roster",
       "status": 400,
-      "at": "2026-11-20T23:09:03.005Z"
+      "at": "2026-11-21T11:01:17.725Z"
     }
   ]
 }

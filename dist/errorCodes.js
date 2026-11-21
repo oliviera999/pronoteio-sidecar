@@ -6,6 +6,8 @@
  * - "code": one of the stable codes below, the one a client should branch on;
  * - "message": a fixed French sentence, never built from Pronote data (no name, no id, no Pronote message);
  * - the members of the case: retry_after (rate_limited), candidates (ambiguous), fields (validation_failed), reason…
+ * 0.15.0: web_login_backoff (429, retry_after, backoff_until), answered by the guard of the web logins without any call
+ * to Pronote (webLoginGuard.ts); web_session_required carries the same two members during that back-off.
  */
 export const ERROR_CODES = [
     { code: "rate_limited", status: 429, message: "Trop d'appels à Pronote : la file d'attente est pleine pour le moment.",
@@ -32,10 +34,14 @@ export const ERROR_CODES = [
         action: "Ne pas renvoyer une écriture ; une lecture peut être renvoyée avec une nouvelle signature.", members: [] },
     { code: "web_session_required", status: 409,
         message: "Cette fonction demande un onglet absent de la session mobile : il faut une session de l'Espace Professeurs web.",
-        action: "Ouvrir la session web (POST /session/login avec space: web) puis renvoyer la requête avec X-Pronoteio-Web-Session.",
-        members: ["onglet", "function"] },
+        action: "Ouvrir la session web (POST /session/login avec space: web) puis renvoyer la requête avec X-Pronoteio-Web-Session ; si retry_after est présent, ne pas tenter de connexion web avant ce délai.",
+        members: ["onglet", "function", "retry_after", "backoff_until"] },
     { code: "web_session_expired", status: 401, message: "La session de l'Espace Professeurs web a expiré.",
         action: "Rouvrir la session web (POST /session/login avec space: web) puis renvoyer la requête.", members: [] },
+    { code: "web_login_backoff", status: 429,
+        message: "Pronote a refusé une connexion à l'Espace Professeurs web : aucune nouvelle tentative n'est envoyée avant la fin du délai de reprise.",
+        action: "Ne pas tenter de connexion web avant retry_after secondes (en-tête Retry-After, instant backoff_until) ; une connexion avec le code PIN saisi par l'enseignant reste possible.",
+        members: ["retry_after", "backoff_until"] },
     { code: "internal", status: 500, message: "Erreur interne du sidecar.", action: "Réessayer ; consulter /health si elle persiste.", members: [] },
 ];
 const BY_CODE = new Map(ERROR_CODES.map((item) => [item.code, item]));

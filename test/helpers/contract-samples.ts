@@ -6,7 +6,7 @@
 import { readFileSync } from "node:fs";
 import { rememberUserData } from "../../src/pronote/userdata.js";
 import { fakeSession } from "../fake-session.js";
-import { buildApp, createSession, get, post } from "./app.js";
+import { buildApp, createSession, get, post, signedHeaders } from "./app.js";
 
 const fixture = (name: string) => JSON.parse(readFileSync(new URL(`../fixtures/${name}.json`, import.meta.url), "utf8"));
 
@@ -55,7 +55,37 @@ export const contractSamples = async (): Promise<Record<string, unknown>> => {
       new: { commit: "1111111111111111111111111111111111111111", version: "0.9.0" }, result: "ok", health: "0.9.0@1111111" })));
   }, 600));
   samples["admin-update"] = await json(post(app, "/admin/update", { timeout: 10 }));
+  // 0.15.0: guard of the web logins. Pawnote's web login is replaced by a stub (never a connection to Pronote): a
+  // login, the same session given back, then a refusal by Pronote for another account and the answers of its back-off.
+  const pawnote = await import("pawnote");
+  const { setWebLogin } = await import("../../src/routes/session.js");
+  const { webLoginGuard } = await import("../../src/webLoginGuard.js");
+  webLoginGuard.reset();
+  let refuse = false;
+  setWebLogin(async (handle) => {
+    if (refuse) throw new pawnote.RateLimitedError();
+    Object.assign(handle, fakeSession({}));
+    Object.assign(handle.instance, { navigatorIdentifier: "nav-fictif-0001" });
+    rememberUserData(handle, { resources: [classT06], tabs: [4, 12, 16, 56, 65, 105, 200] });
+    return {} as Awaited<ReturnType<typeof pawnote.loginCredentials>>;
+  });
+  const webBody = { url: `${login.url}/professeur.html`, username: login.username, deviceuuid: login.deviceuuid, password: "MotDePasse-Fictif",
+    space: "web" };
+  samples["session-login-web"] = await json(post(app, "/session/login", webBody));
+  samples["session-login-web-reused"] = await json(post(app, "/session/login", webBody));
+  refuse = true;
+  const refused = { ...login, username: "prof-contrats-refus" };
+  const mobile = fakeSession({});
+  rememberUserData(mobile, { resources: [classT06], tabs: [105, 16] });
+  const mobileId = createSession(mobile, { key: accountKey(refused.url, refused.username, refused.deviceuuid), login: refused },
+    { space: "mobile", loginMode: "token" });
+  await post(app, "/session/login", { ...webBody, username: refused.username });
+  samples["error-web-login-backoff"] = await json(post(app, "/session/login", { ...webBody, username: refused.username }));
+  samples["error-web-session-required-backoff"] = await json(app.inject({ method: "GET", url: "/competencies",
+    headers: { ...signedHeaders("GET", "/competencies", "", mobileId), "x-pronoteio-web": "1" } }));
   samples.health = await json(get(app, "/health"));
+  setWebLogin(null);
+  webLoginGuard.reset();
   // Routes read through Pawnote (not answerable by the fake session): the normalisers of their items.
   const start = new Date(2026, 10, 12, 17, 10);
   const end = new Date(2026, 10, 12, 18, 5);

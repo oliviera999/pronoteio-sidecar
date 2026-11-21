@@ -14,6 +14,8 @@
  * "space": "web"), sent by Moodle in X-Pronoteio-Web-Session beside the main one. It is kept separately (one web
  * session per account), never reconnected (no token chain for the web space: web_session_expired, Moodle logs in again),
  * and used for the whole request once a call needed a tab the mobile session lacks (space.ts, app.ts).
+ * 0.15.0: a web login without PIN of an account whose web session is alive gets it back (webLoginGuard.ts); a web
+ * session Pronote reports as lost is forgotten at once.
  */
 import { randomUUID } from "node:crypto";
 import type { FastifyRequest } from "fastify";
@@ -102,6 +104,15 @@ export const sessionOfAccount = (account: string): SessionEntry | null => {
   return entry;
 };
 
+/**
+ * 0.15.0: web session of an account still alive in the sidecar, to be given back by its next web login without PIN
+ * (webLoginGuard.ts); null when none. A web session Pronote reported as lost was forgotten (forgetSession).
+ */
+export const webSessionOfAccount = (account: string): SessionEntry | null => {
+  const entry = sessionOfAccount(webKey(account));
+  return entry && entry.space === "web" ? entry : null;
+};
+
 /** Entry of the request's session (without touching it), undefined when unknown or expired. */
 export const sessionEntry = (request: FastifyRequest): SessionEntry | undefined => {
   const entry = sessions.get(sessionIdOf(request));
@@ -125,6 +136,14 @@ const forget = (entry: SessionEntry): void => {
   sessions.delete(entry.id);
   const key = entry.account && (entry.space === "web" ? webKey(entry.account) : entry.account);
   if (key && byAccount.get(key) === entry.id) byAccount.delete(key);
+};
+
+/**
+ * 0.15.0: forgets a session Pronote reported as lost and that cannot be reconnected (web session: no token chain), so
+ * that the next web login of the account is a real one instead of getting the dead session back.
+ */
+export const forgetSession = (entry: SessionEntry | undefined): void => {
+  if (entry) forget(entry);
 };
 
 export const dropSession = (request: FastifyRequest): void => {
@@ -215,7 +234,9 @@ export const keepAlive = async (now = Date.now()): Promise<void> => {
       entry.lastUsed = now;
     } catch (error) {
       const reason = lostSessionReason(error);
-      if (reason) await reconnect(entry, reason);
+      // 0.15.0: a web session found gone is forgotten (never reconnected); the next web login is a real one.
+      if (reason && entry.space === "web") forget(entry);
+      else if (reason) await reconnect(entry, reason);
     }
   }
 };

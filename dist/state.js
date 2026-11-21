@@ -6,6 +6,9 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+/** Accounts kept in the web login guard, and recent failures kept per account. */
+export const MAX_WEB_LOGIN_ACCOUNTS = 100;
+export const MAX_WEB_LOGIN_RECENT = 50;
 export const MAX_ERRORS = 20;
 const empty = () => ({
     savedAt: null,
@@ -14,6 +17,7 @@ const empty = () => ({
     reconnects: { total: 0, expired: 0, replaced: 0, failed: 0, lastAt: null },
     pronote: { version: null, validated: null, seenAt: null },
     starts: 0,
+    webLogin: {},
 });
 export const resolveStateFile = (env = process.env, cwd = process.cwd()) => {
     const value = (env.PRONOTEIO_STATE_FILE ?? "").trim();
@@ -40,6 +44,19 @@ const sanitize = (raw) => {
     state.pronote = { version: str(raw?.pronote?.version, 20), validated: typeof raw?.pronote?.validated === "boolean" ? raw.pronote.validated : null,
         seenAt: str(raw?.pronote?.seenAt) };
     state.starts = num(raw?.starts);
+    const logins = raw?.webLogin && typeof raw.webLogin === "object" && !Array.isArray(raw.webLogin) ? raw.webLogin : {};
+    for (const [key, item] of Object.entries(logins).slice(0, MAX_WEB_LOGIN_ACCOUNTS)) {
+        if (!/^[0-9a-f]{64}$/.test(key))
+            continue;
+        const kind = str(item?.lastKind, 60);
+        state.webLogin[key] = {
+            failures: Math.min(1000, Math.floor(num(item?.failures))),
+            backoffUntil: num(item?.backoffUntil),
+            lastFailureAt: num(item?.lastFailureAt) > 0 ? num(item?.lastFailureAt) : null,
+            lastKind: kind !== null && /^[\w.-]{1,60}$/.test(kind) ? kind : null,
+            recent: (Array.isArray(item?.recent) ? item.recent : []).map(num).filter((at) => at > 0).slice(-MAX_WEB_LOGIN_RECENT),
+        };
+    }
     return state;
 };
 export class StateStore {

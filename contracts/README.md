@@ -33,6 +33,21 @@ Référence commune entre le sidecar et le plugin Moodle `local_pronoteio` (0.9.
   `/reports/comments`, `/classlife`, `/students/photos`, `/pp/check`) : leur forme est décrite dans
   `docs/pronoteio/vue-pp.md` du dépôt `mood_prod` et leurs types dans `src/normalise.ts` et `src/teacher/`.
 
+## Champs ajoutés en 0.15.0 (garde des connexions web)
+
+- `session/login` avec `space: web` : `reused: true` quand la session web encore ouverte du compte est rendue sans
+  appel à Pronote (connexion sans `pin`, avec le mot de passe qui a ouvert cette session) ; `navigator` décrit (présent depuis 0.11.1). Fixtures
+  `session-login-web.json`, `session-login-web-reused.json`.
+- Erreur `web_login_backoff` (429) : `retry_after` (secondes, ≥ 1), `backoff_until` (secondes Unix), en-tête
+  `Retry-After`. Fixture `error-web-login-backoff.json`.
+- Erreur `web_session_required` (409) pendant le délai de reprise du compte : `retry_after` et `backoff_until` en plus
+  de `onglet` et `function`. Fixture `error-web-session-required-backoff.json`.
+- `health` : `webLogin` (`accountsInBackoff`, `failuresLast10Min`).
+- `session/info` (sans schéma de réponse strict) : `weblogin` (`failures`, `recentFailures`, `backoffUntil`,
+  `retryAfter`, `lastFailureAt`, `lastKind`), type `WebLoginStatus` de `src/webLoginGuard.ts`.
+- En-têtes de requête facultatifs, hors signature : `X-Pronoteio-Origin` (`^[a-z0-9][a-z0-9_.:/-]{0,79}$`),
+  `X-Pronoteio-Account` (`^[0-9a-f]{8,32}$`), recopiés dans le journal d'accès.
+
 ## Couverture des réponses
 
 Routes avec schéma de réponse strict : `/health/public`, `/health`, `/errors`, `/roster`, `/students/files` (page et

@@ -1,7 +1,7 @@
 # pronoteio-sidecar
 
 Service Node.js (Fastify, Pawnote) qui fait le pont entre le plugin Moodle **local_pronoteio** (olution.info) et le
-Pronote du lycée, avec le compte enseignant lié. Version **0.12.1** — voir [CHANGELOG.md](CHANGELOG.md).
+Pronote du lycée, avec le compte enseignant lié. Version **0.15.0** — voir [CHANGELOG.md](CHANGELOG.md).
 
 - Hébergement : o2switch, cPanel « Setup Node.js App » (Phusion Passenger), fichier de démarrage `app.cjs`, code
   compilé versionné dans `dist/` (pas d'étape de build sur l'hôte).
@@ -9,7 +9,8 @@ Pronote du lycée, avec le compte enseignant lié. Version **0.12.1** — voir [
   (`>>$HOME/logs/pronoteio-sidecar-cron.log 2>&1`, jamais `>/dev/null`) — voir
   [docs/deploiement-o2switch.md](docs/deploiement-o2switch.md).
 - Échange signé : chaque requête porte `X-Pronoteio-Timestamp`, `X-Pronoteio-Nonce` et `X-Pronoteio-Signature`
-  (HMAC-SHA256 du secret partagé), et `X-Pronoteio-Session` une fois connectée.
+  (HMAC-SHA256 du secret partagé), et `X-Pronoteio-Session` une fois connectée. 0.15.0 : `X-Pronoteio-Origin` et
+  `X-Pronoteio-Account` (facultatifs, hors signature) nomment l'appelant et le compte dans le journal d'accès.
 
 ## Développement
 
@@ -80,6 +81,24 @@ sans compétences (55, 56, 65, 199, 200), bulletins (4, 13, 25, 27) ni relevé (
 | `POST /competencies` | Création, niveaux, suppression d'une évaluation par compétences (0.13.0, **non validé**) : création sans élève, relecture par `RapportSaisie.listeEvaluationsCreees`, puis niveaux ; `created`, `publicationDefault`, `ratingsSent`, `ratingsSaved`, `warnings`, `requests`. Sans `publication` à la création : date par défaut de Pronote. Niveau refusé sans la liste de l'établissement (`levels_unknown`). |
 | `GET /grades/context?competencies=1` | Contexte des notes avec les services de l'onglet Compétences (0.13.0) : `services[].kinds`. |
 | Refus des compétences | `available:false`, `reason:"access_denied"`, + `onglet`, `space`. |
+
+#### Garde des connexions web et origine des requêtes (0.15.0)
+
+Incident du 21/11/2026 : une connexion web refusée par Pronote (`RateLimitedError`) toutes les 3 à 4 secondes pendant
+près de trois minutes, sans que le journal dise qui appelait. Depuis 0.15.0, **aucun appelant ne peut produire une
+telle rafale** : chaque connexion web passe par une garde tenue par compte (`src/webLoginGuard.ts`).
+
+| Règle | Comportement |
+| --- | --- |
+| Une connexion en vol | Les `POST /session/login` `space: web` simultanés d'un compte (même mot de passe, même `pin`, même `navigator`) attendent la première et reçoivent **la même réponse** (même `sessionid` ou même erreur) : une seule connexion envoyée à Pronote. Une demande avec `pin` n'est jamais fusionnée avec une demande sans `pin` : elle passe après. |
+| Session rendue | Sans `pin`, si la session web du compte est encore ouverte dans le sidecar : `200 {"sessionid":"…","displayname":"…","version":"…","space":"web","login":"credentials","tabs":[…],"navigator":"…","reused":true}`, sans appel à Pronote. Avec `pin`, ou avec un autre mot de passe que celui qui a ouvert la session : toujours une vraie connexion, qui remplace la session. Une session web que Pronote déclare perdue est oubliée aussitôt. |
+| Reprise prudente | Après un refus de Pronote (limitation, adresse suspendue, page indisponible, compte désactivé, erreur réseau ou de décodage : échec répondu en 5xx), plus aucune connexion web sans `pin` vers Pronote pour ce compte avant **60 s, puis 2 min, 5 min, 15 min** (plafond). Pendant ce délai, réponse immédiate `429 {"error":"web_login_backoff","retry_after":57,"backoff_until":1795249577,"code":"web_login_backoff","message":"…"}` et en-tête `Retry-After: 57`. Une connexion avec `pin` passe ; refusée, elle allonge le délai. `pin_required`, `bad_pin`, `security_setup_required`, `double_auth_required`, `web_token_refused`, `bad_credentials` ne déclenchent pas de délai. Un succès efface tout. L'état survit à un redémarrage (`var/state.json`). |
+| `409 web_session_required` pendant le délai | `{"error":"web_session_required","onglet":56,"function":"ListeEvaluations","retry_after":57,"backoff_until":1795249577,"code":"web_session_required","message":"…"}` : ne pas tenter de connexion web avant `retry_after` secondes. Sans délai en cours, ces deux champs sont absents. |
+| `GET /session/info` | + `"weblogin":{"failures":1,"recentFailures":1,"backoffUntil":1795249577,"retryAfter":57,"lastFailureAt":1795249517,"lastKind":"RateLimitedError"}` pour le compte de la session : refus consécutifs de Pronote, connexions web échouées (toutes causes) des 10 dernières minutes, fin du délai (secondes Unix, `null` sans délai), secondes restantes (0 sans délai), dernier échec, nom ou code de sa cause (jamais un message). |
+| `GET /health` (signée) | + `"webLogin":{"accountsInBackoff":1,"failuresLast10Min":3}`, sans identité de compte. |
+| En-têtes `X-Pronoteio-Origin`, `X-Pronoteio-Account` | Facultatifs, sur **toute** requête, hors signature. `X-Pronoteio-Origin` : qui déclenche l'appel (`mcp:get_pronote_health`, `task:sync_task`, `page:local/pronoteio/push.php`), `^[a-z0-9][a-z0-9_.:/-]{0,79}$`. `X-Pronoteio-Account` : identifiant de compte haché par Moodle, `^[0-9a-f]{8,32}$`. Recopiés dans `origin` et `account` de chaque ligne du journal d'accès (secondes livraisons comprises) ; une valeur hors format est ignorée. Sans `X-Pronoteio-Account` valide, `account` porte 12 caractères hexadécimaux dérivés de la clé de compte du sidecar (compte de la connexion, sinon compte de la session) ; absent si aucun compte n'est connu. |
+
+Ligne du journal d'accès : `{"t":"…","method":"POST","route":"/session/login","status":429,"origin":"mcp:get_pronote_health","account":"3f2a9c01d4e5b6a7","code":"web_login_backoff","ms":1,"bytes":190}`.
 
 ### Vue du professeur principal (0.12.0)
 
@@ -169,8 +188,9 @@ de donnée Pronote). Le tableau est aussi servi par `GET /errors`.
 | `forbidden` | 403/409 | Droits, onglet fermé, mode simulation, saisie verrouillée, signature, adresse | Changer de réglage | |
 | `validation_failed` | 400 | Champ manquant ou mal formé | Corriger `fields` | `fields` |
 | `duplicate_write` | 401 | Requête signée déjà reçue | Ne pas renvoyer une écriture | |
-| `web_session_required` | 409 | Onglet absent de la session mobile (0.10.0) | Ouvrir la session web, renvoyer avec `X-Pronoteio-Web-Session` | `onglet`, `function` |
+| `web_session_required` | 409 | Onglet absent de la session mobile (0.10.0) | Ouvrir la session web, renvoyer avec `X-Pronoteio-Web-Session` ; si `retry_after` est présent (0.15.0), ne pas tenter de connexion web avant | `onglet`, `function`, `retry_after`, `backoff_until` |
 | `web_session_expired` | 401 | Session de l'Espace Professeurs web expirée (0.10.0) | Rouvrir la session web, renvoyer | |
+| `web_login_backoff` | 429 | Connexion web refusée par Pronote : délai de reprise en cours pour ce compte (0.15.0) | Ne pas tenter de connexion web avant `retry_after` s ; une connexion avec le `pin` saisi par l'enseignant reste possible | `retry_after`, `backoff_until` |
 | `internal` | 500 | Erreur interne | Réessayer, voir `/health` | |
 
 ## Données personnelles (RGPD)
@@ -184,7 +204,10 @@ Le sidecar manipule des données de mineurs (fiches, notes, absences) pour le co
   pour `GET /classlife` restent en mémoire et disparaissent avec la session.
 - Journaux : route-modèle, statut, code, durée, taille ; **jamais** d'URL (sa requête peut nommer un élève), de corps,
   d'en-tête, d'identifiant de session ni de message de Pronote. Les erreurs consignées ne gardent que code, route et
-  heure.
+  heure. 0.15.0 : `origin` (nom de l'outil, de la tâche ou de la page appelante) et `account` (empreinte hachée du
+  compte enseignant), deux en-têtes recopiés seulement s'ils respectent un format strict ; jamais d'identifiant de
+  connexion. L'état de la garde des connexions web (`var/state.json`) ne désigne un compte que par une empreinte
+  SHA-256.
 - Fichiers écrits : chaîne de jetons chiffrée, état non personnel, verrou, journaux (voir
   [docs/deploiement-o2switch.md](docs/deploiement-o2switch.md)).
 - Fixtures de test et de contrats : noms fictifs, aucune donnée réelle.
