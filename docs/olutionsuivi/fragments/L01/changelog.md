@@ -24,6 +24,10 @@ par supposition, à noms candidats. Une forme non reconnue répond `available: f
   file vers Pronote ; après `rate_limited`, attente de `retry_after` puis reprise au premier élève non lu ; un bloc
   refusé ou en erreur n'arrête pas les autres ; session fermée en cours de série : `waiting`, reprise quand elle
   revient, `partial` à l'expiration (`PRONOTEIO_COLLECT_WAIT`, 900 s). Résultats en mémoire, 30 minutes.
+  Précisions 7.4 bis du contrat : les résultats d'un bloc portent toujours `total` (nombre d'`items`), `offset` et
+  `limit`, et sont lisibles pour un bloc `unavailable` ou `failed` (`items: []`) ; `DELETE` annule ou purge, de façon
+  idempotente ; la session web rouverte par le client est adoptée depuis l'en-tête `X-Pronoteio-Web-Session` du
+  sondage suivant.
 - **État des sessions** : `state` (`mobile`, `web`, `reason`, `retry_after`) dans `GET /session/info`, `session` dans
   `GET /collect/:id` ; `web` vaut `open`, `closed`, `reopen_required`, `backoff` ou `pin_required`.
 - Refus de Pronote : `access_denied` avec l'onglet, un seul appel, retenu dix minutes pour les pages suivantes de la

@@ -40,7 +40,5 @@
   "remaining": [],
   "partial": false,
   "retry_after": 0,
-  "itemsTotal": 2,
-  "itemsOffset": 0,
-  "itemsMore": false
+  "limit": 40
 }

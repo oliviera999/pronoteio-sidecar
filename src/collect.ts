@@ -4,8 +4,9 @@
  *
  *   POST   /collect { resource, period?, blocks: [...], options? }   → 202 { collectid, status, progress }
  *   GET    /collect/:id                                             → status, progress, state of the sessions, blocks
- *   GET    /collect/:id/results?block=…&offset=&limit=              → result of one block, in the shape of its route
- *   DELETE /collect/:id                                             → cancels and forgets
+ *   GET    /collect/:id/results?block=…&offset=&limit=              → result of one block, in the shape of its route,
+ *                                                                     with total (items of the block), offset, limit
+ *   DELETE /collect/:id                                             → cancels a read, or forgets one that ended
  *
  * A block is the read of one route for the whole class (BLOCK_ROUTES): the sidecar asks its own routes, page after page
  * (app.inject with the internal token, as jobs.ts), and merges the pages. Rules:
@@ -530,6 +531,8 @@ const view = (job: Collect) => {
   const state = sessionState(job.sessions, job.account);
   const current = job.blocks.find((block) => block.name === job.current);
   const final = (block: BlockState) => block.status !== "pending" && block.status !== "running";
+  // A read that had a web session knows it is gone even when the account is unknown (sessionState.ts needs it).
+  const web = state.web === "closed" && job.sessions.web !== "" ? "reopen_required" : state.web;
   return {
     collectid: job.id,
     status: job.status,
@@ -543,7 +546,7 @@ const view = (job: Collect) => {
       student: current ? current.read : 0,
     },
     retry_after: Math.max(job.retryAt > now ? Math.ceil((job.retryAt - now) / 1000) : 0, job.status === "waiting" ? state.retry_after : 0),
-    session: { mobile: state.mobile, web: state.web, reason: state.reason },
+    session: { mobile: state.mobile, web, reason: web === state.web ? state.reason : (state.reason || "web_session_expired") },
     blocks: Object.fromEntries(job.blocks.map((block) => [block.name, { status: block.status, reason: block.reason,
       validated: block.result?.validated === true, read: block.read, total: block.total, remaining: Math.max(0, block.total - block.read) }])),
   };
@@ -690,11 +693,15 @@ export const registerCollect = (app: FastifyInstance): void => {
       // Readable once the block ended, while the others still run.
       if (block.status === "pending" || block.status === "running") throw new HttpError(409, "collect_block_not_ready", { collectid: job.id });
       const result = block.result ?? { available: false, reason: block.reason, validated: false };
-      if (!Array.isArray(result.items)) return result;
       const offset = request.query.offset ?? 0;
       const limit = request.query.limit ?? MAX_RESULT_ITEMS;
-      return { ...result, items: result.items.slice(offset, offset + limit), itemsTotal: result.items.length, itemsOffset: offset,
-        itemsMore: result.items.length > offset + limit };
+      // Contract 7.4 bis: always "total" (items of the block), "offset" and "limit"; a block that could not be read is
+      // the refusal of its route with no item. A block whose route has no "items" (results of the class, comments,
+      // overview of the grades) comes whole, with total 0.
+      const ended = block.status === "unavailable" || block.status === "failed";
+      const items: unknown[] | null = Array.isArray(result.items) ? result.items : ended ? [] : null;
+      if (items === null) return { ...result, total: 0, offset, limit };
+      return { ...result, items: items.slice(offset, offset + limit), total: items.length, offset, limit };
     },
   );
 

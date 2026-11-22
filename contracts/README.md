@@ -54,7 +54,9 @@ Référence commune entre le sidecar et le plugin Moodle `local_pronoteio` (0.9.
   (`classlife-absences`), `GET /students/plans` (`students-plans`), `GET /students/history` (`students-history`),
   `POST /collect` (`collect-create`, fixture `collect-created.json`), `GET /collect/:id` (`collect-get`, fixture
   `collect-done.json`). `GET /collect/:id/results` (`collect-results`) a un schéma **non strict** : le résultat d'un
-  bloc a la forme de la réponse de sa route, plus `itemsTotal`, `itemsOffset`, `itemsMore` quand il a des `items`.
+  bloc a la forme de la réponse de sa route et porte toujours `total` (nombre d'`items` du bloc), `offset` et `limit`
+  (contrat 7.4 bis) ; un bloc `unavailable` ou `failed` rend le refus de sa route avec `items: []`.
+- `collectid` : `^[A-Za-z0-9_-]{8,64}$` (schémas `collect-create` et `collect-get`).
 - Fixtures de ces routes : valeurs fictives. Elles suivent les formes relevées le 22/11/2026
   (`docs/olutionsuivi/formes/`) pour le suivi pluriannuel, le cadre du livret scolaire et le cumul de classe des
   absences ; les lignes d'absences par élève et les plans d'accompagnement sont des formes **supposées** (jamais vues).
@@ -65,7 +67,7 @@ Référence commune entre le sidecar et le plugin Moodle `local_pronoteio` (0.9.
   `SessionState` de `src/sessionState.ts` ; mêmes valeurs dans `session` de `GET /collect/:id`.
 - Écarts par rapport au texte du contrat, tous des ajouts : `classTotals`, `total`, `unmatched` et `bySubject`
   (toujours présent) dans `/classlife/absences` ; `unreadable` dans `/students/plans` ; `sources` au niveau de la réponse de
-  `/students/history` ; `itemsTotal`, `itemsOffset`, `itemsMore` dans les résultats d'un bloc.
+  `/students/history`.
 
 ## Couverture des réponses
 

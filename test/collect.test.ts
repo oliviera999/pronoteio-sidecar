@@ -125,7 +125,7 @@ test("a class of 31 students, every block: each result has the shape of its rout
     options: { classlife: { sources: ["recap"], include: "absences,lateness" }, files: { include: [] }, grades: { classes: "T06" } } }, session);
   assert.equal(created.statusCode, 202, created.body);
   const { collectid, status, progress } = created.json();
-  assert.match(collectid, /^[0-9a-f-]{36}$/);
+  assert.match(collectid, /^[A-Za-z0-9_-]{8,64}$/, "contract 7.4 bis");
   assert.ok(["queued", "running"].includes(status), status);
   assert.deepEqual(Object.keys(progress), ["done", "total", "block", "student"]);
 
@@ -151,12 +151,15 @@ test("a class of 31 students, every block: each result has the shape of its rout
 
   // Results: the shape of the route, items merged, read and remaining; pages of 40 items at most.
   const files = await results(app, collectid, session, "files");
-  assert.deepEqual([files.available, files.items.length, files.itemsTotal, files.itemsOffset, files.itemsMore, files.total], [true, 31, 31, 0, false, 31]);
+  assert.deepEqual([files.available, files.items.length, files.total, files.offset, files.limit], [true, 31, 31, 0, 40]);
   assert.deepEqual([files.read, files.remaining, files.notFound, files.partial, files.truncated], [ids, [], [], false, false]);
   assert.deepEqual(files.items.map((item: any) => item.id), ids);
   const pageTwo = await results(app, collectid, session, "plans", "&offset=10&limit=10");
-  assert.deepEqual([pageTwo.items.length, pageTwo.itemsTotal, pageTwo.itemsOffset, pageTwo.itemsMore, pageTwo.items[0].studentid], [10, 31, 10, true, ids[10]]);
-  assert.deepEqual([pageTwo.available, pageTwo.validated, pageTwo.offset, pageTwo.total, pageTwo.read.length, pageTwo.remaining, pageTwo.partial], [true, false, 0, 31, 31, [], false]);
+  // total counts the items of the block, offset and limit are those asked (contract 7.4 bis).
+  assert.deepEqual([pageTwo.items.length, pageTwo.total, pageTwo.offset, pageTwo.limit, pageTwo.items[0].studentid], [10, 31, 10, 10, ids[10]]);
+  assert.deepEqual([pageTwo.available, pageTwo.validated, pageTwo.read.length, pageTwo.remaining, pageTwo.partial], [true, false, 31, [], false]);
+  const beyond = await results(app, collectid, session, "plans", "&offset=40");
+  assert.deepEqual([beyond.items, beyond.total, beyond.offset, beyond.limit], [[], 31, 40, 40]);
   assert.deepEqual(pageTwo.class, { id: "c:T06", name: "T06" });
   assert.equal(pageTwo.items[0].plans[0].comment, "Commentaire fictif du plan");
   assert.equal((await get(app, `/collect/${collectid}/results?block=plans&limit=41`, session)).statusCode, 400);
@@ -168,11 +171,12 @@ test("a class of 31 students, every block: each result has the shape of its rout
   assert.deepEqual([history.items.length, history.items[5].years.map((year: any) => [year.year, year.level, year.average]), history.sources.livret], [31,
     [["2025-2026", "1G4", 13.42]], { available: true, reason: "" }]);
   const absences = await results(app, collectid, session, "absences");
-  assert.deepEqual([absences.available, absences.items.length, absences.items[0].events.length, absences.itemsTotal], [true, 31, 1, 31]);
+  assert.deepEqual([absences.available, absences.items.length, absences.items[0].events.length, absences.total], [true, 31, 1, 31]);
   assert.deepEqual(absences.classTotals, { students: 31, absences: 7, missedHours: 14, lateness: 15, latenessMinutes: 80, absenteeismRate: 0.4 });
   // Blocks without "items" come whole: the results of the class, the comments, the overview of the grades.
   const classResults = await results(app, collectid, session, "results");
-  assert.deepEqual([classResults.available, classResults.students.length, classResults.subjects.length, classResults.itemsTotal], [true, 31, 2, undefined]);
+  assert.deepEqual([classResults.available, classResults.students.length, classResults.subjects.length], [true, 31, 2]);
+  assert.deepEqual([classResults.total, classResults.offset, classResults.limit, classResults.items], [0, 0, 40, undefined], "no items: the block comes whole");
   const comments = await results(app, collectid, session, "comments");
   assert.deepEqual([comments.available, comments.general.source, comments.students.length, comments.general.page.read.length, comments.general.page.remaining],
     [true, "reportcards", 31, 31, []]);
@@ -189,6 +193,9 @@ test("a class of 31 students, every block: each result has the shape of its rout
   assert.deepEqual(removed.json(), { collectid, cancelled: true });
   const gone = await get(app, `/collect/${collectid}`, session);
   assert.deepEqual([gone.statusCode, gone.json().error, gone.json().code], [404, "collect_not_found", "not_found"]);
+  // Purged: deleting it again answers 404 collect_not_found, and changes nothing.
+  const twice = await signed(app, "DELETE", `/collect/${collectid}`, session);
+  assert.deepEqual([twice.statusCode, twice.json().error, twice.json().code], [404, "collect_not_found", "not_found"]);
   await app.close();
 
   // The logs: the routes of the read, never a size for the results, never the internal reads, never a value.
@@ -252,10 +259,12 @@ test("one function fails, another is refused, a shape is unknown: their blocks s
   // Refused: one call, nothing else asked; an error of Pronote: asked once more, no further.
   assert.deepEqual([count(fake, "DetailsPIEleve"), count(fake, "RecapAbsencesEleves"), count(fake, "LivretScolaire")], [1, 2, 1]);
   const plans = await results(app, collectid, session, "plans");
-  assert.deepEqual([plans.available, plans.reason, plans.onglet, plans.items], [false, "access_denied", 105, []]);
-  assert.deepEqual(await results(app, collectid, session, "absences"), { available: false, reason: "pronote_error", validated: false });
+  // A block that could not be read is readable: the refusal of its route, no item, and total, offset, limit as ever.
+  assert.deepEqual([plans.available, plans.reason, plans.onglet, plans.items, plans.total, plans.offset, plans.limit], [false, "access_denied", 105, [], 0, 0, 40]);
+  assert.deepEqual(await results(app, collectid, session, "absences"), { available: false, reason: "pronote_error", validated: false, items: [], total: 0, offset: 0,
+    limit: 40 });
   const unknown = await results(app, collectid, session, "results");
-  assert.deepEqual([unknown.available, unknown.reason, unknown.shape[0]], [false, "format_unknown", "autre: object"]);
+  assert.deepEqual([unknown.available, unknown.reason, unknown.shape[0], unknown.items, unknown.total], [false, "format_unknown", "autre: object", [], 0]);
   const history = await results(app, collectid, session, "history");
   assert.deepEqual([history.available, history.items.length, history.sources.livret.reason, history.sources.multiyear.available], [true, 31, "format_unknown", true]);
   assert.deepEqual(history.sources.livret.shape, ["livretInconnu: object", "livretInconnu.texte: string"]);
@@ -361,7 +370,8 @@ test("the web session never comes back: the read ends partial, what was read sta
     const plans = await results(app, collectid, main, "plans");
     assert.deepEqual([plans.available, plans.reason, plans.items.length, plans.read, plans.remaining, plans.partial], [true, "web_session_required", 20, ids.slice(0, 20),
       ids.slice(20), true]);
-    assert.deepEqual(await results(app, collectid, main, "history"), { available: false, reason: "web_session_required", validated: false });
+    assert.deepEqual(await results(app, collectid, main, "history"), { available: false, reason: "web_session_required", validated: false, items: [], total: 0,
+      offset: 0, limit: 40 });
   } finally {
     collectTiming.waitingMaxMs = before;
     await app.close();
@@ -389,6 +399,86 @@ test("without web session for a function that needs one: the block waits, and DE
   const next = await post(app, "/collect", { resource: "c:T06", blocks: ["grades"] }, main);
   assert.equal(next.statusCode, 202, next.body);
   await until(app, next.json().collectid, main, ended);
+  await app.close();
+});
+
+test("the client reopens the web session and sends its id with the next poll: adopted, the read resumes (7.4 bis)", async () => {
+  resetCollects();
+  readCache.clear();
+  webLoginGuard.reset();
+  const app = await buildApp({ logger: false });
+  // Sessions without account: the read cannot find a new session by itself, only the header of a poll gives it.
+  const mobile = pronote(everything(), ALL_TABS.filter((tab) => tab !== 105));
+  let calls = 0;
+  const web = pronote({ ...everything(), DetailsPIEleve: (data, call) => (++calls >= 26 ? { Erreur: { Titre: "Vous avez été déconnecté." } } : everything().DetailsPIEleve(data, call)) });
+  const main = createSession(mobile, undefined, { space: "mobile" });
+  const webId = createSession(web, undefined, { space: "web" });
+  const body = JSON.stringify({ resource: "c:T06", blocks: ["plans"] });
+  const created = await app.inject({ method: "POST", url: "/collect", payload: body, headers: { ...signedHeaders("POST", "/collect", body, main), "x-pronoteio-web-session": webId } });
+  const { collectid } = created.json();
+  const waiting = await until(app, collectid, main, (state) => state.status === "waiting" || ended(state));
+  assert.deepEqual([waiting.status, waiting.session, waiting.blocks.plans.read], ["waiting", { mobile: "open", web: "reopen_required", reason: "web_session_expired" }, 20]);
+  // A new web session exists, but nobody told the read: it keeps waiting.
+  const again = pronote(everything());
+  const reopened = createSession(again, undefined, { space: "web" });
+  await sleep(80);
+  assert.equal((await get(app, `/collect/${collectid}`, main)).json().status, "waiting");
+  assert.equal(count(again, "DetailsPIEleve"), 0);
+  // The next poll carries the new id in X-Pronoteio-Web-Session: adopted, the read resumes where it stopped.
+  const poll = await signed(app, "GET", `/collect/${collectid}`, main, reopened);
+  assert.equal(poll.statusCode, 200, poll.body);
+  const state = await until(app, collectid, main, ended);
+  assert.deepEqual([state.status, state.blocks.plans.status, state.blocks.plans.read, state.session.web], ["done", "done", 31, "open"]);
+  assert.deepEqual(again.calls.filter((call) => call.name === "DetailsPIEleve").map((call) => call.data?.eleve?.N), students.slice(20).map((student) => student.N));
+  assert.deepEqual((await results(app, collectid, main, "plans")).items.map((item: any) => item.studentid), ids);
+  // DELETE purges a read that ended; again: 404, nothing else.
+  assert.deepEqual((await signed(app, "DELETE", `/collect/${collectid}`, main)).json(), { collectid, cancelled: true });
+  assert.equal((await signed(app, "DELETE", `/collect/${collectid}`, main)).statusCode, 404);
+  await app.close();
+});
+
+test("options of a grouped read: one object per block, lists as arrays or comma separated, from and to in seconds, one period for all (7.4 bis)", async () => {
+  resetCollects();
+  readCache.clear();
+  const app = await buildApp({ logger: false });
+  const from = Math.floor(new Date(2026, 9, 5).getTime() / 1000);
+  const to = Math.floor(new Date(2026, 9, 12).getTime() / 1000);
+  const run = async (options: Record<string, unknown>, blocks: string[], period?: string) => {
+    const fake = pronote(everything());
+    const session = createSession(fake, account());
+    const created = await post(app, "/collect", { resource: "c:T06", blocks, options, ...(period ? { period } : {}) }, session);
+    assert.equal(created.statusCode, 202, created.body);
+    const state = await until(app, created.json().collectid, session, ended);
+    return { fake, session, id: created.json().collectid as string, state };
+  };
+  // Arrays.
+  const first = await run({ absences: { from, to }, history: { sources: ["multiyear"] }, classlife: { include: ["absences"], sources: ["recap"], from, to },
+    files: { include: ["guardians", "imagerights"] }, grades: { classes: ["T06"] } }, ["absences", "history", "classlife", "files", "grades"]);
+  assert.equal(first.state.status, "done", JSON.stringify(first.state.blocks));
+  const absences = await results(app, first.id, first.session, "absences");
+  assert.deepEqual([absences.from, absences.to, absences.total], [from, to, 31]);
+  assert.match(first.fake.calls.find((call) => call.name === "RecapAbsencesEleves")!.data?.domaine?.V, /^\[\d+\.\.\d+\]$/);
+  assert.equal(count(first.fake, "LivretScolaire"), 0, "history.sources: the school record was not asked");
+  assert.deepEqual((await results(app, first.id, first.session, "history")).sources.livret, { available: false, reason: "not_asked" });
+  const classlife = await results(app, first.id, first.session, "classlife");
+  assert.deepEqual([classlife.include, classlife.from, classlife.to, Object.keys(classlife.sources)], [["absences"], from, to, ["recap"]]);
+  assert.ok(Array.isArray((await results(app, first.id, first.session, "files")).items[0].guardians), "files.include: the guardians were asked");
+  // The same lists, comma separated.
+  const second = await run({ history: { sources: "multiyear" }, classlife: { include: "absences,lateness", sources: "recap" }, files: { include: "guardians,imagerights" },
+    grades: { classes: "T06" } }, ["history", "classlife", "files", "grades"]);
+  assert.equal(second.state.status, "done", JSON.stringify(second.state.blocks));
+  assert.equal(count(second.fake, "LivretScolaire"), 0);
+  assert.deepEqual((await results(app, second.id, second.session, "classlife")).include, ["absences", "lateness"]);
+  // One period for every block that takes one: report cards, results of the class, comments, overview of the grades.
+  const third = await run({}, ["reportcards", "results", "comments", "grades"], "p:Trimestre 1");
+  assert.equal(third.state.status, "done", JSON.stringify(third.state.blocks));
+  for (const name of ["PageBulletins", "ResultatsClasses"]) {
+    assert.ok(third.fake.calls.filter((call) => call.name === name).every((call) => call.data?.periode?.L === "Trimestre 1"), name);
+  }
+  assert.equal((await results(app, third.id, third.session, "results")).period.id, "p:Trimestre 1");
+  // An unknown period ends the blocks that need it, not the read.
+  const fourth = await run({}, ["results", "plans"], "p:Inconnue");
+  assert.deepEqual([fourth.state.blocks.results.status, fourth.state.blocks.plans.status], ["unavailable", "done"]);
   await app.close();
 });
 

@@ -8,21 +8,11 @@
   "properties": {
     "response": {
       "type": "object",
-      "description": "Résultat d'un bloc : la forme de la réponse de sa route (files : /students/files ; reportcards : /reports ; results : /reports/results ; comments : /reports/comments ; classlife : /classlife ; absences : /classlife/absences ; plans : /students/plans ; history : /students/history ; grades : /grades/overview), comme si elle avait lu toute la classe. Schéma non strict : les membres sont ceux de la route. Quand le résultat a « items », offset et limit le paginent (40 au plus) et les trois membres ci-dessous sont ajoutés.",
+      "description": "Résultat d'un bloc : la forme de la réponse de sa route (files : /students/files ; reportcards : /reports ; results : /reports/results ; comments : /reports/comments ; classlife : /classlife ; absences : /classlife/absences ; plans : /students/plans ; history : /students/history ; grades : /grades/overview), comme si elle avait lu toute la classe. Schéma non strict : les membres sont ceux de la route. Contrat 7.4 bis : la réponse porte toujours total (nombre d'items du bloc, qui remplace ici le total de la route), offset et limit ; offset et limit paginent items (40 au plus). Un bloc unavailable ou failed est lisible : refus de sa route (available false, reason, shape éventuel), items vide. Un bloc dont la route n'a pas d'items (results, comments, grades) est rendu entier, total 0.",
       "properties": {
         "items": {
           "type": "array",
           "maxItems": 40
-        },
-        "itemsTotal": {
-          "type": "integer",
-          "description": "Nombre total d'éléments du bloc."
-        },
-        "itemsOffset": {
-          "type": "integer"
-        },
-        "itemsMore": {
-          "type": "boolean"
         },
         "read": {
           "type": "array",
@@ -44,8 +34,27 @@
         },
         "reason": {
           "type": "string"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Nombre d'items du bloc."
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 40
         }
-      }
+      },
+      "required": [
+        "total",
+        "offset",
+        "limit"
+      ]
     }
   }
 }
