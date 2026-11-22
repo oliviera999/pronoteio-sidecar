@@ -1,18 +1,23 @@
 ## 0.16.0 — suivi des classes : absences de classe, plans d'accompagnement, années précédentes, lecture groupée
 
 Lot L01 du chantier olutionsuivi (contrat : `docs/olutionsuivi/CONTRAT_SIDECAR.md`). Tout est en lecture seule.
-**Aucune des quatre fonctions de Pronote lues ici n'a été vue répondre avec ses valeurs** : les décodeurs sont des
-suppositions à noms candidats (`validated: false`), et une forme non reconnue répond `available: false`,
-`reason: "format_unknown"` et `shape` (jamais une valeur).
+**Aucune des quatre fonctions de Pronote lues ici n'a été vue répondre avec ses valeurs** (`validated: false`). Leurs
+formes ont été relevées le 22/11/2026 (`docs/olutionsuivi/formes/`, noms et types seulement) : le suivi pluriannuel est
+décodé sur sa forme réelle ; le reste (ligne d'absences par élève, ligne de livret, plan d'accompagnement) est décodé
+par supposition, à noms candidats. Une forme non reconnue répond `available: false`, `reason: "format_unknown"` et
+`shape` (jamais une valeur).
 
 - **`GET /classlife/absences`** (`RecapAbsencesEleves`, 138) : absences et retards de toute une classe, toutes matières,
   en un appel ; année scolaire par défaut. Événements datés quand la fonction en donne, sinon `reason: "totals_only"`
-  avec `totals` et `bySubject`. Les motifs ne sont jamais lus (`reasons: []`).
+  avec `totals` et `bySubject`. Les motifs ne sont jamais lus (`reasons: []`). **Constat du relevé : avec la requête
+  connue, Pronote ne rend aucune ligne par élève**, seulement le cumul de la classe, rendu dans `classTotals`
+  (`totals_only`, `items: []`). Les absences datées de toutes les matières ne sont donc pas acquises.
 - **`GET /students/plans`** (`DetailsPIEleve`, 105) : plans d'accompagnement d'une page d'élèves. Donnée de santé :
   jamais dans le cache des lectures ; ligne du journal sans taille de réponse ni forme ; `shape` sans les noms
   sensibles.
 - **`GET /students/history`** (`LivretScolaire`, 83 et `PageSuiviPluriannuel`, 44) : résultats des années précédentes,
-  fusionnés par année scolaire ; l'état de chaque source est rendu par élève et pour la page.
+  fusionnés par année scolaire ; l'état de chaque source est rendu par élève et pour la page. Le suivi pluriannuel
+  est lu sur sa forme relevée ; un livret pas encore rempli est disponible, sans année.
 - **Lecture groupée** : `POST /collect`, `GET /collect/:id`, `GET /collect/:id/results`, `DELETE /collect/:id`. Neuf
   blocs (`files`, `reportcards`, `results`, `comments`, `classlife`, `absences`, `plans`, `history`, `grades`), chacun
   rendu dans la forme de la réponse de sa route. Une seule par compte (`409 collect_running`). Priorité « lot » de la

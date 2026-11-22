@@ -8,6 +8,14 @@
   },
   "from": 1788217200,
   "to": 1814659200,
+  "classTotals": {
+    "students": 2,
+    "absences": 2,
+    "missedHours": 3,
+    "lateness": 1,
+    "latenessMinutes": 10,
+    "absenteeismRate": 1.5
+  },
   "total": 2,
   "unmatched": 0,
   "items": [

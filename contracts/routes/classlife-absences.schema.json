@@ -5,7 +5,7 @@
   "method": "GET",
   "url": "/classlife/absences",
   "fixture": "fixtures/classlife-absences.json",
-  "description": "0.16.0, non validé sur un vrai serveur : RecapAbsencesEleves (onglet 138), un appel par classe. Contrat olutionsuivi 7.1.",
+  "description": "0.16.0, non validé sur un vrai serveur : RecapAbsencesEleves (onglet 138), un appel par classe. Forme relevée le 22/11/2026 : aucune ligne par élève, le cumul de la classe seulement ; la forme d'une ligne est supposée. Contrat olutionsuivi 7.1.",
   "properties": {
     "response": {
       "type": "object",
@@ -15,7 +15,7 @@
         },
         "reason": {
           "type": "string",
-          "description": "« », totals_only (cumuls sans dates : events vides), access_denied, format_unknown."
+          "description": "« », totals_only (cumuls sans dates : events vides ; ou cumul de la classe seul, items vide), access_denied, format_unknown."
         },
         "validated": {
           "const": false
@@ -56,6 +56,64 @@
           "enum": [
             "mobile",
             "web"
+          ]
+        },
+        "classTotals": {
+          "description": "Cumul de la classe tel que Pronote le compte (LigneCumul, forme relevée le 22/11/2026), null quand la réponse n'en donne pas. Avec la requête envoyée, c'est la seule chose que la fonction rend : aucune ligne par élève.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "students": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "absences": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "missedHours": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "lateness": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "latenessMinutes": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "absenteeismRate": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "students",
+                "absences",
+                "missedHours",
+                "lateness",
+                "latenessMinutes",
+                "absenteeismRate"
+              ],
+              "additionalProperties": false
+            }
           ]
         },
         "total": {
@@ -249,6 +307,7 @@
         "class",
         "from",
         "to",
+        "classTotals",
         "total",
         "unmatched",
         "items"

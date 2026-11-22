@@ -2,13 +2,20 @@
  * Results of the previous years of the students of a class (0.16.0): LivretScolaire (tab 83) and PageSuiviPluriannuel
  * (tab 44). GET /students/history, block "history" of the grouped read (collect.ts).
  *
- * What is known (GET /pp/check of 21/11/2026, no value seen): both requests answer ({ Classe, AvecDonneesClasse: true,
- * Eleve } and { eleve: { N } }); the multi-year page holds the report cards and averages of the past years. The members
- * of the answers were NOT read: the decoders are suppositions with candidate names, written from the report cards
- * (MoyenneEleve, MoyenneClasse, ListeAppreciations) and the tables of the web client. Three layouts are read:
+ * Shapes recorded on 22/11/2026 (docs/olutionsuivi/formes/, names and types, no value):
+ * - PageSuiviPluriannuel (multiYear.txt), COMPLETE: listeDonnees[] is one entry per year ({ L, strAnnee, strFinAnnee,
+ *   strClasses, moyenne, moyenneClasse, bareme, listeSuivis[] }), listeSuivis[] one line per subject ({ L, moyenne,
+ *   moyenneClasse, appreciation, coefficient… }); numbers are typed strings (_T 10). The decoder reads that shape. What
+ *   the strings hold was not seen: the school year is read from L, from strAnnee, or from strAnnee and strFinAnnee
+ *   together. "bareme" (the scale of the averages) and "coefficient" are not returned.
+ * - LivretScolaire (schoolRecord.txt), FRAME ONLY: { classe: { L, listeLivret[] }, eleve: { L, listeLivret[] }, … }
+ *   with both lists EMPTY at that date. An empty eleve.listeLivret is a school record not filled yet (available, no
+ *   year). The shape of a line was never seen: lines are read as subjects (a supposition, with candidate names), and
+ *   answer format_unknown when no subject is recognised in them.
+ * Beside the recorded shapes, three supposed layouts are still read (another version of Pronote, another school):
  * - a list of years, each with its subjects;
  * - a list of subjects, each with one cell per year (the years named by the cells, or by a list of years beside);
- * - a list of subjects alone: one year (the school record of the current class).
+ * - a list of subjects alone: one year.
  * Anything else is format_unknown with the shape of the answer, per source: one source not understood never hides the
  * other. The years of the two sources are merged by school year ("2025-2026").
  */
@@ -54,11 +61,15 @@ export type StudentHistory = PartialRead<HistoryStudent> & {
 };
 
 const WRAPPERS = ["livret", "livretScolaire", "suivi", "suiviPluriannuel", "donnees", "page"];
-const YEARS = ["listeAnnees", "listeAnneesScolaires", "annees", "listeBulletins", "listeNiveaux", "listeClasses", "listeLivrets", "listeLivret"];
-const SUBJECTS = ["listeMatieres", "listeServices", "listeDisciplines", "listeEnseignements", "matieres", "services", "listeLignes", "lignes"];
+// The recorded names first (listeDonnees, listeSuivis, strAnnee, strClasses), then the supposed ones.
+const YEARS = ["listeDonnees", "listeAnnees", "listeAnneesScolaires", "annees", "listeBulletins", "listeNiveaux", "listeClasses", "listeLivrets"];
+const SUBJECTS = ["listeSuivis", "listeMatieres", "listeServices", "listeDisciplines", "listeEnseignements", "matieres", "services", "listeLignes", "lignes"];
+/** Lines of the school record of a student (recorded name; the shape of a line is supposed). */
+const LIVRET = ["listeLivret"];
 const CELLS = ["listeAnnees", "listeMoyennes", "moyennes", "listeColonnes", "colonnes", "listeValeurs", "valeurs", "listeNotes"];
-const YEAR_LABEL = ["annee", "anneeScolaire", "libelleAnnee", "strAnnee", "millesime", "libelle"];
-const LEVEL = ["niveau", "classe", "strClasse", "nomClasse", "libelleClasse", "formation"];
+const YEAR_LABEL = ["strAnnee", "annee", "anneeScolaire", "libelleAnnee", "millesime", "libelle"];
+const YEAR_END = ["strFinAnnee", "anneeFin", "finAnnee"];
+const LEVEL = ["strClasses", "niveau", "classe", "strClasse", "nomClasse", "libelleClasse", "formation"];
 const SUBJECT = ["matiere", "service", "discipline", "enseignement"];
 const AVERAGE = ["moyenneEleve", "moyEleve", "moyenne", "moyenneAnnuelle", "moyAnnuelle", "moyenneAnnuelleEleve", "note"];
 const CLASS_AVERAGE = ["moyenneClasse", "moyClasse", "moyenneAnnuelleClasse", "moyenneGroupe", "moyGroupe"];
@@ -93,6 +104,18 @@ const yearLabelOf = (item: Record<string, any>): string => {
   return schoolYearOf(own) !== "" ? own : (textOf(member(item, YEAR_LABEL)) || own);
 };
 
+/**
+ * School year of an element: its label when it names one ("2025-2026"), else its two ends when they are given apart
+ * (strAnnee "2025", strFinAnnee "2026") and follow each other.
+ */
+const yearKeyOf = (item: Record<string, any>, label: string): string => {
+  const whole = schoolYearOf(label) || schoolYearOf(textOf(item.L)) || schoolYearOf(textOf(member(item, YEAR_LABEL)));
+  if (whole !== "") return whole;
+  const first = /(?:^|\D)(20\d{2})(?!\d)/.exec(textOf(member(item, YEAR_LABEL)))?.[1];
+  const last = /(?:^|\D)(20\d{2})(?!\d)/.exec(textOf(member(item, YEAR_END)))?.[1];
+  return first && last && Number(last) === Number(first) + 1 ? `${first}-${last}` : "";
+};
+
 /** Layout 1: a list of years, each with its subjects or at least an average. */
 const fromYears = (root: Record<string, any>): HistoryYear[] | null => {
   const list = member(root, YEARS);
@@ -105,7 +128,9 @@ const fromYears = (root: Record<string, any>): HistoryYear[] | null => {
     if (!isList(subjects) && average === null) continue;
     const label = yearLabelOf(item);
     if (label === "") continue;
-    years.push({ year: schoolYearOf(label), label, level: textOf(member(item, LEVEL)), average, classAverage: numberOf(member(item, GENERAL_CLASS)),
+    const year = yearKeyOf(item, label);
+    // A label that names no school year ("2025", a class) gives way to the year found beside it.
+    years.push({ year, label: year !== "" && schoolYearOf(label) === "" ? year : label, level: textOf(member(item, LEVEL)), average, classAverage: numberOf(member(item, GENERAL_CLASS)),
       subjects: listOf<unknown>(subjects).map(subjectFrom).filter((subject): subject is HistorySubject => subject !== null) });
   }
   // Elements, but none that is a year with results: the years of the columns of layout 2, or another shape.
@@ -170,8 +195,29 @@ const fromSubjects = (root: Record<string, any>): HistoryYear[] | null => {
 };
 
 /**
- * Years of a LivretScolaire or PageSuiviPluriannuel answer ("data" member), null when the shape is not understood. A
- * known list that is empty is a student without past results.
+ * Years of a LivretScolaire answer ("data" member), null when the shape is not understood. The recorded frame first:
+ * the lines of the student (eleve.listeLivret) are the subjects of one year, the class of the frame its level; no
+ * line is a school record not filled yet. Any other frame is read as the supposed layouts.
+ */
+export const livretFromAnswer = (data: unknown): HistoryYear[] | null => {
+  if (!isPlain(data)) return null;
+  const student = unwrap(member(data, ["eleve"]));
+  if (!isPlain(student) || !isList(member(student, LIVRET))) return yearsFromAnswer(data);
+  const lines = listOf<unknown>(member(student, LIVRET));
+  if (lines.length === 0) return [];
+  const subjects = lines.map(subjectFrom).filter((subject): subject is HistorySubject => subject !== null);
+  // Lines, but no subject recognised in them: the shape of a line is not the one supposed.
+  if (subjects.length === 0) return null;
+  const classe = unwrap(member(data, ["classe"]));
+  const level = isPlain(classe) ? textOf(classe.L) : "";
+  const label = textOf(member(data, YEAR_LABEL));
+  return [{ year: schoolYearOf(label), label: label || level, level, average: numberOf(member(student, GENERAL)),
+    classAverage: numberOf(member(student, GENERAL_CLASS)), subjects }];
+};
+
+/**
+ * Years of a PageSuiviPluriannuel answer ("data" member), or of an answer in one of the supposed layouts; null when
+ * the shape is not understood. A known list that is empty is a student without past results.
  */
 export const yearsFromAnswer = (data: unknown): HistoryYear[] | null => {
   if (!isPlain(data)) return null;
@@ -242,7 +288,7 @@ export const studentHistory = async (
     const outcomes: Record<HistorySource, SourceOutcome> = { livret: NOT_ASKED, multiyear: NOT_ASKED };
     const lists: HistoryYear[][] = [];
     for (const [name, source] of sources) {
-      const one = await readStudentSource(session, source, dataOf(name, entry), yearsFromAnswer, []);
+      const one = await readStudentSource(session, source, dataOf(name, entry), name === "livret" ? livretFromAnswer : yearsFromAnswer, []);
       // The shape of a closed source is given once, by the page: not repeated in every student.
       outcomes[name] = one.value === null && !source.state.available ? { available: false, reason: one.outcome.reason } : one.outcome;
       if (one.value !== null) lists.push(one.value);

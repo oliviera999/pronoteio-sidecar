@@ -2,13 +2,18 @@
  * Absences and late arrivals of a class, every subject, in ONE call (0.16.0): RecapAbsencesEleves, tab 138 of the web
  * Espace Professeurs. GET /classlife/absences, block "absences" of the grouped read (collect.ts).
  *
- * What is known (GET /pp/check of 21/11/2026, no value seen): the request { classes, regimes, bourses, criteres,
- * domaine } answers, and the answer holds "ListeLignes" and "LigneCumul". The members of a line were NOT read: the
- * decoder below is a supposition, written from the summary of a student (RecapitulatifVSEleve, classlife.ts) and from
- * the tables of the web client, with lists of candidate names:
+ * Shape recorded on 22/11/2026 (docs/olutionsuivi/formes/lifeAbsencesRecap.txt, names and types, no value): with the
+ * request { classes, regimes, bourses, criteres: {}, domaine } the answer holds NO line (ListeLignes is an empty list)
+ * and the totals of the class only: LigneCumul { nbEleves, nbAbsences, dureeTotale, nbRetards, minutesRetardTotal,
+ * tauxAbsenteismeTotal… }. They are returned as "classTotals", with reason "totals_only" and no item. The request
+ * probably needs criteria to list the students: none is invented here.
+ *
+ * The members of a line by student were therefore NEVER seen: the decoder of the lines is a supposition, written from
+ * the names of LigneCumul (the same numbers, by student), from the summary of a student (RecapitulatifVSEleve,
+ * classlife.ts) and from the tables of the web client, with lists of candidate names:
  * - a line is a student: an element under "eleve" (or the line itself) whose N or label is in the roster; lines nested
  *   in a line that is not a student (a class that unfolds) are read too;
- * - its numbers are members of the line (nbAbsences, nbDJAbsence, nbRetards…) or cells ("colonnes": { L, valeur,
+ * - its numbers are members of the line (nbAbsences, dureeTotale, nbRetards…) or cells ("colonnes": { L, valeur,
  *   estUneDuree }, as the summary of a student), the titles of the cells being those of the columns of the table when
  *   the cells carry none;
  * - its dated events, if any, are a list of the line read as the call sheets are (classlife.ts eventFromItem).
@@ -34,6 +39,16 @@ export type AbsenceTotals = {
   unjustifiedAbsences: number | null;
   lateness: number | null;
   missedHours: number | null;
+};
+
+/** Totals of a class (LigneCumul): students counted, absences, hours missed, late arrivals and their minutes, rate. */
+export type ClassTotals = {
+  students: number | null;
+  absences: number | null;
+  missedHours: number | null;
+  lateness: number | null;
+  latenessMinutes: number | null;
+  absenteeismRate: number | null;
 };
 
 export type AbsenceEvent = {
@@ -72,6 +87,11 @@ export type ClassAbsences = {
   shape?: string[];
   onglet?: number;
   space?: string;
+  /**
+   * Totals of the whole class as Pronote counts them (LigneCumul), null when the answer gives none. Recorded on
+   * 22/11/2026: the only numbers the function gives with the request sent.
+   */
+  classTotals: ClassTotals | null;
   /** Students of the class, and lines of the answer that name no student of it. */
   total: number;
   unmatched: number;
@@ -102,7 +122,31 @@ const DIRECT: Record<keyof AbsenceTotals, string[]> = {
   absenceHalfDays: ["nbDJAbsence", "nbDemiJournees", "NbrDemiJournees", "nbDJ", "demiJournees", "nbDJBulletin"],
   unjustifiedAbsences: ["nbAbsencesInjustifiees", "nbAbsInjustifiees", "nbInjustifiees", "nbAbsNonJustifiees", "nbNonJustifiees", "absencesInjustifiees"],
   lateness: ["nbRetards", "nombreRetards", "NbrRetards", "retards"],
-  missedHours: ["nbHeures", "NbrHeures", "nbHeuresManquees", "heuresManquees", "heuresCoursManquees", "nbHeuresCoursManquees"],
+  // dureeTotale: the name recorded in LigneCumul; the others are supposed.
+  missedHours: ["dureeTotale", "nbHeures", "NbrHeures", "nbHeuresManquees", "heuresManquees", "heuresCoursManquees", "nbHeuresCoursManquees"],
+};
+
+/** Hours of a duration whose format was not seen: a number, "12h30" or "12,5"; null for anything else (never a guess). */
+const strictHours = (value: unknown): number | null => {
+  const raw = unwrap(value);
+  if (typeof raw === "number") return hoursOf(raw);
+  return typeof raw === "string" && /^\s*\d+(\s*h\s*\d{0,2}|[.,]\d+)?\s*$/i.test(raw) ? hoursOf(raw.trim().replace(/h$/i, "h00")) : null;
+};
+
+/** Totals of the class from the answer (recorded names of LigneCumul), null when it has none. */
+export const classTotalsOf = (data: unknown): ClassTotals | null => {
+  const line = unwrap(member(data, ["LigneCumul"]));
+  if (!isPlain(line)) return null;
+  const totals: ClassTotals = {
+    students: numberOf(member(line, ["nbEleves"])),
+    absences: numberOf(member(line, ["nbAbsences"])),
+    // A string whose format was not seen: read when it is a duration ("12h30") or a number, null otherwise.
+    missedHours: strictHours(member(line, ["dureeTotale"])),
+    lateness: numberOf(member(line, ["nbRetards"])),
+    latenessMinutes: numberOf(member(line, ["minutesRetardTotal"])),
+    absenteeismRate: numberOf(member(line, ["tauxAbsenteismeTotal"])),
+  };
+  return Object.values(totals).some((value) => value !== null) ? totals : null;
 };
 
 const round = (value: number): number => Math.round(value * 100) / 100;
@@ -285,7 +329,7 @@ export const classAbsences = async (session: SessionHandle, resourceId: string, 
   const from = fromEpoch ?? year.from;
   const to = toEpoch ?? Math.max(year.to, from + 1);
   const base: ClassAbsences = { available: false, reason: "", validated: false, class: { id: resourceId, name: resource.label }, from, to,
-    total: 0, unmatched: 0, items: [] };
+    classTotals: null, total: 0, unmatched: 0, items: [] };
   const refused = (): ClassAbsences => ({ ...base, reason: "access_denied", ...deniedWhere(session, functions.lifeAbsencesRecap.onglet) });
   let data: Record<string, any>;
   try {
@@ -304,6 +348,9 @@ export const classAbsences = async (session: SessionHandle, resourceId: string, 
   const entries = await rosterEntries(session, resourceId);
   const read = absencesFromRecap(data, entries, from, to);
   if (read === null) return { ...base, total: entries.length, reason: "format_unknown", shape: shapeOf(data) };
-  return { ...base, available: true, reason: read.items.length > 0 && !read.dated ? "totals_only" : "", total: entries.length,
-    unmatched: read.unmatched, items: read.items };
+  const classTotals = classTotalsOf(data);
+  // Numbers without dates: those of the students, or (shape recorded on 22/11/2026: no line) those of the class alone.
+  const totalsOnly = !read.dated && (read.items.length > 0 || classTotals !== null);
+  return { ...base, available: true, reason: totalsOnly ? "totals_only" : "", classTotals, total: entries.length, unmatched: read.unmatched,
+    items: read.items };
 };

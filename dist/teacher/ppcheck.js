@@ -21,12 +21,12 @@ import { pronoteDate } from "../pronote/encoding.js";
 import { limiterOptions } from "../pronote/limiter.js";
 import { userData } from "../pronote/userdata.js";
 import { wallNow } from "../time.js";
-import { absencesFromRecap } from "./absencesRecap.js";
+import { absencesFromRecap, classTotalsOf } from "./absencesRecap.js";
 import { decodeRecap, eventsFromNotebook, eventsFromSummary } from "./classlife.js";
 import { kindRequests, kindsFromAnswer } from "./comments.js";
 import { callFunctionAt, functions, FUNCTION_KEYS } from "./functions.js";
 import { loadPeriods, loadServices, ref, resourceOf } from "./grades.js";
-import { yearsFromAnswer } from "./history.js";
+import { livretFromAnswer, yearsFromAnswer } from "./history.js";
 import { photoProbe } from "./photos.js";
 import { plansFromAnswer } from "./plans.js";
 import { resultsFromAnswer } from "./reports.js";
@@ -280,7 +280,7 @@ export const ppCheck = async (session, resourceId, options = {}) => {
     await push("lifeAbsencesRecap", "life", { data: classes ? { classes, regimes: list([]), bourses: list([]), criteres: {}, domaine } : null,
         recognise: (answer) => {
             const read = absencesFromRecap(answer, entries, 0, Number.MAX_SAFE_INTEGER);
-            return read === null ? null : read.dated ? "dated" : read.items.length > 0 ? "totals_only" : "no_line";
+            return read === null ? null : read.dated ? "dated" : read.items.length > 0 ? "totals_only" : classTotalsOf(answer) ? "class_totals_only" : "no_line";
         } });
     await push("lifeCallSheetRecap", "life", { data: classes ? { classes, regimes: list([]), rubriquesObservation: list([]), domaine,
             uniquementDontJeSuisAuteur: false } : null });
@@ -310,7 +310,8 @@ export const ppCheck = async (session, resourceId, options = {}) => {
     await push("pastReports", "reports", { data: { avecNotes: true, avecCompetences: false, listeElevesBIA: list([eleve]) } });
     await push("schoolingRecap", "reports", { data: classes && periode ? { classes, periode } : null });
     const years = (answer) => (yearsFromAnswer(answer) === null ? null : "");
-    await push("schoolRecord", "reports", { data: isClass ? { Classe: classe, AvecDonneesClasse: true, Eleve: eleve } : null, recognise: years });
+    await push("schoolRecord", "reports", { data: isClass ? { Classe: classe, AvecDonneesClasse: true, Eleve: eleve } : null,
+        recognise: (answer) => (livretFromAnswer(answer) === null ? null : "") });
     await push("studentFolders", "reports", { variant: "eleve", data: { eleve } });
     await push("studentFolders", "reports", { variant: "Eleve", data: { Eleve: eleve } });
     await push("multiYear", "reports", { data: { eleve: { N: first.pronoteId } }, recognise: years });

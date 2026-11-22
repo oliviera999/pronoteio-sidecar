@@ -6,8 +6,10 @@ import { planType } from "./students.js";
 import { boolOf, dateOf, dayString, isPlain, labelsOf, member, pageOf, readEach, textOf, unwrap } from "./tolerant.js";
 /** Largest page of students (one Pronote call per student). */
 export const MAX_PLAN_STUDENTS = 40;
-const PLAN_LISTS = ["listeProjets", "listeProjetsAccompagnement", "projetsAccompagnement", "listePI", "listeProjetsIndividuels",
-    "listeDetailsPI", "listeDetails", "projets"];
+const PLAN_LISTS = ["listeProjets", "listeProjetsAccompagnement", "projetsAccompagnement", "listeProjetsIndividuels", "listeProjetsIndividualises",
+    "listeProjetsEleve", "projetsIndividuels", "projets", "listePAP", "listePAI", "listePI", "listeDetailsPI", "listeDetails"];
+/** One plan given alone. */
+const PLAN_SINGLE = ["projet", "projetAccompagnement", "projetIndividuel", "projetIndividualise", "detailProjet"];
 const TYPE = ["typeProjet", "type", "projet", "nature", "genreProjet", "typePI"];
 const TITLE = ["intitule", "libelle", "titre", "motif", "nom"];
 const START = ["dateDebut", "debut", "dateDebutValidite", "date"];
@@ -63,6 +65,12 @@ export const plansFromAnswer = (data) => {
         return null;
     let list = member(data, PLAN_LISTS);
     if (list === undefined || !Array.isArray(unwrap(list))) {
+        const single = unwrap(member(data, PLAN_SINGLE));
+        if (isPlain(single)) {
+            const plan = planFrom(single);
+            if (plan !== null)
+                return [plan];
+        }
         // No known name: the only list of the answer whose elements carry a member of a plan.
         const candidates = Object.values(data).filter((value) => {
             const elements = listOf(value).map(unwrap).filter(isPlain);

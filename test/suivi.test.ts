@@ -10,8 +10,8 @@ import { AccessLog } from "../src/logs.js";
 import { seconds } from "../src/normalise.js";
 import { callCost } from "../src/pronote/limiter.js";
 import { rememberUserData } from "../src/pronote/userdata.js";
-import { absencesFromRecap, classAbsences, totalField } from "../src/teacher/absencesRecap.js";
-import { mergeYears, schoolYearOf, studentHistory, yearsFromAnswer } from "../src/teacher/history.js";
+import { absencesFromRecap, classAbsences, classTotalsOf, totalField } from "../src/teacher/absencesRecap.js";
+import { livretFromAnswer, mergeYears, schoolYearOf, studentHistory, yearsFromAnswer } from "../src/teacher/history.js";
 import { planFrom, plansFromAnswer, studentPlans } from "../src/teacher/plans.js";
 import { resetSourceMemory, schoolYearRange } from "../src/teacher/studentSource.js";
 import { fakeSession, type FakeCall } from "./fake-session.js";
@@ -21,10 +21,13 @@ const { accountKey } = await import("../src/tokenStore.js");
 
 /*
  * Class follow-up (0.16.0, docs/olutionsuivi/CONTRAT_SIDECAR.md): absences of a class in one call, support plans,
- * results of the previous years. NONE of the four functions was seen answering with its values: the fixtures below are
- * the shapes the decoders SUPPOSE (generated names and values, never read on a real server), and every decoder is also
- * given a shape it must not understand.
+ * results of the previous years. The fixtures marked "recorded" follow the shapes of docs/olutionsuivi/formes/ (names
+ * and types read on 22/11/2026, no value): the multi-year page, the frame of the school record, the totals of a class.
+ * The others are the shapes the decoders SUPPOSE (a line of absences by student, a line of the school record, a support
+ * plan). Generated names and values everywhere, never read on a real server; every decoder is also given a shape it
+ * must not understand.
  */
+const note = (value: string) => ({ _T: 10, V: value });
 const typed = <T>(items: T[]) => ({ _T: 24, V: items });
 const date = (value: string) => ({ _T: 7, V: value });
 const denied = { Erreur: { Titre: "Vos droits sont insuffisants pour effectuer cette opération." } };
@@ -122,6 +125,30 @@ test("absences of a class: numbers without dates give totals and subjects, event
   assert.deepEqual(absencesFromRecap({ ListeLignes: typed([]), LigneCumul: {} }, entries, FROM, TO), { items: [], dated: false, unmatched: 0 });
 });
 
+/** Recorded shape (lifeAbsencesRecap.txt): no line by student, the totals of the class only. */
+const recordedRecap = () => ({ ListeLignes: typed([]), LigneCumul: { nbClasses: 1, nbEleves: 31, nbAbsences: 42, dureeTotale: "118h30", motifRecevableOui: "Motif secret",
+  motifRecevableNon: "Autre motif secret", nbAbsRepas: 3, nbAbsInternat: 0, nbRetardInternat: 0, nbRetards: 17, nbInfirmerie: 5, tauxAbsenteismeTotal: 2.4,
+  minutesRetardTotal: 95 } });
+
+test("absences of a class, recorded shape: no line by student, the totals of the class and nothing else", async () => {
+  assert.deepEqual(absencesFromRecap(recordedRecap(), entries, FROM, TO), { items: [], dated: false, unmatched: 0 });
+  assert.deepEqual(classTotalsOf(recordedRecap()), { students: 31, absences: 42, missedHours: 118.5, lateness: 17, latenessMinutes: 95, absenteeismRate: 2.4 });
+  // A duration whose format is not the one read stays unknown; no LigneCumul, or an empty one, gives nothing.
+  assert.equal(classTotalsOf({ LigneCumul: { nbAbsences: 2, dureeTotale: "3 jours" } })?.missedHours, null);
+  assert.deepEqual(["7h", "7h05", "7,5", 7].map((dureeTotale) => classTotalsOf({ LigneCumul: { dureeTotale } })?.missedHours), [7, 7.08, 7.5, 7]);
+  assert.deepEqual([classTotalsOf({ ListeLignes: typed([]) }), classTotalsOf({ LigneCumul: {} })], [null, null]);
+  const fake = session({ RecapAbsencesEleves: () => recordedRecap() });
+  const result = await classAbsences(fake, "c:T06", FROM, TO);
+  assert.deepEqual([result.available, result.reason, result.items, result.total], [true, "totals_only", [], 31]);
+  assert.deepEqual(result.classTotals, { students: 31, absences: 42, missedHours: 118.5, lateness: 17, latenessMinutes: 95, absenteeismRate: 2.4 });
+  // Neither the infirmary nor the reasons of the totals leave.
+  assert.equal(JSON.stringify(result).toLowerCase().includes("secret"), false);
+  assert.deepEqual(Object.keys(result.classTotals!), ["students", "absences", "missedHours", "lateness", "latenessMinutes", "absenteeismRate"]);
+  // A line by student named as the totals of the class are (supposed): the same numbers, for the student.
+  const byStudent = absencesFromRecap({ ListeLignes: typed([{ eleve: { _T: 24, V: { N: "4#e4" } }, nbAbsences: 3, dureeTotale: "7h00", nbRetards: 2 }]) }, entries, FROM, TO)!;
+  assert.deepEqual(byStudent.items[0].totals, { absences: 3, absenceHalfDays: null, unjustifiedAbsences: null, lateness: 2, missedHours: 7 });
+});
+
 test("absences of a class: an unknown shape is not guessed", () => {
   assert.equal(absencesFromRecap({ autre: 1 }, entries, FROM, TO), null);
   assert.equal(absencesFromRecap({ ListeLignes: { texte: "x" } }, entries, FROM, TO), null);
@@ -135,6 +162,7 @@ test("GET /classlife/absences: one call per class, the school year by default, t
   const fake = session({ RecapAbsencesEleves: () => datedRecap() });
   const dated = await classAbsences(fake, "c:T06");
   assert.deepEqual([dated.available, dated.reason, dated.validated, dated.total, dated.unmatched], [true, "", false, 31, 1]);
+  assert.deepEqual(dated.classTotals, { students: null, absences: 2, missedHours: null, lateness: 1, latenessMinutes: null, absenteeismRate: null });
   assert.deepEqual(dated.class, { id: "c:T06", name: "T06" });
   assert.deepEqual([dated.from, dated.to], [seconds(new Date(2026, 8, 1)), seconds(new Date(2027, 6, 4))]);
   assert.deepEqual(schoolYearRange(fake), { from: dated.from, to: dated.to });
@@ -195,6 +223,8 @@ test("support plans: type, dates, comment and accommodations of each plan; an un
   // No known name: the only list whose elements look like plans.
   assert.deepEqual(plansFromAnswer({ listeInconnue: typed([{ L: "PPS", dateDebut: date("01/09/2026") }]), autres: typed([{ L: "x" }]) })?.map((plan) => plan.type), ["PPS"]);
   assert.equal(plansFromAnswer({ a: typed([{ L: "PPS", dateDebut: 1 }]), b: typed([{ L: "PAP", dateFin: 1 }]) }), null, "two candidate lists: not guessed");
+  // One plan given alone under a known name.
+  assert.deepEqual(plansFromAnswer({ projet: { L: "PPRE", commentaire: "Commentaire fictif" } })?.map((plan) => [plan.type, plan.comment]), [["PPRE", "Commentaire fictif"]]);
   assert.equal(plansFromAnswer({ estPubliable: true }), null);
   assert.equal(plansFromAnswer({ listeProjets: typed([{ inconnu: "Valeur secrète" }]) }), null);
 });
@@ -224,7 +254,7 @@ test("GET /students/plans: a page of students, an unreadable student named, form
   assert.equal(JSON.stringify(some).includes("secrète"), false);
 
   // No answer was ever understood: the decoder is wrong, one call is enough, for this page and the next ones.
-  const odd = session({ DetailsPIEleve: () => ({ detail: { lignes: [{ texte: "Plan secret" }] }, listePAP: typed([{ L: "PAP secret" }]) }) });
+  const odd = session({ DetailsPIEleve: () => ({ detail: { lignes: [{ texte: "Plan secret" }] }, planSecretPAP: typed([{ texte: "PAP secret" }]) }) });
   const unknown = await studentPlans(odd, "c:T06", { offset: 0, limit: 5 });
   assert.deepEqual([unknown.available, unknown.reason, unknown.items, unknown.read, unknown.remaining], [false, "format_unknown", [], [], []]);
   assert.deepEqual(unknown.shape, ["detail: object", "detail.lignes: list[1]", "detail.lignes[]: object", "detail.lignes[].texte: string"]);
@@ -250,13 +280,35 @@ test("GET /students/plans: a page of students, an unreadable student named, form
 
 /* ---- 7.3 Previous years: LivretScolaire and PageSuiviPluriannuel ---- */
 
-/** Supposed shape of the multi-year page: one element per year with its subjects. */
-const multiYearAnswer = () => ({ listeAnnees: typed([
-  { L: "2025-2026", classe: { _T: 24, V: { L: "1G4" } }, moyenneGenerale: { _T: 10, V: "13,42" }, moyenneGeneraleClasse: "12,10",
-    listeMatieres: typed([{ L: "MATHEMATIQUES", moyenneEleve: "14,50", moyenneClasse: "11,20", appreciation: "Appréciation fictive A" },
-      { L: "PHILOSOPHIE", MoyenneEleve: { _T: 10, V: "|1" }, ListeAppreciations: typed([{ L: "" }, { L: "Appréciation fictive B" }]) }]) },
-  { L: "Année 2024/25", niveau: "Seconde", moyenne: 12, listeMatieres: typed([{ L: "MATHEMATIQUES", moyenne: 11 }]) },
-]) });
+/**
+ * Recorded shape of the multi-year page (multiYear.txt): listeDonnees[] is one entry per year, listeSuivis[] one line
+ * per subject, numbers are typed strings. What the strings hold was not seen: the first year is named by its label,
+ * the second by its two ends.
+ */
+const suivi = (subject: string, moyenne: string, moyenneClasse: string, appreciation: string) => ({ L: subject, meta: { _T: 24, V: { L: "Pôle fictif", N: "m1" } },
+  strMeta: "Pôle fictif", moyenne: note(moyenne), moyenneClasse: note(moyenneClasse), appreciation, coefficient: note("2,00"), facultatif: false, Bonus: false,
+  strAnnotation: "", hintAnnotation: "", positionnement: 0 });
+const multiYearAnswer = () => ({ avecMoyennesSaisies: true,
+  listeDonnees: typed([
+    { L: "2025-2026", identifiant: 2, strAnnee: "2025", strFinAnnee: "2026", bareme: note("20"), couleur: "#4A90D9", strClasses: "1G4", moyenne: note("13,42"),
+      moyenneClasse: note("12,10"), nbMaxPeriode: 3, avecBulletins: true,
+      listeBulletins: typed([{ ident: "b1", nomFichier: "bulletin-secret.pdf", libelle: "Trimestre 1", annee: 2025, libelleAnnee: "2025-2026", libelleClasse: "1G4",
+        libellePeriodeNotation: "Trimestre 1" }, { ident: "b2", nomFichier: "bulletin-secret-2.pdf", libelle: "Trimestre 2", annee: 2025 }]),
+      listeSuivis: typed([suivi("MATHEMATIQUES", "14,50", "11,20", "Appréciation fictive A"), suivi("PHILOSOPHIE", "|1", "", "Appréciation fictive B")]) },
+    { L: "Seconde", identifiant: 1, strAnnee: "2024", strFinAnnee: "2025", bareme: note("20"), couleur: "#D94A4A", strClasses: "2D3", moyenne: note("12,00"),
+      moyenneClasse: note(""), nbMaxPeriode: 3, avecBulletins: false, listeBulletins: typed([]), listeSuivis: typed([suivi("MATHEMATIQUES", "11,00", "", "")]) }]),
+  listeMetas: typed([{ L: "Pôle fictif", N: "m1" }, { L: "Autre pôle", N: "m2" }]),
+  listeAnnees: typed([{ L: "2025-2026" }, { L: "2024-2025" }]),
+  grapheAvecMoyenne: { _T: 25, V: 1 }, grapheSansMoyenne: { _T: 25, V: 2 }, afficherMoyenneGenerale: true });
+
+/** Recorded frame of the school record (schoolRecord.txt); the lines of the student are a supposition. */
+const livretFrame = (lines: Record<string, unknown>[] = []) => ({ listeEngagements: typed([{ L: "Délégué fictif", N: "e1", code: "D" }, { L: "Autre", N: "e2", code: "A" }]),
+  strInfoDatePublication: "", avecFiliere: false, estFilierePro: false, tailleMaxSaisie: 300,
+  classe: { L: "T06", N: "1#c1", nombrePeriodes: 3, listeLivret: [] }, estFiliereNew: true,
+  eleve: { L: "ELEVE01 Prénom", N: "4#e1", P: 0, estRedoublant: false, listeLivret: lines, libelleEnseignement: "Enseignement fictif" },
+  piedDePage: { editable: false, editablePourAvisCE: false, avecAvisCE: true, estIssueDUnBOLycee: false,
+    avisCE: { listeAvis: typed([{ L: "Avis secret", N: "a1", nbEleves: 12 }, { L: "Autre avis secret", N: "a2", nbEleves: 19 }]), libelleRepatition: "", nbElevesTotal: 31 },
+    avecEngagements: false, engagements: { listeEngagements: typed([]) }, avecInvestissement: false, investissement: {}, avecParcoursDifferencie: false } });
 
 /** Supposed shape of the school record: one line per subject, one cell per year named by a list of years beside. */
 const livretAnswer = () => ({ livret: { _T: 24, V: {
@@ -271,8 +323,21 @@ test("previous years: years with their subjects, subjects with one cell per year
     { year: "2025-2026", label: "2025-2026", level: "1G4", average: 13.42, classAverage: 12.1, subjects: [
       { subject: "MATHEMATIQUES", average: 14.5, classAverage: 11.2, comment: "Appréciation fictive A" },
       { subject: "PHILOSOPHIE", average: null, classAverage: null, comment: "Appréciation fictive B" }] },
-    { year: "2024-2025", label: "Année 2024/25", level: "Seconde", average: 12, classAverage: null, subjects: [
+    // "Seconde" names no school year: the two ends of the year (2024, 2025) do, and give the label.
+    { year: "2024-2025", label: "2024-2025", level: "2D3", average: 12, classAverage: null, subjects: [
       { subject: "MATHEMATIQUES", average: 11, classAverage: null, comment: "" }] }]);
+  assert.equal(JSON.stringify(multi).includes("secret"), false, "the files of the report cards are not read");
+  assert.deepEqual(yearsFromAnswer({ listeDonnees: typed([]), listeAnnees: typed([]) }), [], "a student without past year");
+  // Recorded frame of the school record: not filled yet, it is available and gives no year.
+  assert.deepEqual(livretFromAnswer(livretFrame()), []);
+  // A line of the school record was never seen: read as a subject (supposed names), the class of the frame as level.
+  assert.deepEqual(livretFromAnswer(livretFrame([{ L: "EPS", moyenneEleve: note("15,00"), moyenneClasse: note("13,00"), appreciation: "Livret fictif" }])),
+    [{ year: "", label: "T06", level: "T06", average: null, classAverage: null, subjects: [{ subject: "EPS", average: 15, classAverage: 13, comment: "Livret fictif" }] }]);
+  assert.equal(livretFromAnswer(livretFrame([{ inconnu: "Valeur secrète" }])), null, "lines in which no subject is recognised");
+  assert.equal(JSON.stringify(livretFromAnswer(livretFrame())).includes("secret"), false);
+  // Supposed layout, still read: a list of years named "listeAnnees", each with its "listeMatieres".
+  assert.deepEqual(yearsFromAnswer({ listeAnnees: typed([{ L: "Année 2024/25", niveau: "Seconde", moyenne: 12, listeMatieres: typed([{ L: "MATHEMATIQUES", moyenne: 11 }]) }]) }),
+    [{ year: "2024-2025", label: "Année 2024/25", level: "Seconde", average: 12, classAverage: null, subjects: [{ subject: "MATHEMATIQUES", average: 11, classAverage: null, comment: "" }] }]);
   const livret = yearsFromAnswer(livretAnswer())!;
   assert.deepEqual(livret.map((year) => [year.year, year.label, year.subjects.map((subject) => [subject.subject, subject.average])]), [
     ["2025-2026", "2025-2026", [["MATHEMATIQUES", 14], ["SVT", 16]]], ["2026-2027", "2026-2027", [["MATHEMATIQUES", 15.1]]]]);
@@ -289,7 +354,7 @@ test("previous years: years with their subjects, subjects with one cell per year
   // The two sources merged by school year: the first one first, what it lacks filled by the second.
   const merged = mergeYears([livret, multi]);
   assert.deepEqual(merged.map((year) => [year.year, year.level, year.average, year.subjects.map((subject) => subject.subject)]), [
-    ["2026-2027", "", null, ["MATHEMATIQUES"]], ["2025-2026", "1G4", 13.42, ["MATHEMATIQUES", "SVT", "PHILOSOPHIE"]], ["2024-2025", "Seconde", 12, ["MATHEMATIQUES"]]]);
+    ["2026-2027", "", null, ["MATHEMATIQUES"]], ["2025-2026", "1G4", 13.42, ["MATHEMATIQUES", "SVT", "PHILOSOPHIE"]], ["2024-2025", "2D3", 12, ["MATHEMATIQUES"]]]);
   const maths = merged[1].subjects[0];
   assert.deepEqual(maths, { subject: "MATHEMATIQUES", average: 14, classAverage: 11, comment: "Livret fictif A" });
 });
@@ -306,6 +371,12 @@ test("GET /students/history: both sources per student, one source unknown or ref
   const multi = fake.calls.find((call) => call.name === "PageSuiviPluriannuel")!;
   assert.deepEqual([multi.data, multi.onglet], [{ eleve: { N: "4#e1" } }, 44]);
   assert.deepEqual([callCost("LivretScolaire"), callCost("PageSuiviPluriannuel"), callCost("RecapAbsencesEleves")], [2, 2, 2]);
+  // Recorded shapes of both sources: the school record not filled yet is available and empty, the years are those of the multi-year page.
+  const recorded = session({ LivretScolaire: () => livretFrame(), PageSuiviPluriannuel: () => multiYearAnswer() });
+  const real = await studentHistory(recorded, "c:T06", { offset: 0, limit: 2 });
+  assert.deepEqual([real.available, real.sources.livret, real.sources.multiyear], [true, { available: true, reason: "" }, { available: true, reason: "" }]);
+  assert.deepEqual(real.items.map((item) => item.years.map((year) => [year.year, year.level, year.average])), [[["2025-2026", "1G4", 13.42], ["2024-2025", "2D3", 12]],
+    [["2025-2026", "1G4", 13.42], ["2024-2025", "2D3", 12]]]);
   // One source asked: the other is not called.
   const only = await studentHistory(fake, "c:T06", { student: "e:ELEVE02 Prénom" }, ["multiyear"]);
   assert.deepEqual(only.items[0].sources.livret, { available: false, reason: "not_asked" });

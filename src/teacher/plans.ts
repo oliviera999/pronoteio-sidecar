@@ -6,11 +6,14 @@
  * them goes to a log (no shape in the access log, no size of the answer: app.ts SILENT_ROUTES), and an answer that is
  * not understood is described with the sensitive names left out (shape.ts SENSITIVE).
  *
- * What is known (GET /pp/check of 21/11/2026): the request { eleve } answers, and every member of the answer has a
- * name the filter of the shapes leaves out. Nothing else: the decoder is a supposition, written from the plans of the
- * student file (students.ts planOf, itself never validated) with candidate names. It reads a list of plans under one
- * of the known names, else the only list of the answer whose elements look like plans; a plan is its label (PAI, PAP,
- * PPS, PPRE, accommodations), a title, two dates, a comment and its accommodations. Anything else is format_unknown.
+ * What is known (GET /pp/check of 21/11/2026 and docs/olutionsuivi/formes/supportPlanDetails.txt of 22/11/2026): the
+ * request { eleve } answers, the answer is NOT empty (an empty one is reported "empty_answer", this one is
+ * "format_unknown") and every member of it has a name the filter of the shapes leaves out (shape.ts SENSITIVE: medic,
+ * allerg, sante, pai, pap, handicap, memo, attestation, projet, alimentaire, dispens). Nothing else: the decoder is a
+ * supposition, written from the plans of the student file (students.ts planOf, itself never validated) with candidate
+ * names of that family. It reads a list of plans under one of the known names, else one plan under a known name, else
+ * the only list of the answer whose elements look like plans; a plan is its label (PAI, PAP, PPS, PPRE,
+ * accommodations), a title, two dates, a comment and its accommodations. Anything else is format_unknown.
  */
 import type { SessionHandle } from "pawnote";
 import { listOf } from "../pronote/encoding.js";
@@ -46,8 +49,10 @@ export type StudentPlans = PartialRead<PlanStudent> & SourceOutcome & {
   unreadable?: string[];
 };
 
-const PLAN_LISTS = ["listeProjets", "listeProjetsAccompagnement", "projetsAccompagnement", "listePI", "listeProjetsIndividuels",
-  "listeDetailsPI", "listeDetails", "projets"];
+const PLAN_LISTS = ["listeProjets", "listeProjetsAccompagnement", "projetsAccompagnement", "listeProjetsIndividuels", "listeProjetsIndividualises",
+  "listeProjetsEleve", "projetsIndividuels", "projets", "listePAP", "listePAI", "listePI", "listeDetailsPI", "listeDetails"];
+/** One plan given alone. */
+const PLAN_SINGLE = ["projet", "projetAccompagnement", "projetIndividuel", "projetIndividualise", "detailProjet"];
 const TYPE = ["typeProjet", "type", "projet", "nature", "genreProjet", "typePI"];
 const TITLE = ["intitule", "libelle", "titre", "motif", "nom"];
 const START = ["dateDebut", "debut", "dateDebutValidite", "date"];
@@ -102,6 +107,11 @@ export const plansFromAnswer = (data: unknown): SupportPlan[] | null => {
   if (!isPlain(data)) return null;
   let list = member(data, PLAN_LISTS);
   if (list === undefined || !Array.isArray(unwrap(list))) {
+    const single = unwrap(member(data, PLAN_SINGLE));
+    if (isPlain(single)) {
+      const plan = planFrom(single);
+      if (plan !== null) return [plan];
+    }
     // No known name: the only list of the answer whose elements carry a member of a plan.
     const candidates = Object.values(data).filter((value) => {
       const elements = listOf<unknown>(value).map(unwrap).filter(isPlain);

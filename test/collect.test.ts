@@ -20,7 +20,9 @@ const { webLoginGuard } = await import("../src/webLoginGuard.js");
 
 /*
  * Grouped read of a class (0.16.0, docs/olutionsuivi/CONTRAT_SIDECAR.md 7.4 and 7.5). Fake Pronote sessions, generated
- * names and values; the shapes of the four new functions are those the decoders suppose (test/suivi.test.ts).
+ * names and values. The multi-year page, the frame of the school record and the totals of a class follow the shapes
+ * recorded in docs/olutionsuivi/formes/; the lines of absences by student and the support plans are the shapes the
+ * decoders suppose (test/suivi.test.ts).
  */
 type App = Awaited<ReturnType<typeof buildApp>>;
 type Handlers = Record<string, (data: any, call: FakeCall) => any>;
@@ -58,11 +60,17 @@ const everything = (): Handlers => ({
     moyenneGeneraleClasse: note("12,10") }),
   RecapitulatifVSEleve: () => ({ listeMatiere: typed([]), listeTotal: typed([{ G: 0, L: "Absences", valeur: 2, nbDJAbsence: 3 }, { G: 1, L: "Retards", valeur: 1 }]) }),
   RecapAbsencesEleves: () => ({ ListeLignes: typed(students.map((student, index) => ({ eleve: { _T: 24, V: { N: student.N, L: student.L } }, nbRetards: index % 2,
-    listeAbsences: typed(index % 5 === 0 ? [{ G: 13, DateDebut: date("05/10/2026 08:00:00"), DateFin: date("05/10/2026 09:55:00"), justifie: false }] : []) }))) }),
+    listeAbsences: typed(index % 5 === 0 ? [{ G: 13, DateDebut: date("05/10/2026 08:00:00"), DateFin: date("05/10/2026 09:55:00"), justifie: false }] : []) }))),
+  LigneCumul: { nbClasses: 1, nbEleves: 31, nbAbsences: 7, dureeTotale: "14h00", nbRetards: 15, minutesRetardTotal: 80, tauxAbsenteismeTotal: 0.4 } }),
   DetailsPIEleve: (data) => ({ listeProjets: typed(Number(String(data?.eleve?.N).slice(3)) % 10 === 1
     ? [{ L: "PAP", commentaire: "Commentaire fictif du plan", listeAmenagements: typed([{ L: "Temps majoré" }]) }] : []) }),
-  LivretScolaire: () => ({ anneeScolaire: "2026-2027", listeServices: typed([{ L: "EPS", MoyenneEleve: "15", MoyenneClasse: "13" }]) }),
-  PageSuiviPluriannuel: () => ({ listeAnnees: typed([{ L: "2025-2026", moyenneGenerale: "13,42", listeMatieres: typed([{ L: "MATHEMATIQUES", moyenneEleve: "14,50" }]) }]) }),
+  // Recorded shapes: the school record not filled yet (both lists empty), one past year in the multi-year page.
+  LivretScolaire: (data) => ({ classe: { L: "T06", N: "1#c1", nombrePeriodes: 3, listeLivret: [] },
+    eleve: { L: data?.Eleve?.L, N: data?.Eleve?.N, P: 0, estRedoublant: false, listeLivret: [], libelleEnseignement: "" }, piedDePage: { editable: false } }),
+  PageSuiviPluriannuel: () => ({ avecMoyennesSaisies: true, listeDonnees: typed([{ L: "2025-2026", strAnnee: "2025", strFinAnnee: "2026", bareme: note("20"),
+    strClasses: "1G4", moyenne: note("13,42"), moyenneClasse: note("12,10"), listeBulletins: typed([]),
+    listeSuivis: typed([{ L: "MATHEMATIQUES", moyenne: note("14,50"), moyenneClasse: note("11,20"), appreciation: "Appréciation fictive", coefficient: note("2,00") }]) }]),
+  listeAnnees: typed([{ L: "2025-2026" }]) }),
 });
 
 const ALL_TABS = Array.from({ length: 300 }, (_, index) => index);
@@ -157,9 +165,11 @@ test("a class of 31 students, every block: each result has the shape of its rout
   const classlife = await results(app, collectid, session, "classlife");
   assert.deepEqual([classlife.available, classlife.items.length, classlife.items[30].official.summary.absences, classlife.include], [true, 31, 2, ["absences", "lateness"]]);
   const history = await results(app, collectid, session, "history");
-  assert.deepEqual([history.items.length, history.items[5].years.map((year: any) => year.year), history.sources.livret.available], [31, ["2026-2027", "2025-2026"], true]);
+  assert.deepEqual([history.items.length, history.items[5].years.map((year: any) => [year.year, year.level, year.average]), history.sources.livret], [31,
+    [["2025-2026", "1G4", 13.42]], { available: true, reason: "" }]);
   const absences = await results(app, collectid, session, "absences");
   assert.deepEqual([absences.available, absences.items.length, absences.items[0].events.length, absences.itemsTotal], [true, 31, 1, 31]);
+  assert.deepEqual(absences.classTotals, { students: 31, absences: 7, missedHours: 14, lateness: 15, latenessMinutes: 80, absenteeismRate: 0.4 });
   // Blocks without "items" come whole: the results of the class, the comments, the overview of the grades.
   const classResults = await results(app, collectid, session, "results");
   assert.deepEqual([classResults.available, classResults.students.length, classResults.subjects.length, classResults.itemsTotal], [true, 31, 2, undefined]);

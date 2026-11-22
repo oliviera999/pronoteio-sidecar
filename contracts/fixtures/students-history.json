@@ -34,24 +34,9 @@
       },
       "years": [
         {
-          "year": "2026-2027",
-          "label": "2026-2027",
-          "level": "T06",
-          "average": null,
-          "classAverage": null,
-          "subjects": [
-            {
-              "subject": "EPS",
-              "average": 15,
-              "classAverage": 13,
-              "comment": ""
-            }
-          ]
-        },
-        {
           "year": "2025-2026",
           "label": "2025-2026",
-          "level": "Première",
+          "level": "1G4",
           "average": 13.42,
           "classAverage": 12.1,
           "subjects": [
@@ -80,24 +65,9 @@
       },
       "years": [
         {
-          "year": "2026-2027",
-          "label": "2026-2027",
-          "level": "T06",
-          "average": null,
-          "classAverage": null,
-          "subjects": [
-            {
-              "subject": "EPS",
-              "average": 15,
-              "classAverage": 13,
-              "comment": ""
-            }
-          ]
-        },
-        {
           "year": "2025-2026",
           "label": "2025-2026",
-          "level": "Première",
+          "level": "1G4",
           "average": 13.42,
           "classAverage": 12.1,
           "subjects": [

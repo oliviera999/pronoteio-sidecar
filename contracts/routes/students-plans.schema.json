@@ -5,7 +5,7 @@
   "method": "GET",
   "url": "/students/plans",
   "fixture": "fixtures/students-plans.json",
-  "description": "0.16.0, non validé sur un vrai serveur : DetailsPIEleve (onglet 105), un appel par élève. Données de santé : jamais en cache, jamais au journal. Contrat olutionsuivi 7.2.",
+  "description": "0.16.0, non validé sur un vrai serveur : DetailsPIEleve (onglet 105), un appel par élève ; forme supposée (le relevé du 22/11/2026 ne montre aucun nom de membre). Données de santé : jamais en cache, jamais au journal. Contrat olutionsuivi 7.2.",
   "properties": {
     "response": {
       "type": "object",

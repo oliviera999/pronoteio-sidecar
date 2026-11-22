@@ -5,7 +5,7 @@
   "method": "GET",
   "url": "/students/history",
   "fixture": "fixtures/students-history.json",
-  "description": "0.16.0, non validé sur un vrai serveur : LivretScolaire (onglet 83) et PageSuiviPluriannuel (onglet 44), un appel par élève et par source. Contrat olutionsuivi 7.3.",
+  "description": "0.16.0 : LivretScolaire (onglet 83) et PageSuiviPluriannuel (onglet 44), un appel par élève et par source. Décodé sur les formes relevées le 22/11/2026 (suivi pluriannuel : forme complète ; livret : cadre seul, lignes supposées) ; valeurs jamais vues : non validé. Contrat olutionsuivi 7.3.",
   "properties": {
     "response": {
       "type": "object",

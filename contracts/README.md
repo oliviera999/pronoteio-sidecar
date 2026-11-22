@@ -55,15 +55,16 @@ Référence commune entre le sidecar et le plugin Moodle `local_pronoteio` (0.9.
   `POST /collect` (`collect-create`, fixture `collect-created.json`), `GET /collect/:id` (`collect-get`, fixture
   `collect-done.json`). `GET /collect/:id/results` (`collect-results`) a un schéma **non strict** : le résultat d'un
   bloc a la forme de la réponse de sa route, plus `itemsTotal`, `itemsOffset`, `itemsMore` quand il a des `items`.
-- Les fixtures de ces routes sont les formes que les décodeurs **supposent** (aucune des quatre fonctions de Pronote n'a
-  été vue répondre avec ses valeurs) : valeurs fictives.
+- Fixtures de ces routes : valeurs fictives. Elles suivent les formes relevées le 22/11/2026
+  (`docs/olutionsuivi/formes/`) pour le suivi pluriannuel, le cadre du livret scolaire et le cumul de classe des
+  absences ; les lignes d'absences par élève et les plans d'accompagnement sont des formes **supposées** (jamais vues).
 - Erreur `collect_running` (409) : `collectid` de la lecture groupée en cours (aussi pour `collect_block_not_ready`,
   bloc pas encore lu). Fixture `error-collect-running.json`. `collect_not_found` et `collect_block_not_found` : code
   `not_found`.
 - `session/info` (sans schéma de réponse strict) : `state` (`mobile`, `web`, `reason`, `retry_after`), type
   `SessionState` de `src/sessionState.ts` ; mêmes valeurs dans `session` de `GET /collect/:id`.
-- Écarts par rapport au texte du contrat, tous des ajouts : `total`, `unmatched` et `bySubject` (toujours présent)
-  dans `/classlife/absences` ; `unreadable` dans `/students/plans` ; `sources` au niveau de la réponse de
+- Écarts par rapport au texte du contrat, tous des ajouts : `classTotals`, `total`, `unmatched` et `bySubject`
+  (toujours présent) dans `/classlife/absences` ; `unreadable` dans `/students/plans` ; `sources` au niveau de la réponse de
   `/students/history` ; `itemsTotal`, `itemsOffset`, `itemsMore` dans les résultats d'un bloc.
 
 ## Couverture des réponses
