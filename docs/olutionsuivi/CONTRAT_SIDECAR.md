@@ -1,7 +1,7 @@
 # olutionsuivi — contrat du sidecar (copie)
 
 Copie de la section 7 de `docs/olutionsuivi/CONTRATS.md` du dépôt `mood_prod` (branche `suivi/integration`), figée le
-22/11/2026. L'original fait foi ; cette copie n'est modifiée que par l'orchestratrice du chantier. Le lot qui
+22/11/2026 et précisée le même jour (7.4 bis). L'original fait foi ; cette copie n'est modifiée que par l'orchestratrice du chantier. Le lot qui
 l'applique est décrit dans `docs/olutionsuivi/lots/L01.md`.
 
 Le chantier : un module de suivi des classes dans olution (`local_olutionsuivi`) collecte chaque semaine, pour chaque
@@ -74,6 +74,25 @@ examAccommodations: bool } ] }`. Jamais en cache, jamais au journal.
 | `plans` | `GET /students/plans` |
 | `history` | `GET /students/history` |
 | `grades` | `GET /grades/overview` (`options.grades.classes`) |
+
+**7.4 bis. Précisions du 22/11 (L01 et L02 s'y alignent).**
+
+- `collectid` : `[A-Za-z0-9_-]{8,64}`.
+- Erreurs : le client lit `code` (stable), puis le préfixe de `error` avant `:`. `409` : `code: "collect_running"`,
+  avec `collectid` de la lecture en cours.
+- `options` : objet par bloc ; une liste est acceptée en tableau JSON **ou** en chaîne à virgules. `from` et `to` en
+  secondes Unix. `period` (identifiant de période) vaut pour tous les blocs qui en prennent un.
+  `options.absences.{from,to}`, `options.classlife.{include,sources,from,to}`, `options.files.include`,
+  `options.grades.classes` (noms de classe, comme `GET /grades/overview`), `options.history.sources`.
+- `GET /collect/:id/results` : la réponse porte toujours `total` (nombre d'items du bloc), `offset` et `limit`. Elle
+  est lisible aussi pour un bloc `unavailable` ou `failed` : c'est alors la réponse de la route (`available: false`,
+  `reason`, `shape` éventuel), `items` vide.
+- `DELETE /collect/:id` : annule une lecture en cours **ou purge une lecture finie** ; idempotent (`404
+  collect_not_found` si elle est inconnue).
+- Session web : le client qui lit `session.web: "reopen_required"` rouvre la session web et transmet le nouvel
+  identifiant par l'en-tête `X-Pronoteio-Web-Session` au sondage suivant ; le sidecar l'adopte pour la lecture en
+  cours et reprend.
+- `GET /classlife/absences` rend aussi `total`.
 
 **7.5 État de session.** `GET /session/info` ajoute `state: { mobile, web, reason, retry_after }`, mêmes valeurs
 qu'en 7.4.
