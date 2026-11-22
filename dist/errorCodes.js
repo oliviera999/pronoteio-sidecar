@@ -8,6 +8,8 @@
  * - the members of the case: retry_after (rate_limited), candidates (ambiguous), fields (validation_failed), reason…
  * 0.15.0: web_login_backoff (429, retry_after, backoff_until), answered by the guard of the web logins without any call
  * to Pronote (webLoginGuard.ts); web_session_required carries the same two members during that back-off.
+ * 0.16.0: collect_running (409, collectid), answered to a second grouped read of an account (collect.ts) and to the
+ * read of a block that is not read yet (error collect_block_not_ready).
  */
 export const ERROR_CODES = [
     { code: "rate_limited", status: 429, message: "Trop d'appels à Pronote : la file d'attente est pleine pour le moment.",
@@ -42,6 +44,10 @@ export const ERROR_CODES = [
         message: "Pronote a refusé une connexion à l'Espace Professeurs web : aucune nouvelle tentative n'est envoyée avant la fin du délai de reprise.",
         action: "Ne pas tenter de connexion web avant retry_after secondes (en-tête Retry-After, instant backoff_until) ; une connexion avec le code PIN saisi par l'enseignant reste possible.",
         members: ["retry_after", "backoff_until"] },
+    { code: "collect_running", status: 409,
+        message: "Une lecture groupée de ce compte est déjà en cours, ou le bloc demandé n'est pas encore lu.",
+        action: "Suivre la lecture en cours (GET /collect/{collectid}) au lieu d'en lancer une autre ; lire un bloc quand son état est done ou partial.",
+        members: ["collectid"] },
     { code: "internal", status: 500, message: "Erreur interne du sidecar.", action: "Réessayer ; consulter /health si elle persiste.", members: [] },
 ];
 const BY_CODE = new Map(ERROR_CODES.map((item) => [item.code, item]));
@@ -68,6 +74,8 @@ export const stableCode = (status, error, method = "GET") => {
         return "duplicate_write";
     if (base === "web_session_required_after_write")
         return "web_session_required";
+    if (base === "collect_block_not_ready")
+        return "collect_running";
     if (LOGIN.has(base))
         return "login_failed";
     if (base.startsWith("pronote_format_changed"))

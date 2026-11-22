@@ -33,6 +33,7 @@
         "web_session_required",
         "web_session_expired",
         "web_login_backoff",
+        "collect_running",
         "internal"
       ]
     },
@@ -57,6 +58,10 @@
           "type": "integer",
           "minimum": 1,
           "description": "0.15.0 : instant (secondes Unix) avant lequel aucune connexion à l'Espace Professeurs web n'est envoyée à Pronote (web_login_backoff, web_session_required pendant le délai de reprise)."
+        },
+        "collectid": {
+          "type": "string",
+          "description": "0.16.0 : lecture groupée en cours du compte (collect_running)."
         },
         "candidates": {
           "type": "array",

@@ -1,0 +1,185 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "collect-get.schema.json",
+  "title": "GET /collect/:id",
+  "method": "GET",
+  "url": "/collect/:id",
+  "fixture": "fixtures/collect-done.json",
+  "properties": {
+    "response": {
+      "type": "object",
+      "properties": {
+        "collectid": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{8,64}$"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "waiting",
+            "done",
+            "partial",
+            "failed"
+          ],
+          "description": "waiting dès qu'un bloc attend une session absente, même pendant que les autres blocs avancent. Fin : done si tous les blocs sont done, failed si aucun n'est done ni partial, partial sinon."
+        },
+        "created": {
+          "$ref": "common.schema.json#/definitions/timestamp"
+        },
+        "finished": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "expires": {
+          "$ref": "common.schema.json#/definitions/timestamp"
+        },
+        "students": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Effectif de la classe (0 tant que sa liste n'est pas lue). Les blocs comptent leurs propres unités de travail : ne jamais y lire l'effectif (contrat 7.4 ter)."
+        },
+        "progress": {
+          "type": "object",
+          "properties": {
+            "done": {
+              "type": "integer"
+            },
+            "total": {
+              "type": "integer"
+            },
+            "block": {
+              "enum": [
+                "files",
+                "reportcards",
+                "results",
+                "comments",
+                "classlife",
+                "absences",
+                "plans",
+                "history",
+                "grades",
+                null
+              ]
+            },
+            "student": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "done",
+            "total",
+            "block",
+            "student"
+          ],
+          "additionalProperties": false
+        },
+        "retry_after": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "session": {
+          "type": "object",
+          "properties": {
+            "mobile": {
+              "enum": [
+                "open",
+                "closed"
+              ]
+            },
+            "web": {
+              "enum": [
+                "open",
+                "closed",
+                "reopen_required",
+                "backoff",
+                "pin_required"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "mobile",
+            "web",
+            "reason"
+          ],
+          "additionalProperties": false,
+          "description": "Pendant l'attente d'une session web : web vaut reopen_required (jamais closed) et reason web_session_required, sauf backoff ou pin_required (ne pas envoyer de connexion)."
+        },
+        "blocks": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "files",
+              "reportcards",
+              "results",
+              "comments",
+              "classlife",
+              "absences",
+              "plans",
+              "history",
+              "grades"
+            ]
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "enum": [
+                  "pending",
+                  "running",
+                  "done",
+                  "partial",
+                  "unavailable",
+                  "failed"
+                ]
+              },
+              "reason": {
+                "type": "string"
+              },
+              "validated": {
+                "type": "boolean"
+              },
+              "read": {
+                "type": "integer",
+                "description": "Unités lues : élèves pour un bloc lu élève par élève, 1 pour un bloc lu en une demande."
+              },
+              "total": {
+                "type": "integer"
+              },
+              "remaining": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "status",
+              "reason",
+              "validated",
+              "read",
+              "total",
+              "remaining"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "collectid",
+        "status",
+        "created",
+        "finished",
+        "expires",
+        "students",
+        "progress",
+        "retry_after",
+        "session",
+        "blocks"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

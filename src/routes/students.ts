@@ -3,7 +3,9 @@ import { HttpError } from "../errors.js";
 import { requireSession } from "../session.js";
 import { RESOURCE_KINDS, resourceTimetable, type ResourceKind } from "../teacher/resourceTimetable.js";
 import { INCLUDE_VALUES, MAX_FILES, MAX_IDS, checkStudentFiles, studentFiles, studentFilesByIds, type Include } from "../teacher/students.js";
+import { HISTORY_SOURCES, MAX_HISTORY_STUDENTS, studentHistory, type HistorySource } from "../teacher/history.js";
 import { MAX_PHOTOS, studentPhoto, studentPhotos } from "../teacher/photos.js";
+import { MAX_PLAN_STUDENTS, studentPlans } from "../teacher/plans.js";
 import { MAX_SHAPE_PAGE, PP_GROUPS, ppCheck, type PpGroup } from "../teacher/ppcheck.js";
 import { epochToWall } from "../time.js";
 
@@ -104,6 +106,59 @@ export default async function studentsRoutes(app: FastifyInstance): Promise<void
     async (request) => {
       const { resource, student, offset, limit } = request.query;
       return studentPhotos(requireSession(request), resource, { student, offset, limit });
+    },
+  );
+
+  // 0.16.0: support plans of a page of students (DetailsPIEleve, not validated). Health data: never cached, nothing of
+  // it in a log (teacher/plans.ts).
+  app.get<{ Querystring: PhotosQuery }>(
+    "/students/plans",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          required: ["resource"],
+          properties: {
+            resource: { type: "string", minLength: 1, maxLength: 200 },
+            student: { type: "string", minLength: 3, maxLength: 200 },
+            offset: { type: "integer", minimum: 0, maximum: 10000 },
+            limit: { type: "integer", minimum: 1, maximum: MAX_PLAN_STUDENTS },
+          },
+        },
+      },
+    },
+    async (request) => {
+      const { resource, student, offset, limit } = request.query;
+      return studentPlans(requireSession(request), resource, { student, offset, limit });
+    },
+  );
+
+  // 0.16.0: results of the previous years of a page of students (LivretScolaire, PageSuiviPluriannuel, not validated):
+  // see teacher/history.ts.
+  app.get<{ Querystring: PhotosQuery & { sources?: string } }>(
+    "/students/history",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          required: ["resource"],
+          properties: {
+            resource: { type: "string", minLength: 1, maxLength: 200 },
+            student: { type: "string", minLength: 3, maxLength: 200 },
+            offset: { type: "integer", minimum: 0, maximum: 10000 },
+            limit: { type: "integer", minimum: 1, maximum: MAX_HISTORY_STUDENTS },
+            sources: { type: "string", maxLength: 40 },
+          },
+        },
+      },
+    },
+    async (request) => {
+      const { resource, student, offset, limit, sources } = request.query;
+      const asked = (sources ?? "").split(",").map((item) => item.trim()).filter(Boolean);
+      for (const source of asked) {
+        if (!(HISTORY_SOURCES as readonly string[]).includes(source)) throw new HttpError(400, `invalid_sources:${source}`);
+      }
+      return studentHistory(requireSession(request), resource, { student, offset, limit }, asked as HistorySource[]);
     },
   );
 

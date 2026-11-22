@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { HttpError } from "../errors.js";
 import { requireSession } from "../session.js";
+import { classAbsences } from "../teacher/absencesRecap.js";
 import { classLife, LIFE_INCLUDES, LIFE_SOURCES, MAX_LIFE_STUDENTS, type LifeInclude, type LifeSource } from "../teacher/classlife.js";
 
 type ClassLifeQuery = {
@@ -56,6 +57,30 @@ export default async function classLifeRoutes(app: FastifyInstance): Promise<voi
         sources: parseList<LifeSource>(sources, LIFE_SOURCES, "sources"),
         page: { student, offset, limit },
       });
+    },
+  );
+
+  // 0.16.0: absences and late arrivals of a class, every subject, in one call (RecapAbsencesEleves, not validated):
+  // see teacher/absencesRecap.ts. Without from and to: the school year.
+  app.get<{ Querystring: { resource: string; from?: number; to?: number } }>(
+    "/classlife/absences",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          required: ["resource"],
+          properties: {
+            resource: { type: "string", minLength: 1, maxLength: 200 },
+            from: { type: "integer", minimum: 0 },
+            to: { type: "integer", minimum: 0 },
+          },
+        },
+      },
+    },
+    async (request) => {
+      const { resource, from, to } = request.query;
+      if (from !== undefined && to !== undefined && (to <= from || to - from > MAX_LIFE_RANGE)) throw new HttpError(400, "range_too_large");
+      return classAbsences(requireSession(request), resource, from, to);
     },
   );
 }

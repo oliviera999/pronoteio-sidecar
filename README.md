@@ -45,6 +45,7 @@ Toutes sont décrites dans [.env.example](.env.example). Principales :
 | `PRONOTEIO_LOG_FILE`, `PRONOTEIO_STATE_FILE`, `PRONOTEIO_LOCK_FILE`, `PRONOTEIO_TOKEN_STORE` | voir .env.example | Fichiers écrits (aucune donnée d'élève). |
 | `PRONOTEIO_WEB_ROUTING` | on | 0.10.0 : `off` désactive le passage par l'Espace Professeurs web (comportement 0.9.0). |
 | `PRONOTEIO_MOBILE_WITHOUT_TAB` | ListePeriodes,PageTrombinoscope,listeQCM | 0.10.0 : fonctions laissées sur la session mobile bien que leur onglet n'y soit pas listé. |
+| `PRONOTEIO_COLLECT_PAUSE_MS`, `PRONOTEIO_COLLECT_WAIT` | 250, 900 | 0.16.0 : pause entre deux lectures internes d'une lecture groupée (ms) ; attente maximale d'une session fermée avant `partial` (s). |
 | `PRONOTEIO_REFERENTIAL_GENRE` | 1 | 0.10.0 : `genreReferentiel` de `CompetencesGrilles` pour « par matière » (non validé). |
 
 ## Routes
@@ -165,6 +166,83 @@ les motifs d'une absence, d'un retard, d'une dispense ou d'un passage à l'infir
 demandent beaucoup d'appels : les semaines lues restent dix minutes en mémoire, et une requête refusée faute de temps
 dans la file (`429 rate_limited`, `retry_after`) avance d'autant quand elle est renvoyée.
 
+### Suivi des classes (0.16.0)
+
+Ce que le module de suivi des classes de Moodle (`local_olutionsuivi`, collecteur de `local_pronoteio`) lit chaque
+semaine. Contrat : [docs/olutionsuivi/CONTRAT_SIDECAR.md](docs/olutionsuivi/CONTRAT_SIDECAR.md). Lecture seule.
+**Aucune des quatre fonctions n'a été vue répondre avec ses valeurs** (`validated:false`). Leurs formes (noms et types
+des membres) ont été relevées le 22/11/2026, dans [docs/olutionsuivi/formes/](docs/olutionsuivi/formes/) : le suivi
+pluriannuel est décodé sur sa forme réelle ; pour les absences, la requête ne rend que le cumul de la classe, aucune
+ligne par élève ; le livret scolaire n'était pas rempli (cadre seul) ; la forme des plans d'accompagnement reste
+inconnue. Ce qui n'a pas été relevé est décodé par supposition, à listes de noms candidats. Une forme non reconnue donne
+`available:false`, `reason:"format_unknown"` et `shape`, un refus de Pronote `reason:"access_denied"` avec l'onglet, sans
+aucun autre appel à la place.
+`GET /pp/check` dit pour chacune si son décodeur comprend la réponse (`ok` ou `format_unknown` avec la forme).
+Fonctions (`PRONOTEIO_FUNCTIONS_FILE`) : `lifeAbsencesRecap` (`RecapAbsencesEleves`, 138), `supportPlanDetails`
+(`DetailsPIEleve`, 105), `schoolRecord` (`LivretScolaire`, 83), `multiYear` (`PageSuiviPluriannuel`, 44) ; chacune
+coûte 2 jetons de la file vers Pronote.
+
+| Route | Exemple |
+| --- | --- |
+| `GET /classlife/absences?resource=c%3AT06[&from=…&to=…]` | Absences et retards de toute la classe, toutes matières, en **un** appel (année scolaire par défaut) : `{available, reason, validated:false, class, from, to, total, unmatched, items:[{studentid, label, lastname, firstname, totals:{absences, absenceHalfDays, unjustifiedAbsences, lateness, missedHours}, events:[{id, kind:"absence"\|"lateness", start, end, local, justified, halfDays, hours, minutes, subject, reasons:[]}], bySubject:[{subject, hours, lateness}]}]}`. `classTotals:{students, absences, missedHours, lateness, latenessMinutes, absenteeismRate}` : cumul de la classe (`LigneCumul`), `null` s'il manque. **Constat du 22/11/2026 : avec la requête envoyée, Pronote ne rend aucune ligne par élève** : `reason:"totals_only"`, `items:[]`, `classTotals` seul ; les absences datées de toutes les matières ne sont donc pas acquises (critères de requête à trouver, aucun n'est inventé). Cumuls par élève sans dates : `reason:"totals_only"`, `events:[]`. Un élément par élève qui a une ligne dans la réponse de Pronote ; `reasons` toujours vide (motifs jamais lus ici). Classe seulement (`409 resource_not_class` pour un groupe). Cache 120 s. |
+| `GET /students/plans?resource=c%3AT06&offset=0&limit=10` | Plans d'accompagnement (ou `student=`, 40 élèves au plus) : `{available, reason, validated:false, class, total, offset, items:[{studentid, label, plans:[{type:"PAI"\|"PAP"\|"PPS"\|"PPRE"\|"accommodation"\|"other", label, title, start, end, comment, accommodations[], examAccommodations}]}], read, remaining, partial, retry_after}` ; Une réponse vide de Pronote vaut `plans:[]` (jamais un refus). `unreadable[]` et `shape` quand la réponse d'un élève n'est pas comprise alors que la fonction répond pour les autres ; `failed[]` (aussi dans `remaining`, `partial:true`) pour les élèves dont Pronote a répondu une erreur. Refus ou forme inconnue en cours de page : les élèves déjà lus sont rendus, les autres dans `remaining`, avec `reason`. **Donnée de santé** : jamais en cache ; au journal, ni taille de réponse ni forme. |
+| `GET /students/history?resource=c%3AT06&offset=0&limit=10[&sources=livret,multiyear]` | Résultats des années précédentes (ou `student=`) : `{available, reason, sources:{livret:{available, reason, shape?}, multiyear:{…}}, items:[{studentid, label, sources, years:[{year:"2025-2026", label, level, average, classAverage, subjects:[{subject, average, classAverage, comment}]}]}], read, remaining, partial, retry_after}`. `PageSuiviPluriannuel` est lu sur sa forme relevée (`listeDonnees[]` par année, `listeSuivis[]` par matière ; barème et coefficient non rendus) ; un livret pas encore rempli est `available:true` sans année. Les deux sources sont fusionnées par année scolaire ; quand toutes les sources demandées se ferment en cours de page, `partial:true` et `remaining` ; `failed[]` pour un élève en erreur de Pronote ; une source refusée ou non comprise ne masque pas l'autre (`not_asked`, `resource_not_class` pour le livret d'un groupe). Cache 120 s. |
+| `POST /collect` `{"resource":"c:T06","period":"p:Trimestre 1","blocks":["files","reportcards","results","comments","classlife","absences","plans","history","grades"],"options":{"files":{"include":"guardians"},"classlife":{"include":"absences,lateness","sources":"recap"},"grades":{"classes":"T06"}}}` | Lecture groupée d'une classe → `202 {"collectid":"…","status":"running","progress":{"done":0,"total":0,"block":null,"student":0}}`. Une seule par compte : sinon `409 collect_running` avec le `collectid` en cours. `collectid` : `[A-Za-z0-9_-]{8,64}`. `period` vaut pour tous les blocs qui prennent une période (absent : période courante). `options` : un objet par bloc ; listes en tableau JSON ou en chaîne à virgules ; `from`/`to` en secondes Unix. |
+| `GET /collect/{id}` | `{collectid, status:"queued"\|"running"\|"waiting"\|"done"\|"partial"\|"failed", created, finished, expires, students, progress:{done, total, block, student}, retry_after, session:{mobile:"open"\|"closed", web:"open"\|"closed"\|"reopen_required"\|"backoff"\|"pin_required", reason}, blocks:{plans:{status:"pending"\|"running"\|"done"\|"partial"\|"unavailable"\|"failed", reason, validated, read, total, remaining}, …}}`. `read`/`total` comptent des élèves, ou 1 pour un bloc lu en une demande. |
+| `GET /collect/{id}/results?block=plans&offset=0&limit=40` | Résultat du bloc, **dans la forme de la réponse de sa route**, comme si elle avait lu toute la classe : `items` fusionnés, `read`, `remaining`, `partial`. Porte toujours `total` (nombre d'`items` du bloc : il remplace ici le `total` de la route), `offset` et `limit` ; `offset`/`limit` paginent `items` (40 au plus). Lisible dès que le bloc est `done` ou `partial`, pendant que les autres tournent, et aussi quand il est `unavailable` ou `failed` : c'est alors le refus de sa route (`available:false`, `reason`, `shape` éventuel) avec `items:[]`. Un bloc dont la route n'a pas d'`items` (`results`, `comments`, `grades`) est rendu entier, `total:0`. Avant la fin du bloc : `409 collect_block_not_ready` (code `collect_running`). |
+| `DELETE /collect/{id}` | Annule une lecture en cours, ou purge une lecture finie : `{collectid, cancelled:true}`. Idempotent : `404 collect_not_found` si elle est inconnue (ou déjà purgée). |
+| `GET /session/info` | + `"state":{"mobile":"open","web":"reopen_required","reason":"web_session_expired","retry_after":0}` : mêmes valeurs que `session` d'une lecture groupée. |
+
+Blocs et routes équivalentes : `files` → `/students/files` (`options.files.include`), `reportcards` → `/reports`
+(`source=reportcard`), `results` → `/reports/results`, `comments` → `/reports/comments`, `classlife` → `/classlife`
+(`options.classlife.include`, `sources`, `from`, `to` ; année scolaire par défaut), `absences` →
+`/classlife/absences` (`options.absences.from`, `to`), `plans` → `/students/plans`, `history` → `/students/history`
+(`options.history.sources`), `grades` → `/grades/overview` (`options.grades.classes`, la classe demandée par défaut).
+
+Lecture groupée, à savoir (contrat 7.4, 7.4 bis, 7.4 ter) :
+
+- le sidecar interroge ses propres routes, page par page (20 élèves), avec la priorité « lot » de la file vers Pronote
+  (les écritures et les lectures unitaires de l'enseignant passent devant) et une pause entre deux demandes
+  (`PRONOTEIO_COLLECT_PAUSE_MS`, 250 ms). Dix lectures actives au plus dans le processus (`429 rate_limited` au-delà) ;
+- `students` est l'effectif de la classe ; `blocks.<bloc>.total` et `read` comptent les unités de travail du bloc
+  (élèves, ou 1 pour un bloc lu en une demande) : ne jamais y lire l'effectif ;
+- file pleine (`429`, ou page rendue partielle) : attente de `retry_after` (visible dans `GET /collect/{id}`), puis
+  reprise **au premier élève non lu** : rien n'est perdu, rien n'est lu deux fois ;
+- **erreur de Pronote sur un élève** : l'élève est mis de côté et la lecture du bloc continue. Les routes du suivi le
+  nomment (`failed`) et gardent les élèves déjà lus de la page ; pour une route qui échoue en bloc (fiches, bulletins,
+  vie scolaire), les élèves de la page sont redemandés un par un. Les élèves mis de côté sont redemandés une fois en
+  fin de bloc ; s'il en reste, le bloc finit `partial` (`reason:"pronote_error"`, élèves dans `remaining`). Si
+  personne ne peut être lu (fonction en erreur pour tous) ou au-delà de dix élèves en erreur, le bloc s'arrête ;
+- une fonction refusée (`access_denied`), une forme inconnue (`format_unknown`), une demande refusée (4xx) : bloc
+  `unavailable` (`partial` si des élèves avaient été lus) ; une erreur de Pronote sur un bloc lu en une demande
+  (redemandée une fois) : `failed`. Les autres blocs continuent. `reason` est toujours un code, jamais un message de
+  Pronote ;
+- bloc `plans` : une réponse vide vaut « aucun plan ». Si aucun élève n'a de plan lisible, le bloc est `done` avec
+  `reason:"all_empty"` : le client ne peut pas distinguer « aucun plan » de « détail non lisible » et s'en tient à la
+  fiche élève ;
+- `options.classlife.sources` : `recap`, `carnet`, `callsheets` seulement ; `summary` est refusé (`400
+  invalid_sources:summary`) : il appelle des fonctions refusées au profil ;
+- **état final** : `done` si tous les blocs sont `done` ; `failed` si aucun n'est `done` ni `partial` ; `partial`
+  sinon. Se fier à l'état de chaque bloc ;
+- **session manquante** (session web jamais ouverte ou fermée par Pronote, session principale perdue) : le bloc est mis
+  de côté, les blocs qui n'en ont pas besoin continuent, et la lecture dit aussitôt `status:"waiting"`. Pour une
+  session web : `session.web:"reopen_required"` et `session.reason:"web_session_required"`, **jamais `closed`** ;
+  seuls `backoff` (avec `retry_after`) et `pin_required` remplacent `reopen_required`, parce qu'une connexion ne doit
+  alors pas être envoyée. Le client rouvre la session web et envoie son identifiant dans `X-Pronoteio-Web-Session` au
+  sondage suivant (`GET /collect/{id}`) : la lecture l'adopte et reprend où elle s'était arrêtée (elle retrouve aussi
+  seule une nouvelle session du même compte) ; la page en cours au moment de la coupure (20 élèves au plus) est relue.
+  Sans retour après `PRONOTEIO_COLLECT_WAIT` secondes (900), les blocs en attente finissent `unavailable` ou `partial` ;
+- **durée de vie** : une lecture vit 60 minutes au plus ; ses résultats, en mémoire seulement, sont effacés par un
+  minuteur 30 minutes après la fin, par `DELETE`, à la déconnexion du compte (`POST /session/logout`) et à la fin de
+  la session à laquelle la lecture appartient. Une lecture appartient à un compte : seule une session vivante de ce
+  compte la lit (`401 session_expired` avec un ancien identifiant, `404 collect_not_found` pour un autre compte) ;
+  après un redémarrage, `404 collect_not_found` : relancer.
+
+État des sessions (`state`, `session`) : `web` vaut `open` (session web du compte ouverte), `backoff` (délai de reprise
+des connexions web : `retry_after`), `pin_required` (la dernière connexion web demandait l'enseignant et aucune n'a
+réussi depuis), `reopen_required` (une session web était ouverte et ne l'est plus : une connexion sans PIN peut être
+envoyée), `closed` (aucune depuis le démarrage). Rien n'appelle Pronote ni ne prolonge une session.
+
 En-têtes de réponse : `X-Cache` (hit/miss), `Retry-After` (429), `X-Pronoteio-Pronote-Version`,
 `X-Pronoteio-Pronote-Validated`, `X-Pronoteio-Duplicate` (seconde livraison servie). En-tête de requête facultatif
 `X-Pronoteio-Contract: 2` (ou `contract=2` dans `X-Pronoteio-Client`) : un écart à la relecture d'une écriture est
@@ -191,6 +269,7 @@ de donnée Pronote). Le tableau est aussi servi par `GET /errors`.
 | `web_session_required` | 409 | Onglet absent de la session mobile (0.10.0) | Ouvrir la session web, renvoyer avec `X-Pronoteio-Web-Session` ; si `retry_after` est présent (0.15.0), ne pas tenter de connexion web avant | `onglet`, `function`, `retry_after`, `backoff_until` |
 | `web_session_expired` | 401 | Session de l'Espace Professeurs web expirée (0.10.0) | Rouvrir la session web, renvoyer | |
 | `web_login_backoff` | 429 | Connexion web refusée par Pronote : délai de reprise en cours pour ce compte (0.15.0) | Ne pas tenter de connexion web avant `retry_after` s ; une connexion avec le `pin` saisi par l'enseignant reste possible | `retry_after`, `backoff_until` |
+| `collect_running` | 409 | Lecture groupée du compte déjà en cours, ou bloc pas encore lu (0.16.0) | Suivre `GET /collect/{collectid}` ; lire un bloc quand il est `done` ou `partial` | `collectid` |
 | `internal` | 500 | Erreur interne | Réessayer, voir `/health` | |
 
 ## Données personnelles (RGPD)
@@ -202,6 +281,13 @@ Le sidecar manipule des données de mineurs (fiches, notes, absences) pour le co
 - 0.12.0 : les photos ne passent ni par le cache ni par les tâches ; santé, mémos, coordonnées et motifs d'absence ne
   quittent le sidecar que si la requête les demande (`include`) ; les semaines de feuilles d'appel gardées dix minutes
   pour `GET /classlife` restent en mémoire et disparaissent avec la session.
+- 0.16.0 : les plans d'accompagnement (`GET /students/plans`, bloc `plans`) ne passent jamais par le cache des
+  lectures ; leur ligne de journal ne porte ni taille de réponse ni forme (`/collect/{id}/results` non plus) ; une forme
+  non reconnue est décrite sans les noms sensibles. Les résultats d'une lecture groupée restent en mémoire 30 minutes
+  après la fin, effacés par un minuteur (`DELETE /collect/{id}`, la déconnexion du compte et la fin de sa session les
+  oublient aussitôt) ; ses lectures internes ne sont pas journalisées. Les réponses de `/students/plans` et de
+  `/collect/{id}/results` ne sont pas gardées pour une seconde livraison de la même requête (elle est refusée). Les
+  motifs d'absence ne sont jamais lus par `GET /classlife/absences`.
 - Journaux : route-modèle, statut, code, durée, taille ; **jamais** d'URL (sa requête peut nommer un élève), de corps,
   d'en-tête, d'identifiant de session ni de message de Pronote. Les erreurs consignées ne gardent que code, route et
   heure. 0.15.0 : `origin` (nom de l'outil, de la tâche ou de la page appelante) et `account` (empreinte hachée du

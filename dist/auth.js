@@ -128,6 +128,12 @@ export const ANSWER_TTL = 120_000;
 export const MAX_KEPT_ANSWERS = 50;
 /** Larger answers (student photos, files) are not kept: a late delivery of them is refused as before. */
 export const MAX_KEPT_ANSWER_BYTES = 512 * 1024;
+/**
+ * 0.16.0: routes whose answers are health data (support plans, results of a grouped read). Their answers are never
+ * kept for a late second delivery (it is refused as a replay), and their line of the access log carries neither the
+ * size of the answer nor a shape (app.ts).
+ */
+export const HEALTH_DATA_ROUTES = new Set(["/students/plans", "/collect/:id/results"]);
 /** Recent answers (in memory only), for a second delivery arriving just after the first was answered. */
 const answered = new Map();
 const answerSize = (payload) => typeof payload === "string" ? Buffer.byteLength(payload) : Buffer.isBuffer(payload) ? payload.length : Number.POSITIVE_INFINITY;
@@ -197,7 +203,8 @@ export const registerAuth = (app) => {
                 inflight.delete(signature);
                 if (arrivals.size > MAX_KEPT_ANSWERS * 4)
                     arrivals.delete(arrivals.keys().next().value);
-                keepAnswer(signature, answer);
+                if (!HEALTH_DATA_ROUTES.has(request.routeOptions.url ?? ""))
+                    keepAnswer(signature, answer);
                 resolve(answer);
             };
             return;

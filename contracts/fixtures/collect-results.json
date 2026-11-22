@@ -1,0 +1,44 @@
+{
+  "validated": false,
+  "class": {
+    "id": "c:T06",
+    "name": "T06"
+  },
+  "total": 2,
+  "offset": 0,
+  "available": true,
+  "reason": "",
+  "items": [
+    {
+      "studentid": "e:MARTIN Léa",
+      "label": "MARTIN Léa",
+      "plans": [
+        {
+          "type": "PAP",
+          "label": "PAP",
+          "title": "Motif fictif",
+          "start": "2026-09-01",
+          "end": "2027-07-03",
+          "comment": "Commentaire fictif",
+          "accommodations": [
+            "Temps majoré"
+          ],
+          "examAccommodations": true
+        }
+      ]
+    },
+    {
+      "studentid": "e:PETIT Hugo",
+      "label": "PETIT Hugo",
+      "plans": []
+    }
+  ],
+  "read": [
+    "e:MARTIN Léa",
+    "e:PETIT Hugo"
+  ],
+  "remaining": [],
+  "partial": false,
+  "retry_after": 0,
+  "limit": 40
+}

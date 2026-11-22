@@ -19,7 +19,8 @@
  */
 import { randomUUID } from "node:crypto";
 import type { FastifyRequest } from "fastify";
-import { ServerSideError, SessionExpiredError, type SessionHandle } from "pawnote";
+import type { SessionHandle } from "pawnote";
+import { lostSessionReason } from "./pronote/lostSession.js";
 import { config } from "./config.js";
 import { HttpError } from "./errors.js";
 import { rememberUserData, userData } from "./pronote/userdata.js";
@@ -53,6 +54,9 @@ export type SessionEntry = {
 
 const sessions = new Map<string, SessionEntry>();
 const byAccount = new Map<string, string>();
+/** 0.16.0: instant (ms) of the last web session opened for an account, kept after that session is gone (sessionState.ts). */
+const webOpened = new Map<string, number>();
+const MAX_WEB_OPENED = 500;
 
 /** Web session sent by Moodle beside the main one (0.10.0), "" when none. */
 export const webSessionIdOf = (request: FastifyRequest): string => String(request.headers["x-pronoteio-web-session"] ?? "");
@@ -83,6 +87,14 @@ export const createSession = (
     byAccount.set(key, id);
   }
   if (options.space) setSpace(handle, options.space);
+  if (account && space === "web") {
+    webOpened.delete(account.key);
+    webOpened.set(account.key, now);
+    for (const key of webOpened.keys()) {
+      if (webOpened.size <= MAX_WEB_OPENED) break;
+      webOpened.delete(key);
+    }
+  }
   sessions.set(id, { id, handle, expires: now + config.sessionTtl, created: now, lastUsed: now, account: account?.key ?? null,
     login: account?.login ?? null, generation: 0, reconnects: 0, lastReconnect: null, state: "open", space,
     loginMode: options.loginMode ?? "token" });
@@ -113,6 +125,21 @@ export const webSessionOfAccount = (account: string): SessionEntry | null => {
   return entry && entry.space === "web" ? entry : null;
 };
 
+/** 0.16.0: live session by its id, without touching its lifetime (state of the sessions, grouped reads). */
+export const sessionById = (id: string): SessionEntry | undefined => {
+  const entry = id === "" ? undefined : sessions.get(id);
+  return entry && entry.expires >= Date.now() && entry.state !== "lost" ? entry : undefined;
+};
+
+/** 0.16.0: live session of an account in a space, without touching its lifetime. */
+export const accountSession = (account: string, space: Space): SessionEntry | undefined => {
+  const entry = sessionById(byAccount.get(space === "web" ? webKey(account) : account) ?? "");
+  return entry && entry.space === space ? entry : undefined;
+};
+
+/** 0.16.0: instant (ms) the last web session of an account was opened, null when none ever was since the start. */
+export const webOpenedAt = (account: string): number | null => webOpened.get(account) ?? null;
+
 /** Entry of the request's session (without touching it), undefined when unknown or expired. */
 export const sessionEntry = (request: FastifyRequest): SessionEntry | undefined => {
   const entry = sessions.get(sessionIdOf(request));
@@ -132,10 +159,21 @@ export const requireSession = (request: FastifyRequest): SessionHandle => {
   return entry.handle;
 };
 
-const forget = (entry: SessionEntry): void => {
+/** Why a session is forgotten: its lifetime ended, the client logged out, or Pronote closed it (web session). */
+export type ForgetReason = "expired" | "logout" | "lost";
+
+const forgotten: ((entry: SessionEntry, reason: ForgetReason) => void)[] = [];
+
+/** 0.16.0: tells a module (grouped reads) when a session is forgotten. */
+export const onSessionForgotten = (listener: (entry: SessionEntry, reason: ForgetReason) => void): void => {
+  forgotten.push(listener);
+};
+
+const forget = (entry: SessionEntry, reason: ForgetReason = "expired"): void => {
   sessions.delete(entry.id);
   const key = entry.account && (entry.space === "web" ? webKey(entry.account) : entry.account);
   if (key && byAccount.get(key) === entry.id) byAccount.delete(key);
+  for (const listener of forgotten) listener(entry, reason);
 };
 
 /**
@@ -143,25 +181,18 @@ const forget = (entry: SessionEntry): void => {
  * that the next web login of the account is a real one instead of getting the dead session back.
  */
 export const forgetSession = (entry: SessionEntry | undefined): void => {
-  if (entry) forget(entry);
+  if (entry) forget(entry, "lost");
 };
 
 export const dropSession = (request: FastifyRequest): void => {
   const entry = sessions.get(sessionIdOf(request));
-  if (entry) forget(entry);
+  if (entry) forget(entry, "logout");
 };
 
 /* ---- Lost sessions and reconnection ---- */
 
-/** Pronote messages of a session closed because the account connected elsewhere (candidates, not validated). */
-const REPLACED = /autre (poste|appareil|navigateur)|connect[ée]+ ailleurs|nouvelle connexion|session (a été )?(fermée|interrompue|terminée)|vous avez été déconnecté/i;
-
-/** Why a Pronote error means the session is gone: "expired", "replaced", or null for any other error. */
-export const lostSessionReason = (error: unknown): "expired" | "replaced" | null => {
-  if (error instanceof SessionExpiredError) return "expired";
-  if (error instanceof ServerSideError && REPLACED.test(error.message)) return "replaced";
-  return null;
-};
+// 0.16.0: moved to pronote/lostSession.ts (no dependency on the configuration), still exported from here.
+export { lostSessionReason };
 
 /** Error answered when a lost session could not be reconnected: Moodle logs in again (session_expired). */
 export const sessionLostError = (reason: "expired" | "replaced"): HttpError =>
@@ -235,7 +266,7 @@ export const keepAlive = async (now = Date.now()): Promise<void> => {
     } catch (error) {
       const reason = lostSessionReason(error);
       // 0.15.0: a web session found gone is forgotten (never reconnected); the next web login is a real one.
-      if (reason && entry.space === "web") forget(entry);
+      if (reason && entry.space === "web") forget(entry, "lost");
       else if (reason) await reconnect(entry, reason);
     }
   }

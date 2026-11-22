@@ -1,0 +1,318 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "classlife-absences.schema.json",
+  "title": "GET /classlife/absences",
+  "method": "GET",
+  "url": "/classlife/absences",
+  "fixture": "fixtures/classlife-absences.json",
+  "description": "0.16.0, non validé sur un vrai serveur : RecapAbsencesEleves (onglet 138), un appel par classe. Forme relevée le 22/11/2026 : aucune ligne par élève, le cumul de la classe seulement ; la forme d'une ligne est supposée. Contrat olutionsuivi 7.1.",
+  "properties": {
+    "response": {
+      "type": "object",
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "description": "« », totals_only (cumuls sans dates : events vides ; ou cumul de la classe seul, items vide), access_denied, format_unknown."
+        },
+        "validated": {
+          "const": false
+        },
+        "class": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "from": {
+          "$ref": "common.schema.json#/definitions/timestamp"
+        },
+        "to": {
+          "$ref": "common.schema.json#/definitions/timestamp"
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Forme d'une réponse de Pronote non reconnue (noms et types de membres, jamais une valeur ; noms sensibles omis)."
+        },
+        "onglet": {
+          "type": "integer"
+        },
+        "space": {
+          "enum": [
+            "mobile",
+            "web"
+          ]
+        },
+        "classTotals": {
+          "description": "Cumul de la classe tel que Pronote le compte (LigneCumul, forme relevée le 22/11/2026), null quand la réponse n'en donne pas. Avec la requête envoyée, c'est la seule chose que la fonction rend : aucune ligne par élève.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "students": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "absences": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "missedHours": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "lateness": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "latenessMinutes": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "absenteeismRate": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "students",
+                "absences",
+                "missedHours",
+                "lateness",
+                "latenessMinutes",
+                "absenteeismRate"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "total": {
+          "type": "integer",
+          "description": "Élèves de la classe."
+        },
+        "unmatched": {
+          "type": "integer",
+          "description": "Lignes de Pronote qui ne nomment aucun élève de la classe."
+        },
+        "items": {
+          "type": "array",
+          "description": "Un élément par élève qui a une ligne dans la réponse de Pronote, dans l'ordre de la classe.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "studentid": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "lastname": {
+                "type": "string"
+              },
+              "firstname": {
+                "type": "string"
+              },
+              "totals": {
+                "type": "object",
+                "properties": {
+                  "absences": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "absenceHalfDays": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "unjustifiedAbsences": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "lateness": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "missedHours": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "absences",
+                  "absenceHalfDays",
+                  "unjustifiedAbsences",
+                  "lateness",
+                  "missedHours"
+                ],
+                "additionalProperties": false
+              },
+              "events": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "absence",
+                        "lateness"
+                      ]
+                    },
+                    "start": {
+                      "$ref": "common.schema.json#/definitions/timestamp"
+                    },
+                    "end": {
+                      "$ref": "common.schema.json#/definitions/timestamp"
+                    },
+                    "local": {
+                      "$ref": "common.schema.json#/definitions/localTimes"
+                    },
+                    "justified": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "halfDays": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "hours": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "minutes": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "subject": {
+                      "type": "string"
+                    },
+                    "reasons": {
+                      "type": "array",
+                      "maxItems": 0,
+                      "description": "Toujours vide : les motifs d'absence ne sont pas lus par cette route."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "start",
+                    "end",
+                    "local",
+                    "justified",
+                    "halfDays",
+                    "hours",
+                    "minutes",
+                    "subject",
+                    "reasons"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "bySubject": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "subject": {
+                      "type": "string"
+                    },
+                    "hours": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "lateness": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "subject",
+                    "hours",
+                    "lateness"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "studentid",
+              "label",
+              "lastname",
+              "firstname",
+              "totals",
+              "events",
+              "bySubject"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "available",
+        "reason",
+        "validated",
+        "class",
+        "from",
+        "to",
+        "classTotals",
+        "total",
+        "unmatched",
+        "items"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

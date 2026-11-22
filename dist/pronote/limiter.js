@@ -137,7 +137,9 @@ export const limiterOptions = (env = process.env) => ({
  */
 const DEFAULT_COSTS = { FicheEleve: 2, PageBulletins: 2, PageNotes: 2, PageCahierDeTexte: 2,
     // 0.12.0: per-student pages of the main teacher view.
-    PageReleve: 2, RecapitulatifVSEleve: 2 };
+    PageReleve: 2, RecapitulatifVSEleve: 2,
+    // 0.16.0: per-student reads of the class follow-up, and the summary of the absences of a whole class.
+    DetailsPIEleve: 2, LivretScolaire: 2, PageSuiviPluriannuel: 2, RecapAbsencesEleves: 2 };
 export const parseCosts = (value) => {
     const costs = { ...DEFAULT_COSTS };
     for (const part of String(value ?? "").split(",")) {

@@ -48,9 +48,33 @@ Référence commune entre le sidecar et le plugin Moodle `local_pronoteio` (0.9.
 - En-têtes de requête facultatifs, hors signature : `X-Pronoteio-Origin` (`^[a-z0-9][a-z0-9_.:/-]{0,79}$`),
   `X-Pronoteio-Account` (`^[0-9a-f]{8,32}$`), recopiés dans le journal d'accès.
 
+## Champs ajoutés en 0.16.0 (suivi des classes, contrat `docs/olutionsuivi/CONTRAT_SIDECAR.md`)
+
+- Routes nouvelles, avec schéma de réponse strict et fixture : `GET /classlife/absences`
+  (`classlife-absences`), `GET /students/plans` (`students-plans`), `GET /students/history` (`students-history`),
+  `POST /collect` (`collect-create`, fixture `collect-created.json`), `GET /collect/:id` (`collect-get`, fixture
+  `collect-done.json`). `GET /collect/:id/results` (`collect-results`) a un schéma **non strict** : le résultat d'un
+  bloc a la forme de la réponse de sa route et porte toujours `total` (nombre d'`items` du bloc), `offset` et `limit`
+  (contrat 7.4 bis) ; un bloc `unavailable` ou `failed` rend le refus de sa route avec `items: []`.
+- `collectid` : `^[A-Za-z0-9_-]{8,64}$` (schémas `collect-create` et `collect-get`).
+- Contrat 7.4 ter : `students` (effectif) dans `collect-get` ; `failed` (élèves en erreur de Pronote, aussi dans
+  `remaining`) dans `students-plans` et `students-history` ; `reason: "all_empty"` pour un bloc `plans` sans plan
+  lisible ; les réponses de `/students/plans` et `/collect/:id/results` ne sont pas gardées pour une seconde livraison.
+- Fixtures de ces routes : valeurs fictives. Elles suivent les formes relevées le 22/11/2026
+  (`docs/olutionsuivi/formes/`) pour le suivi pluriannuel, le cadre du livret scolaire et le cumul de classe des
+  absences ; les lignes d'absences par élève et les plans d'accompagnement sont des formes **supposées** (jamais vues).
+- Erreur `collect_running` (409) : `collectid` de la lecture groupée en cours (aussi pour `collect_block_not_ready`,
+  bloc pas encore lu). Fixture `error-collect-running.json`. `collect_not_found` et `collect_block_not_found` : code
+  `not_found`.
+- `session/info` (sans schéma de réponse strict) : `state` (`mobile`, `web`, `reason`, `retry_after`), type
+  `SessionState` de `src/sessionState.ts` ; mêmes valeurs dans `session` de `GET /collect/:id`.
+- Écarts par rapport au texte du contrat, tous des ajouts : `classTotals`, `total`, `unmatched` et `bySubject`
+  (toujours présent) dans `/classlife/absences` ; `unreadable` dans `/students/plans` ; `sources` au niveau de la réponse de
+  `/students/history`.
+
 ## Couverture des réponses
 
 Routes avec schéma de réponse strict : `/health/public`, `/health`, `/errors`, `/roster`, `/students/files` (page et
-liste d'identifiants), `/timetable`, `/homework`, `/session/login`, `/jobs`, `/jobs/:id`, `/admin/update`, et le corps de
-toute erreur. Les autres routes ont leur schéma de requête dans `requests.json` ; leurs schémas de réponse restent à
+liste d'identifiants), `/timetable`, `/homework`, `/session/login`, `/jobs`, `/jobs/:id`, `/admin/update`,
+`/classlife/absences`, `/students/plans`, `/students/history`, `/collect`, `/collect/:id`, et le corps de toute erreur. Les autres routes ont leur schéma de requête dans `requests.json` ; leurs schémas de réponse restent à
 écrire (leurs types sont dans `src/normalise.ts`).
