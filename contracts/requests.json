@@ -191,6 +191,32 @@
     },
     {
       "method": "GET",
+      "url": "/classlife/absences",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "resource"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "from": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "to": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
       "url": "/competencies",
       "querystring": {
         "type": "object",
@@ -2080,6 +2106,43 @@
     },
     {
       "method": "GET",
+      "url": "/students/history",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "resource"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "student": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 40
+          },
+          "sources": {
+            "type": "string",
+            "maxLength": 40
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
       "url": "/students/photo",
       "querystring": {
         "type": "object",
@@ -2130,6 +2193,39 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 10
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/students/plans",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "resource"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "student": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 40
           }
         }
       },

@@ -1,5 +1,6 @@
 import { HttpError } from "../errors.js";
 import { requireSession } from "../session.js";
+import { classAbsences } from "../teacher/absencesRecap.js";
 import { classLife, LIFE_INCLUDES, LIFE_SOURCES, MAX_LIFE_STUDENTS } from "../teacher/classlife.js";
 /** Largest range of a school life read (seconds): a school year and its margins. */
 export const MAX_LIFE_RANGE = 400 * 24 * 3600;
@@ -40,6 +41,26 @@ export default async function classLifeRoutes(app) {
             sources: parseList(sources, LIFE_SOURCES, "sources"),
             page: { student, offset, limit },
         });
+    });
+    // 0.16.0: absences and late arrivals of a class, every subject, in one call (RecapAbsencesEleves, not validated):
+    // see teacher/absencesRecap.ts. Without from and to: the school year.
+    app.get("/classlife/absences", {
+        schema: {
+            querystring: {
+                type: "object",
+                required: ["resource"],
+                properties: {
+                    resource: { type: "string", minLength: 1, maxLength: 200 },
+                    from: { type: "integer", minimum: 0 },
+                    to: { type: "integer", minimum: 0 },
+                },
+            },
+        },
+    }, async (request) => {
+        const { resource, from, to } = request.query;
+        if (from !== undefined && to !== undefined && (to <= from || to - from > MAX_LIFE_RANGE))
+            throw new HttpError(400, "range_too_large");
+        return classAbsences(requireSession(request), resource, from, to);
     });
 }
 //# sourceMappingURL=classlife.js.map

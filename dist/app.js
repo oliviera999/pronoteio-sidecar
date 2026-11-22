@@ -122,6 +122,12 @@ const withWebLoginHint = (account, error) => {
     }
     return error;
 };
+/**
+ * 0.16.0: routes whose answers are health data (support plans). Their line of the access log keeps the route, the
+ * status and the duration, never the size of the answer (for one student it would tell whether a plan exists) nor a
+ * shape.
+ */
+export const SILENT_ROUTES = new Set(["/students/plans"]);
 const routeTables = new WeakMap();
 export const routesOf = (app) => routeTables.get(app) ?? [];
 export const buildApp = async (options = {}) => {
@@ -164,6 +170,7 @@ export const buildApp = async (options = {}) => {
         const origin = originOf(headers);
         // Without a valid X-Pronoteio-Account: tag derived from the account of the login, or of the session of the request.
         const sessionAccount = sessionEntry(request)?.account;
+        const silent = SILENT_ROUTES.has(request.routeOptions.url ?? "");
         const account = accountOf(headers) ?? loginAccountTag(request) ?? (sessionAccount ? accountTag(sessionAccount) : undefined);
         accessLog.write({
             method: request.method,
@@ -176,11 +183,11 @@ export const buildApp = async (options = {}) => {
             ...(request.errorKind ? { kind: request.errorKind } : {}),
             ...(request.errorStep ? { step: request.errorStep } : {}),
             ms: Math.round(reply.elapsedTime),
-            bytes: request.answerBytes ?? 0,
+            bytes: silent ? 0 : (request.answerBytes ?? 0),
             ...(reply.getHeader("x-cache") ? { cache: String(reply.getHeader("x-cache")) } : {}),
             ...(context ? { calls: context.calls, priority: context.priority } : {}),
             ...(reply.getHeader("x-pronoteio-duplicate") ? { duplicate: true } : {}),
-            ...(context?.shape ? { shape: context.shape } : {}),
+            ...(context?.shape && !silent ? { shape: context.shape } : {}),
         });
     });
     const table = [];

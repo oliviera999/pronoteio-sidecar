@@ -35,6 +35,9 @@ export const CACHEABLE: Record<string, number> = {
   // 0.12.0: main teacher view. The photos (/students/photos) are never cached.
   "/reports/results": 60,
   "/classlife": 120,
+  // 0.16.0: class follow-up. The support plans (/students/plans) are health data: never cached.
+  "/classlife/absences": 120,
+  "/students/history": 120,
   "/lists": 120,
   "/resources": 60,
 };
