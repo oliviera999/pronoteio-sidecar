@@ -43,6 +43,13 @@ const CONTRACT_OF: Record<string, string> = {
   "error-web-session-required-backoff": "error",
   "admin-update": "admin-update",
   health: "health",
+  "classlife-absences": "classlife-absences",
+  "students-plans": "students-plans",
+  "students-history": "students-history",
+  "collect-created": "collect-create",
+  "collect-done": "collect-get",
+  "collect-results": "collect-results",
+  "error-collect-running": "error",
   timetable: "timetable",
   homework: "homework",
 };

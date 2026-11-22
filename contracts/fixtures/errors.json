@@ -121,6 +121,15 @@
       ]
     },
     {
+      "code": "collect_running",
+      "status": 409,
+      "message": "Une lecture groupée de ce compte est déjà en cours, ou le bloc demandé n'est pas encore lu.",
+      "action": "Suivre la lecture en cours (GET /collect/{collectid}) au lieu d'en lancer une autre ; lire un bloc quand son état est done ou partial.",
+      "members": [
+        "collectid"
+      ]
+    },
+    {
       "code": "internal",
       "status": 500,
       "message": "Erreur interne du sidecar.",

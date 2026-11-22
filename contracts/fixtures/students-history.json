@@ -1,0 +1,122 @@
+{
+  "validated": false,
+  "class": {
+    "id": "c:T06",
+    "name": "T06"
+  },
+  "total": 2,
+  "offset": 0,
+  "available": true,
+  "reason": "",
+  "sources": {
+    "livret": {
+      "available": true,
+      "reason": ""
+    },
+    "multiyear": {
+      "available": true,
+      "reason": ""
+    }
+  },
+  "items": [
+    {
+      "studentid": "e:MARTIN Léa",
+      "label": "MARTIN Léa",
+      "sources": {
+        "livret": {
+          "available": true,
+          "reason": ""
+        },
+        "multiyear": {
+          "available": true,
+          "reason": ""
+        }
+      },
+      "years": [
+        {
+          "year": "2026-2027",
+          "label": "2026-2027",
+          "level": "T06",
+          "average": null,
+          "classAverage": null,
+          "subjects": [
+            {
+              "subject": "EPS",
+              "average": 15,
+              "classAverage": 13,
+              "comment": ""
+            }
+          ]
+        },
+        {
+          "year": "2025-2026",
+          "label": "2025-2026",
+          "level": "Première",
+          "average": 13.42,
+          "classAverage": 12.1,
+          "subjects": [
+            {
+              "subject": "MATHEMATIQUES",
+              "average": 14.5,
+              "classAverage": 11.2,
+              "comment": "Appréciation fictive"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "studentid": "e:PETIT Hugo",
+      "label": "PETIT Hugo",
+      "sources": {
+        "livret": {
+          "available": true,
+          "reason": ""
+        },
+        "multiyear": {
+          "available": true,
+          "reason": ""
+        }
+      },
+      "years": [
+        {
+          "year": "2026-2027",
+          "label": "2026-2027",
+          "level": "T06",
+          "average": null,
+          "classAverage": null,
+          "subjects": [
+            {
+              "subject": "EPS",
+              "average": 15,
+              "classAverage": 13,
+              "comment": ""
+            }
+          ]
+        },
+        {
+          "year": "2025-2026",
+          "label": "2025-2026",
+          "level": "Première",
+          "average": 13.42,
+          "classAverage": 12.1,
+          "subjects": [
+            {
+              "subject": "MATHEMATIQUES",
+              "average": 14.5,
+              "classAverage": 11.2,
+              "comment": "Appréciation fictive"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "read": [
+    "e:MARTIN Léa",
+    "e:PETIT Hugo"
+  ],
+  "remaining": [],
+  "partial": false,
+  "retry_after": 0
+}

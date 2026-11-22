@@ -58,6 +58,7 @@ const INVALIDATES: [string, string[]][] = [
   ["/forum", []],
   // Not Pronote writes: nothing to invalidate.
   ["/jobs", []],
+  ["/collect", []],
   ["/session/login", []],
   ["/admin", []],
 ];

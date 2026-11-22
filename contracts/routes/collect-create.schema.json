@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "collect-create.schema.json",
+  "title": "POST /collect",
+  "method": "POST",
+  "url": "/collect",
+  "fixture": "fixtures/collect-created.json",
+  "description": "0.16.0 : lecture groupée d'une classe (202). Une seule par compte : 409 collect_running avec collectid sinon. Contrat olutionsuivi 7.4.",
+  "properties": {
+    "response": {
+      "type": "object",
+      "properties": {
+        "collectid": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "waiting",
+            "done",
+            "partial",
+            "failed"
+          ]
+        },
+        "progress": {
+          "type": "object",
+          "properties": {
+            "done": {
+              "type": "integer"
+            },
+            "total": {
+              "type": "integer"
+            },
+            "block": {
+              "enum": [
+                "files",
+                "reportcards",
+                "results",
+                "comments",
+                "classlife",
+                "absences",
+                "plans",
+                "history",
+                "grades",
+                null
+              ]
+            },
+            "student": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "done",
+            "total",
+            "block",
+            "student"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "collectid",
+        "status",
+        "progress"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

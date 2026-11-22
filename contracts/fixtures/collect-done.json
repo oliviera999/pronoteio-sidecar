@@ -1,0 +1,45 @@
+{
+  "collectid": "610709e4-c3ee-4536-a098-acc444def198",
+  "status": "done",
+  "created": 1795373747,
+  "finished": 1795373751,
+  "expires": 1795375551,
+  "progress": {
+    "done": 5,
+    "total": 5,
+    "block": null,
+    "student": 0
+  },
+  "retry_after": 0,
+  "session": {
+    "mobile": "open",
+    "web": "closed",
+    "reason": ""
+  },
+  "blocks": {
+    "absences": {
+      "status": "done",
+      "reason": "",
+      "validated": false,
+      "read": 1,
+      "total": 1,
+      "remaining": 0
+    },
+    "plans": {
+      "status": "done",
+      "reason": "",
+      "validated": false,
+      "read": 2,
+      "total": 2,
+      "remaining": 0
+    },
+    "history": {
+      "status": "done",
+      "reason": "",
+      "validated": false,
+      "read": 2,
+      "total": 2,
+      "remaining": 0
+    }
+  }
+}

@@ -3,6 +3,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { INTERNAL_HEADER, INTERNAL_TOKEN, PUBLIC_ROUTES, registerAuth, securityStats } from "./auth.js";
 import { addressAllowed } from "./address.js";
 import { registerJobs } from "./jobs.js";
+import { collectTiming, registerCollect } from "./collect.js";
 import { config } from "./config.js";
 import { currentContext, PRIORITY, priorityOf, requestContext } from "./context.js";
 import { forgetSession, lostSessionReason, reconnect, sessionEntry, sessionLostError, webSessionEntry, webSessionIdOf } from "./session.js";
@@ -149,7 +150,7 @@ const withWebLoginHint = (account: string | null | undefined, error: unknown): u
  * status and the duration, never the size of the answer (for one student it would tell whether a plan exists) nor a
  * shape.
  */
-export const SILENT_ROUTES = new Set(["/students/plans"]);
+export const SILENT_ROUTES = new Set(["/students/plans", "/collect/:id/results"]);
 
 /** Routes of an application with their request schemas (contracts/requests.json, P10). */
 export type RouteContract = { method: string; url: string; querystring?: unknown; body?: unknown; params?: unknown };
@@ -234,9 +235,11 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
     const query = (request.query ?? {}) as Record<string, unknown>;
     // Reads of an asynchronous job (P4): bulk priority, longer wait (nobody waits for the HTTP answer).
     const job = request.headers[INTERNAL_HEADER] === INTERNAL_TOKEN;
+    // 0.16.0: reads of a grouped read (collect.ts): bulk priority too, with their own wait.
+    const collect = job && request.headers["x-pronoteio-collect"] === "1";
     requestContext.run({
       priority: job ? PRIORITY.bulk : priorityOf(request.method, route, query),
-      deadline: Date.now() + (job ? Math.max(queueWait, 120_000) : queueWait),
+      deadline: Date.now() + (collect ? collectTiming.waitMs : job ? Math.max(queueWait, 120_000) : queueWait),
       calls: 0,
       route,
       // 0.10.0: client able to open a web session (space.ts).
@@ -373,7 +376,7 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
   });
 
   // Pronote version (P6): in the headers of every answer of a session; writes refused on an unvalidated version.
-  const NOT_WRITES = new Set(["/session/login", "/session/logout", "/jobs", "/admin/update"]);
+  const NOT_WRITES = new Set(["/session/login", "/session/logout", "/jobs", "/admin/update", "/collect"]);
   app.addHook("preHandler", async (request) => {
     if (request.method !== "POST" || NOT_WRITES.has(request.routeOptions.url ?? "")) return;
     const body = (request.body ?? {}) as Record<string, unknown>;
@@ -391,6 +394,9 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
 
   // Asynchronous jobs of the heavy reads (P4).
   registerJobs(app);
+
+  // Grouped read of a class (0.16.0).
+  registerCollect(app);
 
   // Update on demand (P9).
   registerAdmin(app);

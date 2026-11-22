@@ -1,0 +1,330 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "students-history.schema.json",
+  "title": "GET /students/history",
+  "method": "GET",
+  "url": "/students/history",
+  "fixture": "fixtures/students-history.json",
+  "description": "0.16.0, non validé sur un vrai serveur : LivretScolaire (onglet 83) et PageSuiviPluriannuel (onglet 44), un appel par élève et par source. Contrat olutionsuivi 7.3.",
+  "properties": {
+    "response": {
+      "type": "object",
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "validated": {
+          "const": false
+        },
+        "class": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "total": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "sources": {
+          "type": "object",
+          "properties": {
+            "livret": {
+              "type": "object",
+              "properties": {
+                "available": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": "string",
+                  "description": "« », not_asked, resource_not_class, access_denied, pronote_error, format_unknown."
+                },
+                "shape": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Forme d'une réponse de Pronote non reconnue (noms et types de membres, jamais une valeur ; noms sensibles omis)."
+                },
+                "onglet": {
+                  "type": "integer"
+                },
+                "space": {
+                  "enum": [
+                    "mobile",
+                    "web"
+                  ]
+                }
+              },
+              "required": [
+                "available",
+                "reason"
+              ],
+              "additionalProperties": false
+            },
+            "multiyear": {
+              "type": "object",
+              "properties": {
+                "available": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": "string",
+                  "description": "« », not_asked, resource_not_class, access_denied, pronote_error, format_unknown."
+                },
+                "shape": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Forme d'une réponse de Pronote non reconnue (noms et types de membres, jamais une valeur ; noms sensibles omis)."
+                },
+                "onglet": {
+                  "type": "integer"
+                },
+                "space": {
+                  "enum": [
+                    "mobile",
+                    "web"
+                  ]
+                }
+              },
+              "required": [
+                "available",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "livret",
+            "multiyear"
+          ],
+          "additionalProperties": false,
+          "description": "État de chaque source après la page ; la forme d'une réponse non reconnue est ici."
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "studentid": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "sources": {
+                "type": "object",
+                "properties": {
+                  "livret": {
+                    "type": "object",
+                    "properties": {
+                      "available": {
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "description": "« », not_asked, resource_not_class, access_denied, pronote_error, format_unknown."
+                      },
+                      "shape": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Forme d'une réponse de Pronote non reconnue (noms et types de membres, jamais une valeur ; noms sensibles omis)."
+                      },
+                      "onglet": {
+                        "type": "integer"
+                      },
+                      "space": {
+                        "enum": [
+                          "mobile",
+                          "web"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "available",
+                      "reason"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "multiyear": {
+                    "type": "object",
+                    "properties": {
+                      "available": {
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "description": "« », not_asked, resource_not_class, access_denied, pronote_error, format_unknown."
+                      },
+                      "shape": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Forme d'une réponse de Pronote non reconnue (noms et types de membres, jamais une valeur ; noms sensibles omis)."
+                      },
+                      "onglet": {
+                        "type": "integer"
+                      },
+                      "space": {
+                        "enum": [
+                          "mobile",
+                          "web"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "available",
+                      "reason"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "livret",
+                  "multiyear"
+                ],
+                "additionalProperties": false
+              },
+              "years": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "year": {
+                      "type": "string",
+                      "pattern": "^(\\d{4}-\\d{4})?$",
+                      "description": "Année scolaire « 2025-2026 », « » quand Pronote n'en nomme pas."
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "level": {
+                      "type": "string"
+                    },
+                    "average": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "classAverage": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "subjects": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "subject": {
+                            "type": "string"
+                          },
+                          "average": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "classAverage": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "comment": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "subject",
+                          "average",
+                          "classAverage",
+                          "comment"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "year",
+                    "label",
+                    "level",
+                    "average",
+                    "classAverage",
+                    "subjects"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "studentid",
+              "label",
+              "sources",
+              "years"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "read": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Identifiants lus dans cette réponse, dans l'ordre de la classe."
+        },
+        "remaining": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Identifiants non lus (file vers Pronote pleine) : les redemander après retry_after."
+        },
+        "partial": {
+          "type": "boolean"
+        },
+        "retry_after": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "available",
+        "reason",
+        "validated",
+        "class",
+        "total",
+        "offset",
+        "sources",
+        "items",
+        "read",
+        "remaining",
+        "partial",
+        "retry_after"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

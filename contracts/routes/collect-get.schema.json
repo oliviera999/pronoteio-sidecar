@@ -1,0 +1,176 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "collect-get.schema.json",
+  "title": "GET /collect/:id",
+  "method": "GET",
+  "url": "/collect/:id",
+  "fixture": "fixtures/collect-done.json",
+  "properties": {
+    "response": {
+      "type": "object",
+      "properties": {
+        "collectid": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "waiting",
+            "done",
+            "partial",
+            "failed"
+          ]
+        },
+        "created": {
+          "$ref": "common.schema.json#/definitions/timestamp"
+        },
+        "finished": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "expires": {
+          "$ref": "common.schema.json#/definitions/timestamp"
+        },
+        "progress": {
+          "type": "object",
+          "properties": {
+            "done": {
+              "type": "integer"
+            },
+            "total": {
+              "type": "integer"
+            },
+            "block": {
+              "enum": [
+                "files",
+                "reportcards",
+                "results",
+                "comments",
+                "classlife",
+                "absences",
+                "plans",
+                "history",
+                "grades",
+                null
+              ]
+            },
+            "student": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "done",
+            "total",
+            "block",
+            "student"
+          ],
+          "additionalProperties": false
+        },
+        "retry_after": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "session": {
+          "type": "object",
+          "properties": {
+            "mobile": {
+              "enum": [
+                "open",
+                "closed"
+              ]
+            },
+            "web": {
+              "enum": [
+                "open",
+                "closed",
+                "reopen_required",
+                "backoff",
+                "pin_required"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "mobile",
+            "web",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        "blocks": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "files",
+              "reportcards",
+              "results",
+              "comments",
+              "classlife",
+              "absences",
+              "plans",
+              "history",
+              "grades"
+            ]
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "enum": [
+                  "pending",
+                  "running",
+                  "done",
+                  "partial",
+                  "unavailable",
+                  "failed"
+                ]
+              },
+              "reason": {
+                "type": "string"
+              },
+              "validated": {
+                "type": "boolean"
+              },
+              "read": {
+                "type": "integer",
+                "description": "Unités lues : élèves pour un bloc lu élève par élève, 1 pour un bloc lu en une demande."
+              },
+              "total": {
+                "type": "integer"
+              },
+              "remaining": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "status",
+              "reason",
+              "validated",
+              "read",
+              "total",
+              "remaining"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "collectid",
+        "status",
+        "created",
+        "finished",
+        "expires",
+        "progress",
+        "retry_after",
+        "session",
+        "blocks"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

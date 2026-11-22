@@ -40,6 +40,7 @@ const INVALIDATES = [
     ["/forum", []],
     // Not Pronote writes: nothing to invalidate.
     ["/jobs", []],
+    ["/collect", []],
     ["/session/login", []],
     ["/admin", []],
 ];

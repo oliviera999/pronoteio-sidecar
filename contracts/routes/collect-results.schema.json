@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "collect-results.schema.json",
+  "title": "GET /collect/:id/results",
+  "method": "GET",
+  "url": "/collect/:id/results",
+  "fixture": "fixtures/collect-results.json",
+  "properties": {
+    "response": {
+      "type": "object",
+      "description": "Résultat d'un bloc : la forme de la réponse de sa route (files : /students/files ; reportcards : /reports ; results : /reports/results ; comments : /reports/comments ; classlife : /classlife ; absences : /classlife/absences ; plans : /students/plans ; history : /students/history ; grades : /grades/overview), comme si elle avait lu toute la classe. Schéma non strict : les membres sont ceux de la route. Quand le résultat a « items », offset et limit le paginent (40 au plus) et les trois membres ci-dessous sont ajoutés.",
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 40
+        },
+        "itemsTotal": {
+          "type": "integer",
+          "description": "Nombre total d'éléments du bloc."
+        },
+        "itemsOffset": {
+          "type": "integer"
+        },
+        "itemsMore": {
+          "type": "boolean"
+        },
+        "read": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "remaining": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "partial": {
+          "type": "boolean"
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
