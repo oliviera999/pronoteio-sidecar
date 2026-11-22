@@ -21,11 +21,14 @@ import { pronoteDate } from "../pronote/encoding.js";
 import { limiterOptions } from "../pronote/limiter.js";
 import { userData } from "../pronote/userdata.js";
 import { wallNow } from "../time.js";
+import { absencesFromRecap } from "./absencesRecap.js";
 import { decodeRecap, eventsFromNotebook, eventsFromSummary } from "./classlife.js";
 import { kindRequests, kindsFromAnswer } from "./comments.js";
 import { callFunctionAt, functions, FUNCTION_KEYS } from "./functions.js";
 import { loadPeriods, loadServices, ref, resourceOf } from "./grades.js";
+import { yearsFromAnswer } from "./history.js";
 import { photoProbe } from "./photos.js";
+import { plansFromAnswer } from "./plans.js";
 import { resultsFromAnswer } from "./reports.js";
 import { resolveResource, rosterEntries } from "./roster.js";
 import { MAX_SHAPE, MAX_SHAPE_FULL, SENSITIVE, shapeOf } from "./shape.js";
@@ -273,7 +276,12 @@ export const ppCheck = async (session, resourceId, options = {}) => {
     await push("lifeFollowUp", "life", { data: { eleve, ...dates }, recognise: dated(13) });
     await push("lifeGrid", "life", { data: { genreSaisie: null, eleve, domaine, genreAbsence: 13 } });
     const classes = isClass ? list([classe]) : null;
-    await push("lifeAbsencesRecap", "life", { data: classes ? { classes, regimes: list([]), bourses: list([]), criteres: {}, domaine } : null });
+    // 0.16.0: the decoders of the class follow-up say whether they understand the answer (never a count for the plans).
+    await push("lifeAbsencesRecap", "life", { data: classes ? { classes, regimes: list([]), bourses: list([]), criteres: {}, domaine } : null,
+        recognise: (answer) => {
+            const read = absencesFromRecap(answer, entries, 0, Number.MAX_SAFE_INTEGER);
+            return read === null ? null : read.dated ? "dated" : read.items.length > 0 ? "totals_only" : "no_line";
+        } });
     await push("lifeCallSheetRecap", "life", { data: classes ? { classes, regimes: list([]), rubriquesObservation: list([]), domaine,
             uniquementDontJeSuisAuteur: false } : null });
     await push("lifePunishmentsRecap", "life", { data: classes ? { classes, regimes: list([]), criteres: {}, domaine } : null });
@@ -301,15 +309,16 @@ export const ppCheck = async (session, resourceId, options = {}) => {
     await push("pastReportStudents", "reports", { data: isClass ? { classe } : null });
     await push("pastReports", "reports", { data: { avecNotes: true, avecCompetences: false, listeElevesBIA: list([eleve]) } });
     await push("schoolingRecap", "reports", { data: classes && periode ? { classes, periode } : null });
-    await push("schoolRecord", "reports", { data: isClass ? { Classe: classe, AvecDonneesClasse: true, Eleve: eleve } : null });
+    const years = (answer) => (yearsFromAnswer(answer) === null ? null : "");
+    await push("schoolRecord", "reports", { data: isClass ? { Classe: classe, AvecDonneesClasse: true, Eleve: eleve } : null, recognise: years });
     await push("studentFolders", "reports", { variant: "eleve", data: { eleve } });
     await push("studentFolders", "reports", { variant: "Eleve", data: { Eleve: eleve } });
-    await push("multiYear", "reports", { data: { eleve: { N: first.pronoteId } } });
+    await push("multiYear", "reports", { data: { eleve: { N: first.pronoteId } }, recognise: years });
     await push("teacherOpinions", "reports", { data: isClass && periode ? { classe, periode } : null });
     /* ---- misc ---- */
     await push("classPhotos", "misc", { data: isClass ? { classe, ...(periode ? { periode } : {}) } : null,
         recognise: (answer) => (member(answer, ["ListeRessources", "listeRessources"]) !== undefined ? "" : null) });
-    await push("supportPlanDetails", "misc", { data: { eleve } });
+    await push("supportPlanDetails", "misc", { data: { eleve }, recognise: (answer) => (plansFromAnswer(answer) === null ? null : "") });
     if (only === "")
         return { students: entries.length, groups, checks, ...(next !== "" ? { next } : {}) };
     // One function: its whole shape by pages of MAX_SHAPE_PAGE lines (the same lines of every variant are paged alike).
