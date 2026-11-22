@@ -18,7 +18,7 @@
  * session Pronote reports as lost is forgotten at once.
  */
 import { randomUUID } from "node:crypto";
-import { ServerSideError, SessionExpiredError } from "pawnote";
+import { lostSessionReason } from "./pronote/lostSession.js";
 import { config } from "./config.js";
 import { HttpError } from "./errors.js";
 import { rememberUserData, userData } from "./pronote/userdata.js";
@@ -28,6 +28,9 @@ import { currentContext } from "./context.js";
 import { setSpace } from "./space.js";
 const sessions = new Map();
 const byAccount = new Map();
+/** 0.16.0: instant (ms) of the last web session opened for an account, kept after that session is gone (sessionState.ts). */
+const webOpened = new Map();
+const MAX_WEB_OPENED = 500;
 /** Web session sent by Moodle beside the main one (0.10.0), "" when none. */
 export const webSessionIdOf = (request) => String(request.headers["x-pronoteio-web-session"] ?? "");
 /** Session of the request: the web one while the request runs on it (replay after WebSessionRequired), else the main one. */
@@ -51,6 +54,15 @@ export const createSession = (handle, account, options = {}) => {
     }
     if (options.space)
         setSpace(handle, options.space);
+    if (account && space === "web") {
+        webOpened.delete(account.key);
+        webOpened.set(account.key, now);
+        for (const key of webOpened.keys()) {
+            if (webOpened.size <= MAX_WEB_OPENED)
+                break;
+            webOpened.delete(key);
+        }
+    }
     sessions.set(id, { id, handle, expires: now + config.sessionTtl, created: now, lastUsed: now, account: account?.key ?? null,
         login: account?.login ?? null, generation: 0, reconnects: 0, lastReconnect: null, state: "open", space,
         loginMode: options.loginMode ?? "token" });
@@ -78,6 +90,18 @@ export const webSessionOfAccount = (account) => {
     const entry = sessionOfAccount(webKey(account));
     return entry && entry.space === "web" ? entry : null;
 };
+/** 0.16.0: live session by its id, without touching its lifetime (state of the sessions, grouped reads). */
+export const sessionById = (id) => {
+    const entry = id === "" ? undefined : sessions.get(id);
+    return entry && entry.expires >= Date.now() && entry.state !== "lost" ? entry : undefined;
+};
+/** 0.16.0: live session of an account in a space, without touching its lifetime. */
+export const accountSession = (account, space) => {
+    const entry = sessionById(byAccount.get(space === "web" ? webKey(account) : account) ?? "");
+    return entry && entry.space === space ? entry : undefined;
+};
+/** 0.16.0: instant (ms) the last web session of an account was opened, null when none ever was since the start. */
+export const webOpenedAt = (account) => webOpened.get(account) ?? null;
 /** Entry of the request's session (without touching it), undefined when unknown or expired. */
 export const sessionEntry = (request) => {
     const entry = sessions.get(sessionIdOf(request));
@@ -116,16 +140,8 @@ export const dropSession = (request) => {
         forget(entry);
 };
 /* ---- Lost sessions and reconnection ---- */
-/** Pronote messages of a session closed because the account connected elsewhere (candidates, not validated). */
-const REPLACED = /autre (poste|appareil|navigateur)|connect[ée]+ ailleurs|nouvelle connexion|session (a été )?(fermée|interrompue|terminée)|vous avez été déconnecté/i;
-/** Why a Pronote error means the session is gone: "expired", "replaced", or null for any other error. */
-export const lostSessionReason = (error) => {
-    if (error instanceof SessionExpiredError)
-        return "expired";
-    if (error instanceof ServerSideError && REPLACED.test(error.message))
-        return "replaced";
-    return null;
-};
+// 0.16.0: moved to pronote/lostSession.ts (no dependency on the configuration), still exported from here.
+export { lostSessionReason };
 /** Error answered when a lost session could not be reconnected: Moodle logs in again (session_expired). */
 export const sessionLostError = (reason) => new HttpError(401, "session_expired", { code: reason === "replaced" ? "session_replaced" : "session_expired" });
 let reconnector = null;

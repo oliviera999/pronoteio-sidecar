@@ -14,7 +14,7 @@
  *   handles them.
  */
 import { ServerSideError } from "pawnote";
-import { lostSessionReason } from "../session.js";
+import { lostSessionReason } from "../pronote/lostSession.js";
 import { wallNow } from "../time.js";
 import { seconds } from "../normalise.js";
 import { callFunction, functions } from "./functions.js";
