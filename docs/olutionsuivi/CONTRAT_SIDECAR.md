@@ -93,6 +93,38 @@ examAccommodations: bool } ] }`. Jamais en cache, jamais au journal.
   identifiant par l'en-tête `X-Pronoteio-Web-Session` au sondage suivant ; le sidecar l'adopte pour la lecture en
   cours et reprend.
 - `GET /classlife/absences` rend aussi `total`.
+- Dans un résultat de bloc, `total` est le nombre d'**items du bloc** ; le nombre d'élèves de la classe se lit dans
+  `GET /collect/:id` (`blocks.<bloc>.total`). Un bloc dont la route n'a pas d'`items` (`results`, `comments`,
+  `grades`) est rendu entier, `total` à 0 : le client y lit `students`, `services`… comme dans la réponse de la route.
+- Résultats demandés pour un bloc pas encore lu : `409`, `error: "collect_block_not_ready"`, `code:
+  "collect_running"`. Le client distingue ce cas par `error` et repasse au sondage.
+
+**7.4 ter. Précisions du 22/11 après la relecture de L01 (L01 et L02 s'y alignent).**
+
+- `GET /collect/:id` porte `students` (effectif de la classe). `blocks.<bloc>.total` et `read` comptent les **unités
+  de travail du bloc** (élèves pour un bloc lu élève par élève, 1 pour un bloc lu en une demande) : le client ne lit
+  jamais l'effectif dans `blocks`. `progress.student` = nombre d'élèves lus du bloc en cours.
+- État final : `done` si tous les blocs sont `done` ; `failed` si aucun bloc n'est `done` ni `partial` ; `partial`
+  sinon. Un client se fie à l'état de chaque bloc, pas au seul état global.
+- Session web manquante : dès qu'un bloc attend une session web que le sidecar n'a pas (jamais ouverte, ou
+  perdue), l'état est `waiting`, `session.web: "reopen_required"`, `session.reason: "web_session_required"`.
+  `closed` n'est jamais rendu pendant une attente.
+- Blocs demandés : `options.classlife.sources` n'accepte que `recap`, `carnet`, `callsheets` ; toute autre valeur
+  (`summary`) est refusée par `400`. La lecture groupée n'appelle jamais une fonction refusée au profil.
+- Erreur de Pronote sur un élève : l'élève est mis dans `remaining`, la lecture du bloc continue ; le bloc finit
+  `partial` s'il reste des élèves non lus après une reprise.
+- Plans (`GET /students/plans`, bloc `plans`) : une réponse vide pour un élève vaut « aucun plan » (`plans: []`),
+  jamais un refus. Si aucun élève de la classe n'a de plan lisible, le bloc est `done` avec `reason: "all_empty"` :
+  le client ne peut alors pas distinguer « aucun plan » de « détail non lisible », et s'en tient à la fiche élève.
+- `GET /students/history` : quand une source se ferme en cours de page, la réponse est `partial: true` et
+  `remaining` liste les élèves non lus.
+- Durée de vie : les résultats sont effacés 30 minutes après la fin par un minuteur, sans attendre une requête ; la
+  déconnexion d'un compte (`POST /session/logout`) et l'oubli d'une session effacent ses lectures groupées ; un
+  ancien identifiant de session n'ouvre plus aucun résultat. Les routes `/students/plans` et
+  `/collect/:id/results` sont exclues du cache des doubles livraisons.
+- Autres codes : `429 rate_limited` au-delà de dix lectures actives ; `404 collect_block_not_found` pour un bloc
+  non demandé ; `400` si un seul de `from`/`to` est donné. `period` absent = période courante. Une lecture vit au
+  plus 60 minutes.
 
 **7.5 État de session.** `GET /session/info` ajoute `state: { mobile, web, reason, retry_after }`, mêmes valeurs
 qu'en 7.4.
