@@ -93,6 +93,11 @@ examAccommodations: bool } ] }`. Jamais en cache, jamais au journal.
   identifiant par l'en-tête `X-Pronoteio-Web-Session` au sondage suivant ; le sidecar l'adopte pour la lecture en
   cours et reprend.
 - `GET /classlife/absences` rend aussi `total`.
+- Dans un résultat de bloc, `total` est le nombre d'**items du bloc** ; le nombre d'élèves de la classe se lit dans
+  `GET /collect/:id` (`blocks.<bloc>.total`). Un bloc dont la route n'a pas d'`items` (`results`, `comments`,
+  `grades`) est rendu entier, `total` à 0 : le client y lit `students`, `services`… comme dans la réponse de la route.
+- Résultats demandés pour un bloc pas encore lu : `409`, `error: "collect_block_not_ready"`, `code:
+  "collect_running"`. Le client distingue ce cas par `error` et repasse au sondage.
 
 **7.5 État de session.** `GET /session/info` ajoute `state: { mobile, web, reason, retry_after }`, mêmes valeurs
 qu'en 7.4.
