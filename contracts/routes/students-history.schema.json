@@ -308,6 +308,13 @@
         "retry_after": {
           "type": "integer",
           "minimum": 0
+        },
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Élèves pour lesquels Pronote a répondu une erreur (aussi dans remaining) : à redemander. Absent quand il n'y en a pas (contrat 7.4 ter)."
         }
       },
       "required": [

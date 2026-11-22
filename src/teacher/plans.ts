@@ -19,9 +19,9 @@ import type { SessionHandle } from "pawnote";
 import { listOf } from "../pronote/encoding.js";
 import { labelKey } from "../normalise.js";
 import { resolveResource, rosterEntries } from "./roster.js";
-import { openSource, readStudentSource, type SourceOutcome } from "./studentSource.js";
+import { FAILED, STOP, openSource, readPage, readStudentSource, type SourceOutcome } from "./studentSource.js";
 import { planType, type PlanType } from "./students.js";
-import { boolOf, dateOf, dayString, isPlain, labelsOf, member, pageOf, readEach, textOf, unwrap, type PartialRead, type StudentPage } from "./tolerant.js";
+import { boolOf, dateOf, dayString, isPlain, labelsOf, member, pageOf, textOf, unwrap, type PartialRead, type StudentPage } from "./tolerant.js";
 
 /** Largest page of students (one Pronote call per student). */
 export const MAX_PLAN_STUDENTS = 40;
@@ -41,6 +41,8 @@ export type SupportPlan = {
 export type PlanStudent = { studentid: string; label: string; plans: SupportPlan[] };
 
 export type StudentPlans = PartialRead<PlanStudent> & SourceOutcome & {
+  /** Students Pronote answered an error for (also in "remaining"): to be asked again. Absent when there is none. */
+  failed?: string[];
   validated: false;
   class: { id: string; name: string };
   total: number;
@@ -127,9 +129,13 @@ export const plansFromAnswer = (data: unknown): SupportPlan[] | null => {
 };
 
 /**
- * Support plans of a page of students of a class or group. A refusal of Pronote, or a shape that is not understood
- * while no answer ever was, answers available: false (access_denied, format_unknown with the shape) and no other call;
- * when the queue towards Pronote is full, the students read so far come back with "remaining" and "retry_after".
+ * Support plans of a page of students of a class or group (contract 7.2 and 7.4 ter).
+ * - An empty answer is a student without plan (plans: []), never a refusal: most students have none.
+ * - A refusal of Pronote, or a shape that is not understood while no answer ever was, closes the function: on the
+ *   first student read, available: false (access_denied, format_unknown with the shape) and no other call; later in the
+ *   page, the students read are returned with the others in "remaining", the reason and the shape.
+ * - An error of Pronote on a student leaves him in "remaining" (and "failed"); the page goes on.
+ * - When the queue towards Pronote is full, the students read so far come back with "remaining" and "retry_after".
  */
 export const studentPlans = async (session: SessionHandle, resourceId: string, page: StudentPage = {}): Promise<StudentPlans> => {
   const resource = resolveResource(session, resourceId);
@@ -139,24 +145,25 @@ export const studentPlans = async (session: SessionHandle, resourceId: string, p
   let closed: SourceOutcome | null = null;
   const unreadable: string[] = [];
   let shape: string[] | undefined;
-  const read = await readEach(selected, async (entry): Promise<PlanStudent | null> => {
-    if (closed) return null;
-    const one = await readStudentSource(session, source, { eleve: { N: entry.pronoteId, G: 4, L: entry.label } }, plansFromAnswer, []);
+  const read = await readPage(selected, async (entry): Promise<PlanStudent | null | typeof FAILED | typeof STOP> => {
+    const one = await readStudentSource(session, source, { eleve: { N: entry.pronoteId, G: 4, L: entry.label } }, plansFromAnswer, [],
+      { emptyIsNothing: true });
     if (one.value !== null) return { studentid: entry.id, label: entry.label, plans: one.value };
-    if (source.state.available) {
-      // The function answers for the others: this student alone is not understood. Named, never given "no plan".
-      unreadable.push(entry.id);
-      shape = shape ?? one.outcome.shape;
-    } else {
+    if (!source.state.available) {
       closed = one.outcome;
+      return STOP;
     }
+    if (one.outcome.reason === "pronote_error") return FAILED;
+    // The function answers for the others: this student alone is not understood. Named, never given "no plan".
+    unreadable.push(entry.id);
+    shape = shape ?? one.outcome.shape;
     return null;
   });
-  const failed = closed as SourceOutcome | null;
-  if (failed) {
-    // The students read before are not returned with a refusal: the answer says one thing.
-    return { ...base, ...failed, items: [], read: [], remaining: [], partial: false, retry_after: 0 };
-  }
-  return { ...base, available: true, reason: "", ...read, items: read.items.filter((item): item is PlanStudent => item !== null),
-    ...(unreadable.length > 0 ? { unreadable, shape } : {}) };
+  const refusal = closed as SourceOutcome | null;
+  // Refused or not understood before any student was read: the refusal, alone.
+  if (refusal && read.read.length === 0) return { ...base, ...refusal, items: [], read: [], remaining: [], partial: false, retry_after: 0 };
+  return { ...base, available: true, reason: refusal?.reason ?? "", ...read,
+    ...(read.failed.length === 0 ? { failed: undefined } : {}),
+    ...(unreadable.length > 0 || refusal?.shape ? { shape: shape ?? refusal?.shape } : {}),
+    ...(unreadable.length > 0 ? { unreadable } : {}) };
 };

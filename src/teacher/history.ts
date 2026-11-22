@@ -24,8 +24,8 @@ import { listOf } from "../pronote/encoding.js";
 import { labelKey } from "../normalise.js";
 import type { FunctionKey } from "./functions.js";
 import { resolveResource, rosterEntries, type RosterEntry } from "./roster.js";
-import { openSource, readStudentSource, type SourceOutcome, type StudentSource } from "./studentSource.js";
-import { isPlain, member, numberOf, pageOf, readEach, textOf, unwrap, type PartialRead, type StudentPage } from "./tolerant.js";
+import { FAILED, STOP, openSource, readPage, readStudentSource, type SourceOutcome, type StudentSource } from "./studentSource.js";
+import { isPlain, member, numberOf, pageOf, textOf, unwrap, type PartialRead, type StudentPage } from "./tolerant.js";
 
 /** Largest page of students (one Pronote call per student and per source). */
 export const MAX_HISTORY_STUDENTS = 40;
@@ -50,6 +50,8 @@ export type HistoryYear = {
 export type HistoryStudent = { studentid: string; label: string; sources: Record<HistorySource, SourceOutcome>; years: HistoryYear[] };
 
 export type StudentHistory = PartialRead<HistoryStudent> & {
+  /** Students Pronote answered an error for (also in "remaining"): to be asked again. Absent when there is none. */
+  failed?: string[];
   available: boolean;
   reason: string;
   validated: false;
@@ -283,24 +285,27 @@ export const studentHistory = async (
   const open = () => [...sources.values()].some((source) => source.state.available);
   const base = { validated: false as const, class: { id: resourceId, name: resource.label }, total, offset };
 
-  const read = await readEach(selected, async (entry): Promise<HistoryStudent | null> => {
-    if (!open()) return null;
+  const read = await readPage(selected, async (entry): Promise<HistoryStudent | typeof FAILED | typeof STOP> => {
+    // Every source closed (refused, not understood): the students left are "remaining" (contract 7.4 ter).
+    if (!open()) return STOP;
     const outcomes: Record<HistorySource, SourceOutcome> = { livret: NOT_ASKED, multiyear: NOT_ASKED };
     const lists: HistoryYear[][] = [];
+    let error = false;
     for (const [name, source] of sources) {
       const one = await readStudentSource(session, source, dataOf(name, entry), name === "livret" ? livretFromAnswer : yearsFromAnswer, []);
       // The shape of a closed source is given once, by the page: not repeated in every student.
       outcomes[name] = one.value === null && !source.state.available ? { available: false, reason: one.outcome.reason } : one.outcome;
       if (one.value !== null) lists.push(one.value);
+      error = error || one.outcome.reason === "pronote_error";
     }
-    return open() || lists.length > 0 ? { studentid: entry.id, label: entry.label, sources: outcomes, years: mergeYears(lists) } : null;
+    // An error of Pronote on one of his sources: the student is left to read, the page goes on.
+    if (error) return FAILED;
+    return open() || lists.length > 0 ? { studentid: entry.id, label: entry.label, sources: outcomes, years: mergeYears(lists) } : STOP;
   });
-  const items = read.items.filter((item): item is HistoryStudent => item !== null);
-  if (!open() && items.length === 0) {
+  if (!open() && read.read.length === 0) {
     const first = [...sources.values()][0]?.state ?? NOT_ASKED;
     return { ...base, available: false, reason: first.reason || "access_denied", sources: states(), items: [], read: [], remaining: [],
       partial: false, retry_after: 0 };
   }
-  // A student after whom every source closed has no item: not counted as read.
-  return { ...base, available: true, reason: "", sources: states(), ...read, items, read: items.map((item) => item.studentid) };
+  return { ...base, available: true, reason: "", sources: states(), ...read, ...(read.failed.length === 0 ? { failed: undefined } : {}) };
 };

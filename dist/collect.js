@@ -9,33 +9,44 @@
  *   DELETE /collect/:id                                             → cancels a read, or forgets one that ended
  *
  * A block is the read of one route for the whole class (BLOCK_ROUTES): the sidecar asks its own routes, page after page
- * (app.inject with the internal token, as jobs.ts), and merges the pages. Rules:
+ * (app.inject with the internal token, as jobs.ts), and merges the pages. Rules (contract 7.4, 7.4 bis, 7.4 ter):
  * - one grouped read per account at a time: a second request answers 409 collect_running with the collectid running;
+ *   ten reads active at most in the process (429 rate_limited beyond);
  * - every Pronote call goes through the queue of the session with the bulk priority (limiter.ts): writes and unit reads
  *   of the teacher pass first. A pause separates two internal reads;
  * - a full queue (429, or a page answered partially): the read waits retry_after, then goes on at the first student
  *   not read. Nothing read is lost, nothing is read twice (a student whose read takes several calls, cut between two
  *   of them, is read again from its first call);
- * - a function Pronote refuses, an unknown shape or an error ends ITS block (unavailable, failed, or partial when
- *   students were read before): the other blocks go on, and what was read stays readable;
- * - a session that closes during the read (web session expired, or required and absent): the block is put aside, the
- *   blocks that do not need it go on, then the read waits ("waiting", with the state of the sessions: sessionState.ts)
- *   and resumes when the session is back (a new login of the account is found by itself; the sessions sent with a
- *   GET /collect/:id are adopted too). After PRONOTEIO_COLLECT_WAIT seconds (900) the read ends "partial";
- * - results live in memory only, 30 minutes after the end, never on disk; lost at restart (404 collect_not_found: the
- *   collector starts again). DELETE forgets them at once.
- * Nothing of a block goes to a log: the internal reads are not written to the access log, and the lines of these routes
- * carry no size for the results (app.ts SILENT_ROUTES): a block may hold the support plans.
+ * - an error of Pronote on a student never ends the block: the student is put aside and the read goes on. A route
+ *   that names him ("failed") keeps the students of the page already read; for a route that fails as a whole, the
+ *   students of the page are asked one by one. The students put aside are asked once more at the end of the block,
+ *   which ends "partial" when some are still not read;
+ * - a function Pronote refuses, an unknown shape or a request refused ends ITS block (unavailable, or partial when
+ *   students were read before): the other blocks go on, and what was read stays readable. A block read as one request
+ *   that Pronote answers with an error is "failed";
+ * - a session that is missing or closes during the read (web session never opened, expired, or main session lost): the
+ *   block is put aside, the blocks that do not need it go on, and the read says "waiting" with the state of the
+ *   sessions: session.web is "reopen_required" (never "closed") while a block waits for a web session, unless the
+ *   guard of the web logins says "backoff" or "pin_required" (a login must not be sent then). The read resumes when the
+ *   session is back (a new login of the account is found by itself; the web session sent with a GET /collect/:id is
+ *   adopted). After PRONOTEIO_COLLECT_WAIT seconds (900), or 60 minutes of life, the read ends;
+ * - end: "done" when every block is done, "failed" when none is done nor partial, "partial" otherwise;
+ * - results live in memory only: a timer forgets them 30 minutes after the end, DELETE at once, and so do the logout of
+ *   the account and the end of its session. A read belongs to an account (or, without account, to its session): only a
+ *   live session of it reads the results. Lost at restart (404 collect_not_found: the collector starts again).
+ * Nothing of a block goes to a log: the internal reads are not written to the access log, and the results are neither
+ * sized in the access log nor kept for a second delivery (auth.ts HEALTH_DATA_ROUTES): a block may hold the support
+ * plans.
  */
 import { randomUUID } from "node:crypto";
 import { INTERNAL_HEADER, INTERNAL_TOKEN } from "./auth.js";
 import { HttpError } from "./errors.js";
 import { limiterOptions } from "./pronote/limiter.js";
 import { MAX_LIFE_RANGE, parseList } from "./routes/classlife.js";
-import { accountSession, requireSession, sessionById, sessionEntry, webSessionEntry } from "./session.js";
+import { accountSession, onSessionForgotten, requireSession, sessionById, sessionEntry, webSessionEntry } from "./session.js";
 import { sessionState } from "./sessionState.js";
 import { announcesWeb } from "./space.js";
-import { LIFE_INCLUDES, LIFE_SOURCES } from "./teacher/classlife.js";
+import { LIFE_INCLUDES } from "./teacher/classlife.js";
 import { HISTORY_SOURCES } from "./teacher/history.js";
 import { resolveResource } from "./teacher/roster.js";
 import { schoolYearRange } from "./teacher/studentSource.js";
@@ -79,34 +90,62 @@ export const collectTiming = {
 };
 /** Largest page of GET /collect/:id/results, and grouped reads alive at once in the process. */
 export const MAX_RESULT_ITEMS = 40;
-const MAX_COLLECTS = 10;
+export const MAX_COLLECTS = 10;
+/**
+ * Sources of the school life a grouped read may ask (contract 7.4 ter). Never "summary": it calls ListePunitions and
+ * PageSuivisAbsenceRetard, which the profile refuses, and a grouped read never calls a refused function.
+ */
+export const COLLECT_LIFE_SOURCES = ["recap", "carnet", "callsheets"];
+/** Students put aside in one block (errors of Pronote) beyond which it gives up; times a block may be put aside for a session. */
+const MAX_SKIPPED = 10;
+const MAX_DEFERRALS = 20;
 /** Ended reads whose results are kept, and longest wait after one refusal of the queue (seconds). */
 const MAX_KEPT = 40;
 const MAX_HOLD = 120;
 const collects = new Map();
 const ACTIVE = ["queued", "running", "waiting"];
 const isActive = (job) => ACTIVE.includes(job.status);
+/** Forgets a read: stops it when it runs, drops its results and its timer. */
+const drop = (job) => {
+    job.cancelled = true;
+    if (job.timer)
+        clearTimeout(job.timer);
+    job.timer = null;
+    collects.delete(job.id);
+};
+/** Safety net beside the timers: ended reads past their life, and the oldest ones beyond MAX_KEPT. */
 const purge = (now = Date.now()) => {
-    for (const [id, job] of collects)
+    for (const job of [...collects.values()])
         if (job.finished !== null && job.finished + collectTiming.ttlMs < now)
-            collects.delete(id);
-    // Results nobody deleted: the oldest ended reads go first.
+            drop(job);
     const ended = [...collects.values()].filter((job) => job.finished !== null).sort((a, b) => a.finished - b.finished);
     for (const job of ended.slice(0, Math.max(0, ended.length - MAX_KEPT)))
-        collects.delete(job.id);
+        drop(job);
 };
 /** Forgets every grouped read (tests). */
 export const resetCollects = () => {
-    for (const job of collects.values())
-        job.cancelled = true;
-    collects.clear();
+    for (const job of [...collects.values()])
+        drop(job);
 };
+/** Ids of the grouped reads in memory, as they are: nothing is purged by asking (tests of the timers). */
+export const collectIds = () => [...collects.keys()];
 /** Statistics for the health check (no content). */
 export const collectStats = () => {
     purge();
     const list = [...collects.values()];
     return { collects: list.length, running: list.filter(isActive).length };
 };
+// Contract 7.4 ter: the logout of an account forgets its grouped reads; so does the end of the session a read belongs
+// to. A session Pronote closed ("lost") forgets nothing: the read waits for the account to log in again.
+onSessionForgotten((entry, reason) => {
+    if (reason === "lost")
+        return;
+    for (const job of [...collects.values()]) {
+        const own = job.sessions.main === entry.id || job.owner === `session:${entry.id}`;
+        if (own || (reason === "logout" && entry.account !== null && entry.account === job.account))
+            drop(job);
+    }
+});
 class Stopped extends Error {
 }
 const sleep = (ms) => new Promise((resolve) => {
@@ -121,10 +160,8 @@ const refreshSessions = (job) => {
         return;
     if (!sessionById(job.sessions.main)) {
         const entry = accountSession(job.account, job.mainSpace);
-        if (entry) {
+        if (entry)
             job.sessions.main = entry.id;
-            job.known.add(entry.id);
-        }
     }
     if (sessionById(job.sessions.web)?.space !== "web") {
         const entry = accountSession(job.account, "web");
@@ -155,7 +192,17 @@ const inject = async (app, job, url) => {
     }
     return { status: response.statusCode, body };
 };
-const errorOf = (answer) => String(answer.body?.error ?? `http_${answer.status}`).slice(0, 120);
+/**
+ * Reason of a block: a code, never a sentence. A route may answer the message of Pronote as its reason (student
+ * files): it could name a student, so it is reduced to access_denied (a refusal for lack of rights) or pronote_error.
+ */
+const codeOf = (reason) => {
+    const text = String(reason ?? "");
+    if (/^[A-Za-z][A-Za-z0-9_:.-]{0,80}$/.test(text))
+        return text;
+    return /droits|insuffisant/i.test(text) ? "access_denied" : "pronote_error";
+};
+const errorOf = (answer) => codeOf(answer.body?.error ?? `http_${answer.status}`);
 /** Session an answer says is missing: the web one, the main one, or none. */
 const lostSession = (answer) => {
     const error = errorOf(answer);
@@ -182,9 +229,12 @@ const hold = async (job, seconds) => {
     await sleep(ms);
     job.retryAt = 0;
 };
-/** One internal read: asked again after retry_after while the queue is full, and once after an error of Pronote. */
-const read = async (app, job, url) => {
-    let errors = 0;
+/**
+ * One internal read: asked again after retry_after while the queue is full, and once after an error of Pronote (not
+ * when a student is asked alone: he is asked once more at the end of his block).
+ */
+const read = async (app, job, url, retryErrors = true) => {
+    let errors = retryErrors ? 0 : 1;
     for (let round = 0;; round++) {
         check(job);
         const answer = await inject(app, job, url);
@@ -208,12 +258,17 @@ const query = (route, params) => {
     const text = search.toString();
     return text === "" ? route : `${route}?${text}`;
 };
-/** Next internal read of a block, null when it has nothing left to read. */
-const nextUrl = (job, block) => {
-    const { route, kind, period } = BLOCK_ROUTES[block.name];
+/** Parameters of the route of a block, without those of a page. */
+const baseParams = (job, block) => {
+    const { period } = BLOCK_ROUTES[block.name];
     const params = { ...(job.params[block.name] ?? {}), ...(period && job.period !== "" ? { period: job.period } : {}) };
     // The overview of the grades names its classes itself.
-    const base = block.name === "grades" ? params : { resource: job.resource, ...params };
+    return block.name === "grades" ? params : { resource: job.resource, ...params };
+};
+/** Next internal read of a block read by pages, null when it has no page left to read. */
+const nextUrl = (job, block) => {
+    const { route, kind } = BLOCK_ROUTES[block.name];
+    const base = baseParams(job, block);
     if (kind === "single")
         return block.started ? null : query(route, base);
     if (kind === "ids") {
@@ -225,12 +280,44 @@ const nextUrl = (job, block) => {
         return null;
     return query(route, { ...base, offset: block.offset, limit: Math.min(collectTiming.pageSize, MAX_RESULT_ITEMS) });
 };
-const union = (a, b) => [...new Set([...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : [])])].sort();
+/** Students of the page a block is about to ask. */
+const windowOf = (job, block) => (BLOCK_ROUTES[block.name].kind === "ids"
+    ? block.todo.slice(0, collectTiming.pageSize)
+    : job.students.slice(block.offset, block.offset + Math.min(collectTiming.pageSize, MAX_RESULT_ITEMS)));
+/** Read of one student of a block (a page that failed as a whole, or a student put aside). */
+const singleUrl = (job, block, id) => {
+    const { route, kind } = BLOCK_ROUTES[block.name];
+    return query(route, { ...baseParams(job, block), ...(kind === "ids" ? { ids: id } : { student: id }) });
+};
 /**
- * Merges a page into the result of its block. Returns whether students were read, and the seconds to wait before the
+ * Next internal read of a block: the students to ask one by one first, then the next page, then (once) the students
+ * put aside; null when nothing is left.
+ */
+const nextStep = (job, block) => {
+    if (block.singles.length > 0)
+        return { url: singleUrl(job, block, block.singles[0]), student: block.singles[0] };
+    const url = nextUrl(job, block);
+    if (url !== null)
+        return { url, student: null };
+    if (block.skipped.length > 0 && !block.retrying) {
+        block.retrying = true;
+        block.singles = block.skipped.splice(0);
+        return { url: singleUrl(job, block, block.singles[0]), student: block.singles[0] };
+    }
+    return null;
+};
+const union = (a, b) => [...new Set([...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : [])])].sort();
+/** Students a block has read, in the order of the class (pages and students asked alone do not come in order). */
+const inClassOrder = (job, ids) => {
+    const position = new Map(job.students.map((id, index) => [id, index]));
+    return [...new Set(ids)].sort((a, b) => (position.get(a) ?? Number.MAX_SAFE_INTEGER) - (position.get(b) ?? Number.MAX_SAFE_INTEGER));
+};
+/**
+ * Merges an answer into the result of its block. "page": the answer is the next page of the block (its position moves
+ * on); otherwise it is one student asked alone. Returns whether students were read, and the seconds to wait before the
  * next page when this one stopped on a full queue.
  */
-const absorb = (job, block, body) => {
+const absorb = (job, block, body, page = true) => {
     const kind = BLOCK_ROUTES[block.name].kind;
     const previous = block.result ?? {};
     if (kind === "single") {
@@ -253,27 +340,33 @@ const absorb = (job, block, body) => {
             students.set(String(line.student), { ...known, comment: known.comment ?? line.comment, general: known.general ?? line.general,
                 generals: [...(known.generals ?? []), ...(line.generals ?? []).filter((item) => !kinds.has(item.kind))] });
         }
-        const page = body.general?.page;
+        const pageInfo = body.general?.page;
         block.result = { ...previous, ...body, students: [...students.values()] };
-        if (!page || !Array.isArray(page.read)) {
+        if (!pageInfo || !Array.isArray(pageInfo.read)) {
             block.read = block.total;
             block.finished = true;
             return { advanced: true, retryAfter: 0 };
         }
-        block.ids.push(...page.read);
-        block.offset += page.read.length;
-        block.read = Math.min(block.total, block.ids.length);
-        if (block.offset >= Number(page.total ?? block.total))
+        block.ids.push(...pageInfo.read);
+        if (page)
+            block.offset += pageInfo.read.length;
+        block.read = Math.min(block.total, new Set(block.ids).size);
+        if (page && block.offset >= Number(pageInfo.total ?? block.total))
             block.finished = true;
-        return { advanced: page.read.length > 0, retryAfter: page.partial ? Number(page.retry_after ?? 1) : 0 };
+        return { advanced: pageInfo.read.length > 0, retryAfter: pageInfo.partial ? Number(pageInfo.retry_after ?? 1) : 0 };
     }
     const items = Array.isArray(body.items) ? body.items : [];
     const done = Array.isArray(body.read) ? body.read : items.map((item) => String(item.studentid ?? item.id ?? "")).filter(Boolean);
-    block.result = { ...previous, ...body, items: [...(previous.items ?? []), ...items],
+    // Students the route answered an error of Pronote for (contract 7.4 ter): put aside, the page goes on after them.
+    const failed = Array.isArray(body.failed) ? body.failed.map(String) : [];
+    // The members of the block (class, sources…) are those of its pages; a student asked alone changes none of them.
+    const { failed: _failed, ...members } = page || block.result === null ? body : {};
+    void _failed;
+    block.result = { ...previous, ...members, items: [...(previous.items ?? []), ...items],
         ...(previous.unreadable || body.unreadable ? { unreadable: [...(previous.unreadable ?? []), ...(body.unreadable ?? [])] } : {}),
-        ...(previous.shape && !body.shape ? { shape: previous.shape } : {}) };
+        ...(previous.shape ? { shape: previous.shape } : body.shape ? { shape: body.shape } : {}) };
     block.ids.push(...done);
-    const retryAfter = body.partial ? Number(body.retry_after ?? 1) : 0;
+    const retryAfter = body.partial && failed.length === 0 ? Number(body.retry_after ?? 1) : 0;
     if (kind === "ids") {
         const notFound = Array.isArray(body.notFound) ? body.notFound : [];
         block.result.unmappedKeys = union(previous.unmappedKeys, body.unmappedKeys);
@@ -281,12 +374,17 @@ const absorb = (job, block, body) => {
         block.result.notFound = [...(previous.notFound ?? []), ...notFound];
         const gone = new Set([...done, ...notFound]);
         block.todo = block.todo.filter((id) => !gone.has(id));
-        block.read = block.total - block.todo.length;
+        // Read: the students whose file came, and those the class no longer has (nothing is left to read for them).
+        block.read = Math.min(block.total, new Set(block.ids).size + block.result.notFound.length);
         return { advanced: gone.size > 0, retryAfter };
     }
-    block.offset += done.length;
-    block.read = Math.min(block.total, block.ids.length);
-    return { advanced: done.length > 0, retryAfter };
+    if (page) {
+        block.skipped.push(...failed);
+        // The students asked are a prefix of the page: those read and those in error.
+        block.offset += done.length + failed.length;
+    }
+    block.read = Math.min(block.total, new Set(block.ids).size);
+    return { advanced: done.length + failed.length > 0, retryAfter };
 };
 /** Result of a block as its route would give it for the whole class: what was read, and the students left. */
 const seal = (job, block) => {
@@ -296,21 +394,30 @@ const seal = (job, block) => {
     if (kind === "comments") {
         const page = block.result.general?.page;
         if (page) {
-            const remaining = job.students.filter((id) => !block.ids.includes(id));
-            block.result.general = { ...block.result.general, page: { ...page, offset: 0, read: block.ids, remaining, partial: remaining.length > 0, retry_after: 0 } };
+            const read = inClassOrder(job, block.ids);
+            const remaining = job.students.filter((id) => !read.includes(id));
+            block.result.general = { ...block.result.general, page: { ...page, offset: 0, read, remaining, partial: remaining.length > 0, retry_after: 0 } };
         }
         return;
     }
     if (kind === "single")
         return;
-    const remaining = kind === "ids" ? block.todo : job.students.filter((id) => !block.ids.includes(id));
-    Object.assign(block.result, { offset: 0, total: job.students.length, read: block.ids, remaining, partial: remaining.length > 0, retry_after: 0 }, kind === "ids" ? { truncated: false } : {});
+    const read = inClassOrder(job, block.ids);
+    const missing = new Set(block.result.notFound ?? []);
+    const remaining = job.students.filter((id) => !read.includes(id) && !missing.has(id));
+    // Items in the order of the class, whatever the order they were read in.
+    const position = new Map(job.students.map((id, index) => [id, index]));
+    const rank = (item) => position.get(String(item.studentid ?? item.id ?? "")) ?? Number.MAX_SAFE_INTEGER;
+    if (Array.isArray(block.result.items))
+        block.result.items = [...block.result.items].sort((a, b) => rank(a) - rank(b));
+    Object.assign(block.result, { offset: 0, total: job.students.length, read, remaining, partial: remaining.length > 0, retry_after: 0 }, kind === "ids" ? { truncated: false } : {});
 };
 /** Ends a block that cannot go further: partial when students were read, else the status given. */
 const stop = (job, block, status, reason, body) => {
     const some = block.started && block.result !== null && block.read > 0 && BLOCK_ROUTES[block.name].kind !== "single";
     block.status = some ? "partial" : status;
     block.reason = reason;
+    block.singles = [];
     if (some) {
         // What was read stays, with the students left; the reason and the shape of the answer that stopped the block are added.
         Object.assign(block.result, { reason }, body?.shape ? { shape: body.shape } : {});
@@ -324,6 +431,26 @@ const stop = (job, block, status, reason, body) => {
         block.result = { available: false, reason, validated: false };
     }
 };
+/** Ends a block that asked everything: done, or partial when students put aside could not be read at all. */
+const complete = (job, block) => {
+    block.result = block.result ?? { available: false, reason: "", validated: false };
+    seal(job, block);
+    const kind = BLOCK_ROUTES[block.name].kind;
+    const left = kind === "single" || kind === "comments" ? 0 : (block.result.remaining ?? []).length;
+    if (left > 0) {
+        block.status = "partial";
+        block.reason = "pronote_error";
+        Object.assign(block.result, { reason: "pronote_error" });
+        return;
+    }
+    block.status = "done";
+    // Contract 7.4 ter: no student with a plan that could be read. The client cannot tell "no plan" from "detail not
+    // readable": it keeps to the student file.
+    if (block.name === "plans" && Array.isArray(block.result?.items) && block.result.items.every((item) => (item.plans ?? []).length === 0)) {
+        block.reason = "all_empty";
+        Object.assign(block.result, { reason: "all_empty" });
+    }
+};
 /** Reads a block until it ends ("final") or needs a session that is gone ("deferred": it goes on later, where it stopped). */
 const runBlock = async (app, job, block) => {
     const definition = BLOCK_ROUTES[block.name];
@@ -335,30 +462,87 @@ const runBlock = async (app, job, block) => {
     block.needs = null;
     job.current = block.name;
     for (;;) {
-        const url = nextUrl(job, block);
-        if (url === null) {
-            block.status = "done";
-            seal(job, block);
+        const step = nextStep(job, block);
+        if (step === null) {
+            complete(job, block);
             return "final";
         }
-        const answer = await read(app, job, url);
+        const answer = await read(app, job, step.url, step.student === null);
         const lost = lostSession(answer);
         if (lost) {
+            if (++block.deferrals > MAX_DEFERRALS) {
+                // A session said to be back that never serves the block: it stops asking.
+                stop(job, block, "unavailable", lost === "web" ? "web_session_required" : "session_expired");
+                return "final";
+            }
             block.status = "pending";
             block.needs = lost;
             return "deferred";
         }
         block.started = true;
-        if (answer.status !== 200 || !answer.body || typeof answer.body !== "object") {
-            // A request refused (4xx: a group where a class is needed, a service not found…) or an error of Pronote (5xx).
-            stop(job, block, answer.status >= 500 ? "failed" : "unavailable", answer.status === 429 ? "rate_limited" : errorOf(answer));
+        let body = answer.status === 200 && answer.body && typeof answer.body === "object" ? answer.body : null;
+        // A route that answers an error of Pronote as "unavailable" (student files): handled as the error it is.
+        const errored = answer.status >= 500 || (body?.available === false && codeOf(body.reason) === "pronote_error");
+        if (body?.available === false && !errored) {
+            // A refusal, an unknown shape: nothing more will come from this route.
+            stop(job, block, "unavailable", codeOf(body.reason || "unavailable"), { ...body, reason: codeOf(body.reason || "unavailable") });
             return "final";
         }
-        if (answer.body.available === false) {
-            stop(job, block, "unavailable", String(answer.body.reason || "unavailable"), answer.body);
+        if (errored)
+            body = null;
+        if (step.student !== null) {
+            // One student asked alone: read, or put aside (asked once more at the end; left to read after that).
+            const student = step.student;
+            block.singles.shift();
+            const wasRead = body !== null && (Array.isArray(body.read) ? body.read.includes(student)
+                : Array.isArray(body.general?.page?.read) ? body.general.page.read.includes(student) : Array.isArray(body.items) && body.items.length > 0);
+            if (definition.kind === "ids")
+                block.todo = block.todo.filter((id) => id !== student);
+            if (wasRead) {
+                absorb(job, block, body, false);
+                block.windowRead++;
+            }
+            else if (!block.retrying) {
+                block.skipped.push(student);
+            }
+            if (block.singles.length === 0 && block.window > 0) {
+                // End of a page asked one by one.
+                if (definition.kind !== "ids")
+                    block.offset += block.window;
+                const none = block.windowRead === 0 && block.read === 0;
+                block.window = 0;
+                if (none || block.skipped.length > MAX_SKIPPED) {
+                    // Nobody could be read (the function fails for everyone), or too many students in error to go on.
+                    block.skipped = [];
+                    stop(job, block, "failed", block.windowError || "pronote_error");
+                    return "final";
+                }
+            }
+            await sleep(collectTiming.pauseMs);
+            continue;
+        }
+        if (body === null) {
+            const students = definition.kind === "paged" || definition.kind === "ids" ? windowOf(job, block) : [];
+            if (errored && students.length > 0) {
+                // An error of Pronote failed the whole page: its students are asked one by one, so that one student in error
+                // does not cost the others (contract 7.4 ter).
+                block.singles = students;
+                block.window = students.length;
+                block.windowRead = 0;
+                block.windowError = answer.status >= 500 ? errorOf(answer) : "pronote_error";
+                continue;
+            }
+            // A request refused (4xx: a group where a class is needed, a service not found…), or an error of Pronote on a
+            // block read as one request.
+            stop(job, block, errored ? "failed" : "unavailable", answer.status === 429 ? "rate_limited" : answer.status === 200 ? "pronote_error" : errorOf(answer));
             return "final";
         }
-        const { advanced, retryAfter } = absorb(job, block, answer.body);
+        const { advanced, retryAfter } = absorb(job, block, body);
+        if (block.skipped.length > MAX_SKIPPED) {
+            block.skipped = [];
+            stop(job, block, "failed", "pronote_error");
+            return "final";
+        }
         if (!advanced && retryAfter === 0 && nextUrl(job, block) !== null) {
             // An answer that reads nobody and promises nothing: the block would never end.
             stop(job, block, "failed", "no_progress");
@@ -370,7 +554,14 @@ const runBlock = async (app, job, block) => {
             await sleep(collectTiming.pauseMs);
     }
 };
-/** Waits for the sessions the blocks put aside need. False when they did not come back in time. */
+/** Whether the session a block waits for is there. */
+const sessionBack = (job, need) => {
+    if (need === null)
+        return true;
+    refreshSessions(job);
+    return need === "main" ? sessionById(job.sessions.main) !== undefined : sessionState(job.sessions, job.account).web === "open";
+};
+/** Waits until a block put aside can go on. False when no session came back in time. */
 const waitForSessions = async (job, deferred) => {
     job.status = "waiting";
     job.current = null;
@@ -379,10 +570,7 @@ const waitForSessions = async (job, deferred) => {
         if (job.cancelled)
             throw new Stopped("cancelled");
         await sleep(collectTiming.pollMs);
-        refreshSessions(job);
-        const main = !deferred.some((block) => block.needs === "main") || sessionById(job.sessions.main) !== undefined;
-        const web = !deferred.some((block) => block.needs === "web") || sessionState(job.sessions, job.account).web === "open";
-        if (main && web) {
+        if (deferred.some((block) => sessionBack(job, block.needs))) {
             job.status = "running";
             return true;
         }
@@ -434,14 +622,19 @@ const finish = (job) => {
         // Not read, or cut: the session it needed did not come back, or the time of the read is spent.
         stop(job, block, "unavailable", block.needs === "web" ? "web_session_required" : block.needs === "main" ? "session_expired" : "expired");
     }
+    for (const block of job.blocks)
+        block.needs = null;
+    // Contract 7.4 ter: done when every block is done, failed when none is done nor partial, partial otherwise. A client
+    // relies on the state of each block.
     const statuses = job.blocks.map((block) => block.status);
-    const some = statuses.some((status) => status === "done" || status === "partial");
-    const settled = statuses.every((status) => status === "done" || status === "unavailable");
-    // A read that ran out of time is partial, whatever it read: the blocks say what is missing and why.
-    job.status = job.expired ? "partial" : settled ? "done" : some ? "partial" : "failed";
+    job.status = statuses.every((status) => status === "done") ? "done"
+        : statuses.some((status) => status === "done" || status === "partial") ? "partial" : "failed";
     job.current = null;
     job.retryAt = 0;
     job.finished = Date.now();
+    // The results are forgotten 30 minutes after the end, whether a request comes or not; the timer never holds the process.
+    job.timer = setTimeout(() => drop(job), collectTiming.ttlMs);
+    job.timer.unref();
 };
 const run = async (app, job) => {
     job.status = "running";
@@ -453,14 +646,19 @@ const run = async (app, job) => {
         }
         else {
             const queue = [...job.blocks];
-            const deferred = [];
+            let deferred = [];
             for (;;) {
                 check(job);
+                // The blocks put aside go on as soon as their session is back, without waiting for the others to end.
+                const back = deferred.filter((block) => sessionBack(job, block.needs));
+                if (back.length > 0) {
+                    deferred = deferred.filter((block) => !back.includes(block));
+                    queue.push(...back);
+                }
                 const block = queue.shift();
                 if (!block) {
                     if (deferred.length === 0 || !(await waitForSessions(job, deferred)))
                         break;
-                    queue.push(...deferred.splice(0));
                     continue;
                 }
                 if ((await runBlock(app, job, block)) === "deferred")
@@ -486,40 +684,51 @@ const view = (job) => {
     const state = sessionState(job.sessions, job.account);
     const current = job.blocks.find((block) => block.name === job.current);
     const final = (block) => block.status !== "pending" && block.status !== "running";
-    // A read that had a web session knows it is gone even when the account is unknown (sessionState.ts needs it).
-    const web = state.web === "closed" && job.sessions.web !== "" ? "reopen_required" : state.web;
+    // Sessions the blocks put aside still wait for (contract 7.4 ter): the read says "waiting" as soon as one is missing,
+    // even while the other blocks go on, so that the client reopens it at once.
+    const active = isActive(job);
+    const needsWeb = active && job.blocks.some((block) => block.needs === "web") && state.web !== "open";
+    const needsMain = active && job.blocks.some((block) => block.needs === "main") && state.mobile !== "open";
+    // "closed" is never said while a block waits for a web session: the client would open nothing. "backoff" and
+    // "pin_required" stay: they say a login must not be sent now, or needs the teacher.
+    const web = needsWeb && (state.web === "closed" || state.web === "reopen_required") ? "reopen_required" : state.web;
+    const reason = needsMain ? (state.reason || "session_expired") : needsWeb && web === "reopen_required" ? "web_session_required" : state.reason;
     return {
         collectid: job.id,
-        status: job.status,
+        status: active && (needsWeb || needsMain) ? "waiting" : job.status,
         created: Math.floor(job.created / 1000),
         finished: job.finished === null ? null : Math.floor(job.finished / 1000),
         expires: Math.floor(((job.finished ?? job.deadline) + collectTiming.ttlMs) / 1000),
+        // Students of the class (0 until its roster is read). The blocks count their own units of work.
+        students: job.students.length,
         progress: {
             done: job.blocks.reduce((sum, block) => sum + (final(block) ? block.total : block.read), 0),
             total: job.blocks.reduce((sum, block) => sum + block.total, 0),
             block: job.current,
             student: current ? current.read : 0,
         },
-        retry_after: Math.max(job.retryAt > now ? Math.ceil((job.retryAt - now) / 1000) : 0, job.status === "waiting" ? state.retry_after : 0),
-        session: { mobile: state.mobile, web, reason: web === state.web ? state.reason : (state.reason || "web_session_expired") },
+        retry_after: Math.max(job.retryAt > now ? Math.ceil((job.retryAt - now) / 1000) : 0, needsWeb ? state.retry_after : 0),
+        session: { mobile: state.mobile, web, reason },
         blocks: Object.fromEntries(job.blocks.map((block) => [block.name, { status: block.status, reason: block.reason,
                 validated: block.result?.validated === true, read: block.read, total: block.total, remaining: Math.max(0, block.total - block.read) }])),
     };
 };
-/** Read of the request: the one of its account, or one it was asked or polled with; 404 collect_not_found otherwise. */
+/**
+ * Read of the request: one of the account of its session (or, without account, of that session itself). The session
+ * must be alive (401 session_expired otherwise): an old session id opens nothing. 404 collect_not_found for a read
+ * that is unknown, ended long ago, or of someone else.
+ */
 const find = (request, id) => {
+    requireSession(request);
     purge();
     const job = collects.get(id);
-    const header = String(request.headers["x-pronoteio-session"] ?? "");
     const entry = sessionEntry(request);
-    if (!job || !((entry?.account && entry.account === job.account) || (header !== "" && job.known.has(header)))) {
+    const owner = entry ? (entry.account ?? `session:${entry.id}`) : "";
+    if (!job || owner === "" || job.owner !== owner)
         throw new HttpError(404, "collect_not_found");
-    }
     // The sessions sent with the request replace those that are gone (a new login of the teacher).
-    if (entry && entry.space === job.mainSpace && !sessionById(job.sessions.main)) {
+    if (entry && entry.space === job.mainSpace && !sessionById(job.sessions.main) && sessionById(entry.id))
         job.sessions.main = entry.id;
-        job.known.add(entry.id);
-    }
     const web = webSessionEntry(request);
     if (web && (!job.account || web.account === job.account) && sessionById(job.sessions.web)?.space !== "web")
         job.sessions.web = web.id;
@@ -549,7 +758,9 @@ const paramsOf = (request, body) => {
             const asked = range(options.classlife);
             const year = schoolYearRange(requireSession(request));
             params.classlife = { from: asked.from ?? String(year.from), to: asked.to ?? String(year.to),
-                include: list(options.classlife?.include, LIFE_INCLUDES, "include"), sources: list(options.classlife?.sources, LIFE_SOURCES, "sources") };
+                include: list(options.classlife?.include, LIFE_INCLUDES, "include"),
+                // Never "summary" (400 invalid_sources:summary): see COLLECT_LIFE_SOURCES.
+                sources: list(options.classlife?.sources, COLLECT_LIFE_SOURCES, "sources") };
         }
         if (block === "absences")
             params.absences = { ...range(options.absences) };
@@ -609,11 +820,11 @@ export const registerCollect = (app) => {
         const web = webSessionEntry(request);
         const now = Date.now();
         const job = { id: randomUUID(), owner, account: entry.account, sessions: { main: session, web: web?.id ?? "" }, mainSpace: entry.space,
-            known: new Set([session]), webCapable: announcesWeb(request.headers), resource: request.body.resource,
+            webCapable: announcesWeb(request.headers), resource: request.body.resource,
             period: request.body.period ?? "", params, status: "queued", created: now, finished: null, deadline: now + collectTiming.maxRunMs,
             blocks: blocks.map((name) => ({ name, status: "pending", reason: "", read: 0, total: 0, started: false, finished: false, offset: 0, ids: [],
-                todo: [], needs: null, result: null })),
-            current: null, students: [], retryAt: 0, cancelled: false, expired: false };
+                todo: [], singles: [], window: 0, windowRead: 0, windowError: "", skipped: [], retrying: false, needs: null, deferrals: 0, result: null })),
+            current: null, students: [], retryAt: 0, cancelled: false, expired: false, timer: null };
         collects.set(job.id, job);
         void run(app, job);
         const { collectid, status, progress } = view(job);
@@ -654,8 +865,7 @@ export const registerCollect = (app) => {
     });
     app.delete("/collect/:id", async (request) => {
         const job = find(request, request.params.id);
-        job.cancelled = true;
-        collects.delete(job.id);
+        drop(job);
         return { collectid: job.id, cancelled: true };
     });
 };

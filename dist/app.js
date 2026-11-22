@@ -1,6 +1,6 @@
 import "./time.js";
 import Fastify from "fastify";
-import { INTERNAL_HEADER, INTERNAL_TOKEN, PUBLIC_ROUTES, registerAuth, securityStats } from "./auth.js";
+import { HEALTH_DATA_ROUTES, INTERNAL_HEADER, INTERNAL_TOKEN, PUBLIC_ROUTES, registerAuth, securityStats } from "./auth.js";
 import { addressAllowed } from "./address.js";
 import { registerJobs } from "./jobs.js";
 import { collectTiming, registerCollect } from "./collect.js";
@@ -123,12 +123,8 @@ const withWebLoginHint = (account, error) => {
     }
     return error;
 };
-/**
- * 0.16.0: routes whose answers are health data (support plans). Their line of the access log keeps the route, the
- * status and the duration, never the size of the answer (for one student it would tell whether a plan exists) nor a
- * shape.
- */
-export const SILENT_ROUTES = new Set(["/students/plans", "/collect/:id/results"]);
+/** 0.16.0: routes whose answers are health data: no size of answer nor shape in their line of the access log (auth.ts). */
+export const SILENT_ROUTES = HEALTH_DATA_ROUTES;
 const routeTables = new WeakMap();
 export const routesOf = (app) => routeTables.get(app) ?? [];
 export const buildApp = async (options = {}) => {

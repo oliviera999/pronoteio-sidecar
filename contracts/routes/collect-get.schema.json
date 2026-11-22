@@ -21,7 +21,8 @@
             "done",
             "partial",
             "failed"
-          ]
+          ],
+          "description": "waiting dès qu'un bloc attend une session absente, même pendant que les autres blocs avancent. Fin : done si tous les blocs sont done, failed si aucun n'est done ni partial, partial sinon."
         },
         "created": {
           "$ref": "common.schema.json#/definitions/timestamp"
@@ -34,6 +35,11 @@
         },
         "expires": {
           "$ref": "common.schema.json#/definitions/timestamp"
+        },
+        "students": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Effectif de la classe (0 tant que sa liste n'est pas lue). Les blocs comptent leurs propres unités de travail : ne jamais y lire l'effectif (contrat 7.4 ter)."
         },
         "progress": {
           "type": "object",
@@ -101,7 +107,8 @@
             "web",
             "reason"
           ],
-          "additionalProperties": false
+          "additionalProperties": false,
+          "description": "Pendant l'attente d'une session web : web vaut reopen_required (jamais closed) et reason web_session_required, sauf backoff ou pin_required (ne pas envoyer de connexion)."
         },
         "blocks": {
           "type": "object",
@@ -166,6 +173,7 @@
         "created",
         "finished",
         "expires",
+        "students",
         "progress",
         "retry_after",
         "session",

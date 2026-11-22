@@ -28,6 +28,13 @@ par supposition, à noms candidats. Une forme non reconnue répond `available: f
   `limit`, et sont lisibles pour un bloc `unavailable` ou `failed` (`items: []`) ; `DELETE` annule ou purge, de façon
   idempotente ; la session web rouverte par le client est adoptée depuis l'en-tête `X-Pronoteio-Web-Session` du
   sondage suivant.
+  Précisions 7.4 ter (relecture du 22/11) : `students` (effectif) dans `GET /collect/:id` ; `waiting` et
+  `session.web: "reopen_required"` dès qu'un bloc attend une session web, même jamais ouverte ; une erreur de Pronote
+  sur un élève ne termine plus le bloc (élève mis de côté, redemandé une fois, `partial` s'il reste) ; `plans` : une
+  réponse vide vaut « aucun plan », `reason: "all_empty"` si aucun plan n'est lisible ; `options.classlife.sources`
+  sans `summary` ; état final `done` / `failed` / `partial` ; résultats effacés par minuteur, à la déconnexion et à la
+  fin de la session ; un ancien identifiant de session n'ouvre plus rien ; `/students/plans` et
+  `/collect/:id/results` hors du cache des doubles livraisons.
 - **État des sessions** : `state` (`mobile`, `web`, `reason`, `retry_after`) dans `GET /session/info`, `session` dans
   `GET /collect/:id` ; `web` vaut `open`, `closed`, `reopen_required`, `backoff` ou `pin_required`.
 - Refus de Pronote : `access_denied` avec l'onglet, un seul appel, retenu dix minutes pour les pages suivantes de la

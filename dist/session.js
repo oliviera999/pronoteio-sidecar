@@ -120,11 +120,18 @@ export const requireSession = (request) => {
     entry.lastUsed = Date.now();
     return entry.handle;
 };
-const forget = (entry) => {
+const forgotten = [];
+/** 0.16.0: tells a module (grouped reads) when a session is forgotten. */
+export const onSessionForgotten = (listener) => {
+    forgotten.push(listener);
+};
+const forget = (entry, reason = "expired") => {
     sessions.delete(entry.id);
     const key = entry.account && (entry.space === "web" ? webKey(entry.account) : entry.account);
     if (key && byAccount.get(key) === entry.id)
         byAccount.delete(key);
+    for (const listener of forgotten)
+        listener(entry, reason);
 };
 /**
  * 0.15.0: forgets a session Pronote reported as lost and that cannot be reconnected (web session: no token chain), so
@@ -132,12 +139,12 @@ const forget = (entry) => {
  */
 export const forgetSession = (entry) => {
     if (entry)
-        forget(entry);
+        forget(entry, "lost");
 };
 export const dropSession = (request) => {
     const entry = sessions.get(sessionIdOf(request));
     if (entry)
-        forget(entry);
+        forget(entry, "logout");
 };
 /* ---- Lost sessions and reconnection ---- */
 // 0.16.0: moved to pronote/lostSession.ts (no dependency on the configuration), still exported from here.
@@ -205,7 +212,7 @@ export const keepAlive = async (now = Date.now()) => {
             const reason = lostSessionReason(error);
             // 0.15.0: a web session found gone is forgotten (never reconnected); the next web login is a real one.
             if (reason && entry.space === "web")
-                forget(entry);
+                forget(entry, "lost");
             else if (reason)
                 await reconnect(entry, reason);
         }

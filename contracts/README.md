@@ -57,6 +57,9 @@ Référence commune entre le sidecar et le plugin Moodle `local_pronoteio` (0.9.
   bloc a la forme de la réponse de sa route et porte toujours `total` (nombre d'`items` du bloc), `offset` et `limit`
   (contrat 7.4 bis) ; un bloc `unavailable` ou `failed` rend le refus de sa route avec `items: []`.
 - `collectid` : `^[A-Za-z0-9_-]{8,64}$` (schémas `collect-create` et `collect-get`).
+- Contrat 7.4 ter : `students` (effectif) dans `collect-get` ; `failed` (élèves en erreur de Pronote, aussi dans
+  `remaining`) dans `students-plans` et `students-history` ; `reason: "all_empty"` pour un bloc `plans` sans plan
+  lisible ; les réponses de `/students/plans` et `/collect/:id/results` ne sont pas gardées pour une seconde livraison.
 - Fixtures de ces routes : valeurs fictives. Elles suivent les formes relevées le 22/11/2026
   (`docs/olutionsuivi/formes/`) pour le suivi pluriannuel, le cadre du livret scolaire et le cumul de classe des
   absences ; les lignes d'absences par élève et les plans d'accompagnement sont des formes **supposées** (jamais vues).

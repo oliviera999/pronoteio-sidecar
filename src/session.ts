@@ -159,10 +159,21 @@ export const requireSession = (request: FastifyRequest): SessionHandle => {
   return entry.handle;
 };
 
-const forget = (entry: SessionEntry): void => {
+/** Why a session is forgotten: its lifetime ended, the client logged out, or Pronote closed it (web session). */
+export type ForgetReason = "expired" | "logout" | "lost";
+
+const forgotten: ((entry: SessionEntry, reason: ForgetReason) => void)[] = [];
+
+/** 0.16.0: tells a module (grouped reads) when a session is forgotten. */
+export const onSessionForgotten = (listener: (entry: SessionEntry, reason: ForgetReason) => void): void => {
+  forgotten.push(listener);
+};
+
+const forget = (entry: SessionEntry, reason: ForgetReason = "expired"): void => {
   sessions.delete(entry.id);
   const key = entry.account && (entry.space === "web" ? webKey(entry.account) : entry.account);
   if (key && byAccount.get(key) === entry.id) byAccount.delete(key);
+  for (const listener of forgotten) listener(entry, reason);
 };
 
 /**
@@ -170,12 +181,12 @@ const forget = (entry: SessionEntry): void => {
  * that the next web login of the account is a real one instead of getting the dead session back.
  */
 export const forgetSession = (entry: SessionEntry | undefined): void => {
-  if (entry) forget(entry);
+  if (entry) forget(entry, "lost");
 };
 
 export const dropSession = (request: FastifyRequest): void => {
   const entry = sessions.get(sessionIdOf(request));
-  if (entry) forget(entry);
+  if (entry) forget(entry, "logout");
 };
 
 /* ---- Lost sessions and reconnection ---- */
@@ -255,7 +266,7 @@ export const keepAlive = async (now = Date.now()): Promise<void> => {
     } catch (error) {
       const reason = lostSessionReason(error);
       // 0.15.0: a web session found gone is forgotten (never reconnected); the next web login is a real one.
-      if (reason && entry.space === "web") forget(entry);
+      if (reason && entry.space === "web") forget(entry, "lost");
       else if (reason) await reconnect(entry, reason);
     }
   }

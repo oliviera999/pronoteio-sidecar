@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 // First: the helper sets the signing secret before config.ts is loaded.
 import { buildApp, createSession, get, post, signedHeaders } from "./helpers/app.js";
-import { collectTiming, resetCollects } from "../src/collect.js";
+import { collectIds, collectTiming, MAX_COLLECTS, resetCollects } from "../src/collect.js";
 import { AccessLog } from "../src/logs.js";
 import { limiterOf } from "../src/pronote/limiter.js";
 import { rememberUserData } from "../src/pronote/userdata.js";
@@ -13,7 +13,7 @@ import { fakeSession, type FakeCall } from "./fake-session.js";
 
 const { readCache } = await import("../src/cache.js");
 const { HttpError } = await import("../src/errors.js");
-const { forgetSession, sessionById } = await import("../src/session.js");
+const { forgetSession, keepAlive, sessionById, setReconnector } = await import("../src/session.js");
 const { sessionState } = await import("../src/sessionState.js");
 const { accountKey } = await import("../src/tokenStore.js");
 const { webLoginGuard } = await import("../src/webLoginGuard.js");
@@ -131,7 +131,9 @@ test("a class of 31 students, every block: each result has the shape of its rout
 
   const state = await until(app, collectid, session, ended);
   assert.equal(state.status, "done", JSON.stringify(state.blocks));
-  assert.deepEqual(Object.keys(state), ["collectid", "status", "created", "finished", "expires", "progress", "retry_after", "session", "blocks"]);
+  assert.deepEqual(Object.keys(state), ["collectid", "status", "created", "finished", "expires", "students", "progress", "retry_after", "session", "blocks"]);
+  // The class counts 31 students; the blocks count their own units of work (contract 7.4 ter).
+  assert.equal(state.students, 31);
   assert.deepEqual(Object.keys(state.blocks), blocks);
   for (const block of blocks) {
     const paged = !["results", "absences", "grades"].includes(block);
@@ -277,6 +279,14 @@ test("one function fails, another is refused, a shape is unknown: their blocks s
   assert.equal((await post(app, "/collect", { resource: "c:T06", blocks: [] }, session)).statusCode, 400);
   assert.equal((await post(app, "/collect", { resource: "c:T06", blocks: ["files"], options: { files: { include: "sante" } } }, session)).json().error, "invalid_include:sante");
   assert.equal((await post(app, "/collect", { resource: "c:T06", blocks: ["classlife"], options: { classlife: { from: 10, to: 5 } } }, session)).json().error, "range_too_large");
+  // Only one of from and to: refused too.
+  assert.equal((await post(app, "/collect", { resource: "c:T06", blocks: ["absences"], options: { absences: { from: 10 } } }, session)).statusCode, 400);
+  // The dated summary calls functions the profile refuses: never in a grouped read (7.4 ter), in either writing.
+  for (const sources of ["summary", ["recap", "summary"]]) {
+    const refused = await post(app, "/collect", { resource: "c:T06", blocks: ["classlife"], options: { classlife: { sources } } }, session);
+    assert.deepEqual([refused.statusCode, refused.json().error, refused.json().code], [400, "invalid_sources:summary", "validation_failed"]);
+  }
+  assert.equal(["ListePunitions", "PageSuivisAbsenceRetard", "DetailAbsences"].some((name) => count(fake, name) > 0), false);
   assert.equal((await post(app, "/collect", { resource: "c:INCONNUE", blocks: ["files"] }, session)).statusCode, 404);
   assert.equal((await post(app, "/collect", { resource: "c:T06", blocks: ["files"] }, "inconnue")).json().error, "session_expired");
   await app.close();
@@ -312,7 +322,7 @@ test("the web session closes during the read: waiting with reopen_required, then
   const { collectid } = created.json();
   const waiting = await until(app, collectid, main, (state) => state.status === "waiting" || ended(state));
   assert.equal(waiting.status, "waiting", JSON.stringify(waiting));
-  assert.deepEqual(waiting.session, { mobile: "open", web: "reopen_required", reason: "web_session_expired" });
+  assert.deepEqual(waiting.session, { mobile: "open", web: "reopen_required", reason: "web_session_required" });
   // The first page (20 students) is kept; the block that needs no web session went on and is readable.
   assert.deepEqual(waiting.blocks.plans, { status: "pending", reason: "", validated: false, read: 20, total: 31, remaining: 11 });
   assert.equal(waiting.blocks.grades.status, "done");
@@ -391,7 +401,12 @@ test("without web session for a function that needs one: the block waits, and DE
   const created = await app.inject({ method: "POST", url: "/collect", payload: body, headers: { ...signedHeaders("POST", "/collect", body, main), "x-pronoteio-web": "1" } });
   const { collectid } = created.json();
   const waiting = await until(app, collectid, main, (state) => state.status === "waiting" || ended(state));
-  assert.deepEqual([waiting.status, waiting.session.web, waiting.blocks.absences.status], ["waiting", "closed", "pending"]);
+  // No web session was ever opened: still "reopen_required", never "closed", or the client would open nothing (7.4 ter).
+  assert.deepEqual([waiting.status, waiting.session, waiting.blocks.absences.status], ["waiting", { mobile: "open", web: "reopen_required", reason: "web_session_required" },
+    "pending"]);
+  assert.equal(waiting.students, 31);
+  // Outside a read, the state of the sessions says what it knows: none was opened.
+  assert.equal((await get(app, "/session/info", main)).json().state.web, "closed");
   assert.equal(count(mobile, "RecapAbsencesEleves"), 0, "never sent to the session that lacks the tab");
   assert.deepEqual((await signed(app, "DELETE", `/collect/${collectid}`, main)).json(), { collectid, cancelled: true });
   assert.equal((await get(app, `/collect/${collectid}`, main)).statusCode, 404);
@@ -417,7 +432,7 @@ test("the client reopens the web session and sends its id with the next poll: ad
   const created = await app.inject({ method: "POST", url: "/collect", payload: body, headers: { ...signedHeaders("POST", "/collect", body, main), "x-pronoteio-web-session": webId } });
   const { collectid } = created.json();
   const waiting = await until(app, collectid, main, (state) => state.status === "waiting" || ended(state));
-  assert.deepEqual([waiting.status, waiting.session, waiting.blocks.plans.read], ["waiting", { mobile: "open", web: "reopen_required", reason: "web_session_expired" }, 20]);
+  assert.deepEqual([waiting.status, waiting.session, waiting.blocks.plans.read], ["waiting", { mobile: "open", web: "reopen_required", reason: "web_session_required" }, 20]);
   // A new web session exists, but nobody told the read: it keeps waiting.
   const again = pronote(everything());
   const reopened = createSession(again, undefined, { space: "web" });
@@ -480,6 +495,284 @@ test("options of a grouped read: one object per block, lists as arrays or comma 
   const fourth = await run({}, ["results", "plans"], "p:Inconnue");
   assert.deepEqual([fourth.state.blocks.results.status, fourth.state.blocks.plans.status], ["unavailable", "done"]);
   await app.close();
+});
+
+/* ---- Review of 22/11 (docs/olutionsuivi/lots/L01-renvoi.md, contract 7.4 ter) ---- */
+
+const unexpected = (student: string) => ({ Erreur: { Titre: `Erreur inattendue pour ${student} Secret` } });
+
+test("an error of Pronote on one student: he is put aside, the others are kept, he is asked once more, the block ends partial (7.4 ter)", async () => {
+  resetCollects();
+  readCache.clear();
+  const app = await buildApp({ logger: false });
+  // A route that names the student in error (plans): the page goes on after him.
+  const always = pronote({ ...everything(), DetailsPIEleve: (data, call) => (data?.eleve?.N === "4#e7" ? unexpected("ELEVE07") : everything().DetailsPIEleve(data, call)) });
+  const first = createSession(always, account());
+  const one = (await post(app, "/collect", { resource: "c:T06", blocks: ["plans", "grades"] }, first)).json().collectid;
+  const state = await until(app, one, first, ended);
+  assert.deepEqual([state.status, state.blocks.plans, state.blocks.grades.status], ["partial",
+    { status: "partial", reason: "pronote_error", validated: false, read: 30, total: 31, remaining: 1 }, "done"]);
+  const plans = await results(app, one, first, "plans");
+  assert.deepEqual([plans.available, plans.reason, plans.total, plans.remaining, plans.partial, plans.read.length], [true, "pronote_error", 30, [ids[6]], true, 30]);
+  assert.deepEqual(plans.items.map((item: any) => item.studentid), ids.filter((id) => id !== ids[6]));
+  // Asked with his page, then once more at the end; nobody else is asked twice.
+  const calls = (fake: { calls: FakeCall[] }, n: string) => fake.calls.filter((call) => call.name === "DetailsPIEleve" && call.data?.eleve?.N === n).length;
+  assert.deepEqual([calls(always, "4#e7"), calls(always, "4#e6"), calls(always, "4#e8"), count(always, "DetailsPIEleve")], [2, 1, 1, 32]);
+  assert.equal(JSON.stringify([state, plans]).includes("Secret"), false, "never the message of Pronote");
+
+  // The same error once only: the second try reads him, the block is done, in the order of the class.
+  let errors = 0;
+  const once = pronote({ ...everything(), DetailsPIEleve: (data, call) => (data?.eleve?.N === "4#e7" && errors++ === 0 ? unexpected("ELEVE07") : everything().DetailsPIEleve(data, call)) });
+  const second = createSession(once, account());
+  const two = (await post(app, "/collect", { resource: "c:T06", blocks: ["plans"] }, second)).json().collectid;
+  const healed = await until(app, two, second, ended);
+  assert.deepEqual([healed.status, healed.blocks.plans.status, healed.blocks.plans.read], ["done", "done", 31]);
+  const all = await results(app, two, second, "plans");
+  assert.deepEqual([all.items.map((item: any) => item.studentid), all.read, all.remaining, all.partial], [ids, ids, [], false]);
+  assert.equal(count(once, "DetailsPIEleve"), 32);
+
+  // A route that fails as a whole (student files): the students of the page are asked one by one.
+  const files = pronote({ ...everything(), FicheEleve: (data) => (data?.Eleve?.N === "4#e5" ? unexpected("ELEVE05") : { Eleve: { N: data?.Eleve?.N, L: data?.Eleve?.L, Sexe: "M" } }) });
+  const third = createSession(files, account());
+  const three = (await post(app, "/collect", { resource: "c:T06", blocks: ["files"] }, third)).json().collectid;
+  const cut = await until(app, three, third, ended);
+  assert.deepEqual([cut.status, cut.blocks.files], ["partial", { status: "partial", reason: "pronote_error", validated: false, read: 30, total: 31, remaining: 1 }]);
+  const read = await results(app, three, third, "files");
+  assert.deepEqual([read.items.map((item: any) => item.id), read.remaining, read.total], [ids.filter((id) => id !== ids[4]), [ids[4]], 30]);
+  assert.equal(JSON.stringify([cut, read]).includes("Secret"), false);
+  // The students after him in the class are read once; he is asked with his page, alone, then once more.
+  const file = (n: string) => files.calls.filter((call) => call.name === "FicheEleve" && call.data?.Eleve?.N === n).length;
+  assert.deepEqual([file("4#e5"), file("4#e6"), file("4#e25")], [3, 1, 1]);
+
+  // The function fails for everyone: the block gives up after its first page, and says failed.
+  const broken = pronote({ ...everything(), DetailsPIEleve: () => unexpected("ELEVE") });
+  const fourth = createSession(broken, account());
+  const four = (await post(app, "/collect", { resource: "c:T06", blocks: ["plans"] }, fourth)).json().collectid;
+  const dead = await until(app, four, fourth, ended);
+  assert.deepEqual([dead.status, dead.blocks.plans.status, dead.blocks.plans.reason, dead.blocks.plans.read], ["failed", "failed", "pronote_error", 0]);
+  assert.ok(count(broken, "DetailsPIEleve") <= 12, `not the whole class: ${count(broken, "DetailsPIEleve")}`);
+  await app.close();
+});
+
+test("support plans: an empty answer is a student without plan, a class without readable plan is done with all_empty (7.4 ter)", async () => {
+  resetCollects();
+  readCache.clear();
+  const app = await buildApp({ logger: false });
+  const fake = pronote({ ...everything(), DetailsPIEleve: () => ({}) });
+  const session = createSession(fake, account());
+  const { collectid } = (await post(app, "/collect", { resource: "c:T06", blocks: ["plans", "files"] }, session)).json();
+  const state = await until(app, collectid, session, ended);
+  // Never a refusal drawn from an empty answer: every student is asked, the block is done.
+  assert.deepEqual([state.status, state.blocks.plans], ["done", { status: "done", reason: "all_empty", validated: false, read: 31, total: 31, remaining: 0 }]);
+  assert.equal(count(fake, "DetailsPIEleve"), 31);
+  const plans = await results(app, collectid, session, "plans");
+  assert.deepEqual([plans.available, plans.reason, plans.total, plans.items.every((item: any) => item.plans.length === 0)], [true, "all_empty", 31, true]);
+  // One student with a plan: the reason is empty again.
+  const some = pronote(everything());
+  const other = createSession(some, account());
+  const second = (await post(app, "/collect", { resource: "c:T06", blocks: ["plans"] }, other)).json().collectid;
+  assert.deepEqual((await until(app, second, other, ended)).blocks.plans.reason, "");
+  await app.close();
+});
+
+test("end of a read: done when every block is done, failed when none is done nor partial, partial otherwise (7.4 ter)", async () => {
+  resetCollects();
+  readCache.clear();
+  const app = await buildApp({ logger: false });
+  const end = async (handlers: Handlers, blocks: string[]) => {
+    const session = createSession(pronote({ ...everything(), ...handlers }), account());
+    const { collectid } = (await post(app, "/collect", { resource: "c:T06", blocks }, session)).json();
+    const state = await until(app, collectid, session, ended);
+    return [state.status, ...blocks.map((block) => state.blocks[block].status)];
+  };
+  assert.deepEqual(await end({}, ["grades", "history"]), ["done", "done", "done"]);
+  // A refusal is the answer of its block, but the read as a whole did not get everything: partial.
+  assert.deepEqual(await end({ RecapAbsencesEleves: () => denied }, ["absences", "history"]), ["partial", "unavailable", "done"]);
+  assert.deepEqual(await end({ RecapAbsencesEleves: () => denied, ResultatsClasses: () => ({ autre: 1 }) }, ["absences", "results"]), ["failed", "unavailable", "unavailable"]);
+  assert.deepEqual(await end({ RecapAbsencesEleves: () => unexpected("ELEVE01") }, ["absences"]), ["failed", "failed"]);
+  await app.close();
+});
+
+test("two requests at once, ten reads at most, a request of the teacher during a read (7.4 ter)", async () => {
+  resetCollects();
+  readCache.clear();
+  const app = await buildApp({ logger: false });
+  // Two POST /collect of one account at the same instant: one read, the other is told which.
+  const who = account();
+  const fake = pronote(everything(), ALL_TABS, false);
+  // 20 tokens per second: the read of 31 plans (2 tokens each) lasts about 3 seconds.
+  limiterOf(fake, { ratePerMinute: 1200, burst: 4, minSpacingMs: 0, maxWaitMs: 20_000 });
+  const session = createSession(fake, who);
+  const both = await Promise.all([post(app, "/collect", { resource: "c:T06", blocks: ["plans"] }, session), post(app, "/collect", { resource: "c:T06", blocks: ["plans"] }, session)]);
+  assert.deepEqual(both.map((answer) => answer.statusCode).sort(), [202, 409]);
+  const created = both.find((answer) => answer.statusCode === 202)!.json();
+  assert.equal(both.find((answer) => answer.statusCode === 409)!.json().collectid, created.collectid);
+  // A unit read of the teacher during the grouped read: served before the students the read still has to ask.
+  await until(app, created.collectid, session, (state) => state.blocks.plans.read >= 1 || ended(state));
+  const started = Date.now();
+  const unit = await get(app, `/students/plans?resource=c%3AT06&student=${encodeURIComponent(ids[30])}`, session);
+  assert.equal(unit.statusCode, 200, unit.body);
+  assert.equal(unit.json().items[0].studentid, ids[30]);
+  assert.ok(Date.now() - started < 1500, `served at once: ${Date.now() - started} ms`);
+  const during = (await get(app, `/collect/${created.collectid}`, session)).json();
+  assert.equal(during.status, "running", "the read was not over when the teacher was served");
+  assert.ok(during.blocks.plans.read < 31);
+  const state = await until(app, created.collectid, session, ended);
+  assert.deepEqual([state.status, state.blocks.plans.read], ["done", 31]);
+  assert.deepEqual((await results(app, created.collectid, session, "plans")).items.map((item: any) => item.studentid), ids);
+
+  // Ten reads alive in the process: the eleventh is refused, with a delay.
+  resetCollects();
+  for (let i = 0; i < MAX_COLLECTS; i++) {
+    const mobile = pronote(everything(), ALL_TABS.filter((tab) => tab !== 105));
+    const main = createSession(mobile, account(), { space: "mobile" });
+    const body = JSON.stringify({ resource: "c:T06", blocks: ["plans"] });
+    // Each waits for a web session that never comes.
+    const one = await app.inject({ method: "POST", url: "/collect", payload: body, headers: { ...signedHeaders("POST", "/collect", body, main), "x-pronoteio-web": "1" } });
+    assert.equal(one.statusCode, 202, one.body);
+  }
+  assert.equal(collectIds().length, MAX_COLLECTS);
+  const eleventh = await post(app, "/collect", { resource: "c:T06", blocks: ["grades"] }, createSession(pronote(everything()), account()));
+  assert.deepEqual([eleventh.statusCode, eleventh.json().code, eleventh.json().retry_after, eleventh.headers["retry-after"]], [429, "rate_limited", 60, "60"]);
+  resetCollects();
+  await app.close();
+});
+
+test("the main session is lost during the read: waiting with mobile closed, resumed when the account logs in again (7.4 ter)", async () => {
+  resetCollects();
+  readCache.clear();
+  const app = await buildApp({ logger: false });
+  // No reconnection by the token chain here: the session stays lost until a new login.
+  setReconnector(async () => { throw new Error("no token chain in this test"); });
+  try {
+    const who = account();
+    let calls = 0;
+    const fake = pronote({ ...everything(), DetailsPIEleve: (data, call) => (++calls === 26 ? { Erreur: { Titre: "Vous avez été déconnecté." } } : everything().DetailsPIEleve(data, call)) });
+    const session = createSession(fake, who);
+    const { collectid } = (await post(app, "/collect", { resource: "c:T06", blocks: ["plans"] }, session)).json();
+    const waiting = await until(app, collectid, session, (state) => state.status === "waiting" || ended(state));
+    assert.deepEqual([waiting.status, waiting.session.mobile, waiting.session.reason, waiting.blocks.plans.status, waiting.blocks.plans.read],
+      ["waiting", "closed", "session_expired", "pending", 20]);
+    // Moodle logs in again with the token: a new session of the same account, found by the read.
+    const again = pronote(everything());
+    const fresh = createSession(again, who);
+    const state = await until(app, collectid, fresh, ended);
+    assert.deepEqual([state.status, state.blocks.plans.read, state.session.mobile], ["done", 31, "open"]);
+    assert.deepEqual(again.calls.filter((call) => call.name === "DetailsPIEleve").map((call) => call.data?.eleve?.N), students.slice(20).map((student) => student.N));
+    assert.deepEqual((await results(app, collectid, fresh, "plans")).items.map((item: any) => item.studentid), ids);
+    // The session Moodle replaced is no key to the results.
+    assert.equal((await get(app, `/collect/${collectid}`, session)).statusCode, 401);
+  } finally {
+    setReconnector(null);
+    await app.close();
+  }
+});
+
+test("logout and the end of a session forget the grouped reads; an old session id opens nothing (7.4 ter)", async () => {
+  resetCollects();
+  readCache.clear();
+  const app = await buildApp({ logger: false });
+  const done = async (session: string) => {
+    const { collectid } = (await post(app, "/collect", { resource: "c:T06", blocks: ["plans"] }, session)).json();
+    await until(app, collectid, session, ended);
+    return collectid as string;
+  };
+  // Logout: the reads of the account are forgotten, whichever of its sessions logs out.
+  const who = account();
+  const first = createSession(pronote(everything()), who);
+  const one = await done(first);
+  assert.deepEqual(collectIds(), [one]);
+  const out = await post(app, "/session/logout", {}, first);
+  assert.equal(out.statusCode, 200, out.body);
+  assert.deepEqual(collectIds(), []);
+  // The session id of before the logout is no key: not even "not found".
+  const old = await get(app, `/collect/${one}/results?block=plans`, first);
+  assert.deepEqual([old.statusCode, old.json().error], [401, "session_expired"]);
+  // A new session of the same account finds nothing either: the read is gone.
+  const next = createSession(pronote(everything()), who);
+  assert.equal((await get(app, `/collect/${one}`, next)).json().error, "collect_not_found");
+
+  // The session of a read ends (its lifetime is over): forgotten with it.
+  const two = await done(next);
+  sessionById(next)!.expires = Date.now() - 1;
+  await keepAlive();
+  assert.deepEqual(collectIds(), []);
+  assert.equal((await get(app, `/collect/${two}`, next)).statusCode, 401);
+
+  // A web session Pronote closed forgets nothing: the read waits for it (see the tests above).
+  const { main, webId } = twoSpaces();
+  const three = await (async () => {
+    const body = JSON.stringify({ resource: "c:T06", blocks: ["plans"] });
+    const created = await app.inject({ method: "POST", url: "/collect", payload: body, headers: { ...signedHeaders("POST", "/collect", body, main), "x-pronoteio-web-session": webId } });
+    await until(app, created.json().collectid, main, ended);
+    return created.json().collectid as string;
+  })();
+  forgetSession(sessionById(webId));
+  assert.deepEqual(collectIds(), [three]);
+  assert.equal((await get(app, `/collect/${three}`, main)).statusCode, 200);
+  resetCollects();
+  await app.close();
+});
+
+test("life of a read with a simulated clock: results forgotten by a timer 30 minutes after the end, a read lives 60 minutes at most (7.4 ter)", async () => {
+  resetCollects();
+  readCache.clear();
+  webLoginGuard.reset();
+  const app = await buildApp({ logger: false });
+  const before = { pollMs: collectTiming.pollMs, waitingMaxMs: collectTiming.waitingMaxMs };
+  // The clock and the timers are simulated; setImmediate is not, and lets the read run between two ticks.
+  mock.timers.enable({ apis: ["setTimeout", "Date"], now: new Date(2026, 10, 23, 8).getTime() });
+  const turn = async (rounds = 40) => {
+    for (let i = 0; i < rounds; i++) await new Promise((resolve) => setImmediate(resolve));
+  };
+  const poll = async (id: string, session: string, predicate: (state: any) => boolean, stepMs = 0) => {
+    for (let i = 0; i < 400; i++) {
+      await turn();
+      const state = (await get(app, `/collect/${id}`, session)).json();
+      if (predicate(state)) return state;
+      if (stepMs > 0) mock.timers.tick(stepMs);
+    }
+    throw new Error("the read never reached the expected state");
+  };
+  try {
+    const session = createSession(pronote(everything()), account());
+    const { collectid } = (await post(app, "/collect", { resource: "c:T06", blocks: ["plans"] }, session)).json();
+    const state = await poll(collectid, session, ended);
+    assert.equal(state.status, "done");
+    assert.equal(state.expires - state.finished, 1800);
+    // 29 minutes later the results are there; nobody asks; one minute more and the timer has forgotten them.
+    mock.timers.tick(29 * 60_000);
+    assert.deepEqual(collectIds(), [collectid]);
+    mock.timers.tick(60_000 + 1);
+    assert.deepEqual(collectIds(), [], "forgotten without any request");
+
+    // A read that waits for a web session for ever: it ends by itself when its hour is spent.
+    Object.assign(collectTiming, { pollMs: 60_000, waitingMaxMs: 3 * 3600_000 });
+    const mobile = pronote(everything(), ALL_TABS.filter((tab) => tab !== 105));
+    const main = createSession(mobile, account(), { space: "mobile" });
+    const body = JSON.stringify({ resource: "c:T06", blocks: ["plans", "grades"] });
+    const created = await app.inject({ method: "POST", url: "/collect", payload: body, headers: { ...signedHeaders("POST", "/collect", body, main), "x-pronoteio-web": "1" } });
+    const id = created.json().collectid as string;
+    const born = Date.now();
+    const waiting = await poll(id, main, (current) => current.status === "waiting");
+    assert.equal(waiting.session.web, "reopen_required");
+    // Minute after minute (the polls keep the session of the teacher alive): still waiting after 59 minutes.
+    for (let minute = 0; minute < 59; minute++) {
+      mock.timers.tick(60_000);
+      await turn(5);
+      if (minute % 10 === 0) assert.equal((await get(app, `/collect/${id}`, main)).json().status, "waiting", `minute ${minute}`);
+    }
+    const over = await poll(id, main, ended, 60_000);
+    // "finished" is in whole seconds: one second of tolerance.
+    assert.ok(over.finished * 1000 - born >= 3600_000 - 1000 && over.finished * 1000 - born <= 3600_000 + 3 * 60_000, `ended after its hour: ${over.finished * 1000 - born} ms`);
+    // The roster itself needed the web session: no block was read, so the read is "failed" (none done nor partial).
+    assert.deepEqual([over.status, over.blocks.plans.status, over.blocks.plans.reason, over.blocks.grades.status], ["failed", "unavailable", "web_session_required", "unavailable"]);
+  } finally {
+    mock.timers.reset();
+    Object.assign(collectTiming, before);
+    resetCollects();
+    await app.close();
+  }
 });
 
 test("state of the sessions of an account: open, closed, reopen_required, pin_required, backoff", () => {

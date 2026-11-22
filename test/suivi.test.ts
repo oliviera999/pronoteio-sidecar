@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 // First: the helper sets the signing secret before config.ts is loaded.
-import { buildApp, createSession, get } from "./helpers/app.js";
+import { buildApp, createSession, get, signedHeaders } from "./helpers/app.js";
 import { PRIORITY, priorityOf } from "../src/context.js";
 import { AccessLog } from "../src/logs.js";
 import { seconds } from "../src/normalise.js";
@@ -269,10 +269,34 @@ test("GET /students/plans: a page of students, an unreadable student named, form
   assert.deepEqual(names(closed), ["ListeEleves", "DetailsPIEleve"]);
   await studentPlans(closed, "c:T06", { offset: 10, limit: 10 });
   assert.deepEqual(names(closed), ["ListeEleves", "DetailsPIEleve", "ListeEleves"]);
-  // An empty answer while the function never answered is a refusal too.
+  // An empty answer is a student without plan, never a refusal (contract 7.4 ter): most students have none.
   const empty = session({ DetailsPIEleve: () => ({}) });
-  assert.equal((await studentPlans(empty, "c:T06", { limit: 3 })).reason, "access_denied");
-  assert.equal(empty.calls.filter((call) => call.name === "DetailsPIEleve").length, 1);
+  const none = await studentPlans(empty, "c:T06", { limit: 3 });
+  assert.deepEqual([none.available, none.reason, none.items.map((item) => item.plans), none.read.length, none.partial], [true, "", [[], [], []], 3, false]);
+  assert.equal(empty.calls.filter((call) => call.name === "DetailsPIEleve").length, 3);
+  // Empty answers say nothing of the decoder: the first answer it does not understand still closes the function, and
+  // the students read before it are kept, the others left to read.
+  const late = session({ DetailsPIEleve: (data) => (Number(String(data?.eleve?.N).slice(3)) < 3 ? {} : { detail: { texte: "Plan secret" } }) });
+  const cut = await studentPlans(late, "c:T06", { limit: 6 });
+  assert.deepEqual([cut.available, cut.reason, cut.items.length, cut.read, cut.remaining, cut.partial, cut.shape],
+    [true, "format_unknown", 2, entries.slice(0, 2).map((entry) => entry.id), entries.slice(2, 6).map((entry) => entry.id), true, ["detail: object", "detail.texte: string"]]);
+  assert.equal(late.calls.filter((call) => call.name === "DetailsPIEleve").length, 3);
+  assert.deepEqual([(await studentPlans(late, "c:T06", { offset: 2, limit: 4 })).available, late.calls.filter((call) => call.name === "DetailsPIEleve").length], [false, 3]);
+
+  // An error of Pronote on one student (7.4 ter): he is left to read, the students read before and after him are kept.
+  const flaky = session({ DetailsPIEleve: (data) => (data?.eleve?.N === "4#e2" ? { Erreur: { Titre: "Erreur inattendue pour ELEVE02 Secret" } } : plansAnswer(0)) });
+  const kept = await studentPlans(flaky, "c:T06", { offset: 0, limit: 4 });
+  assert.deepEqual([kept.available, kept.reason, kept.read, kept.failed, kept.remaining, kept.partial, kept.retry_after],
+    [true, "", [entries[0].id, entries[2].id, entries[3].id], [entries[1].id], [entries[1].id], true, 1]);
+  assert.deepEqual(kept.items.map((item) => item.studentid), [entries[0].id, entries[2].id, entries[3].id]);
+  assert.equal(JSON.stringify(kept).includes("Secret"), false);
+  // Asked alone, he is the one left to read: no error for the request, no "no plan" either.
+  const alone = await studentPlans(flaky, "c:T06", { student: entries[1].id });
+  assert.deepEqual([alone.available, alone.items, alone.failed, alone.remaining, alone.partial], [true, [], [entries[1].id], [entries[1].id], true]);
+  // Three errors in a row: the function fails for everyone, the page stops asking.
+  const broken = session({ DetailsPIEleve: () => ({ Erreur: { Titre: "Erreur inattendue" } }) });
+  const stopped = await studentPlans(broken, "c:T06", { offset: 0, limit: 10 });
+  assert.deepEqual([stopped.items, stopped.failed?.length, stopped.remaining.length, broken.calls.filter((call) => call.name === "DetailsPIEleve").length], [[], 3, 10, 3]);
   resetSourceMemory(closed);
   await studentPlans(closed, "c:T06", { limit: 1 });
   assert.equal(closed.calls.filter((call) => call.name === "DetailsPIEleve").length, 2, "forgotten: asked again");
@@ -407,6 +431,30 @@ test("GET /students/history: both sources per student, one source unknown or ref
   assert.equal(half.calls.filter((call) => call.name === "LivretScolaire").length, 1, "the refusal is remembered for the next pages");
 });
 
+test("GET /students/history: every source closed during a page, or an error on a student: partial, with the students left (7.4 ter)", async () => {
+  // The multi-year page is refused from the third student on, the school record was not asked: nothing is left open.
+  const closing = session({ PageSuiviPluriannuel: (data) => (["4#e1", "4#e2"].includes(data?.eleve?.N) ? multiYearAnswer() : denied) });
+  const page = await studentHistory(closing, "c:T06", { offset: 0, limit: 6 }, ["multiyear"]);
+  assert.deepEqual([page.available, page.partial, page.read, page.remaining, page.retry_after], [true, true, entries.slice(0, 2).map((entry) => entry.id),
+    entries.slice(2, 6).map((entry) => entry.id), 1]);
+  assert.deepEqual([page.items.length, page.sources.multiyear.reason, page.sources.multiyear.onglet], [2, "access_denied", 44]);
+  assert.equal(closing.calls.filter((call) => call.name === "PageSuiviPluriannuel").length, 3, "one refusal, then no other call");
+  // Asked again, the page says the refusal at once, without any call.
+  const again = await studentHistory(closing, "c:T06", { offset: 2, limit: 4 }, ["multiyear"]);
+  assert.deepEqual([again.available, again.reason, again.items, closing.calls.filter((call) => call.name === "PageSuiviPluriannuel").length], [false, "access_denied", [], 3]);
+  // One source refused during the page while the other goes on: every student is read, nothing is partial.
+  const half = session({ LivretScolaire: (data) => (data?.Eleve?.N === "4#e1" ? livretFrame() : denied), PageSuiviPluriannuel: () => multiYearAnswer() });
+  const whole = await studentHistory(half, "c:T06", { offset: 0, limit: 4 });
+  assert.deepEqual([whole.partial, whole.read.length, whole.remaining, whole.items.map((item) => item.sources.livret.reason)], [false, 4, [], ["", "access_denied", "access_denied",
+    "access_denied"]]);
+  // An error of Pronote on one source of one student: he is left to read, the others are kept.
+  const flaky = session({ LivretScolaire: () => livretFrame(), PageSuiviPluriannuel: (data) => (data?.eleve?.N === "4#e2" ? { Erreur: { Titre: "Erreur inattendue pour ELEVE02 Secret" } }
+    : multiYearAnswer()) });
+  const kept = await studentHistory(flaky, "c:T06", { offset: 0, limit: 3 });
+  assert.deepEqual([kept.available, kept.read, kept.failed, kept.remaining, kept.partial], [true, [entries[0].id, entries[2].id], [entries[1].id], [entries[1].id], true]);
+  assert.deepEqual([kept.sources.multiyear, JSON.stringify(kept).includes("Secret")], [{ available: true, reason: "" }, false]);
+});
+
 /* ---- Routes ---- */
 
 test("the three routes: parameters checked, priorities, cache; no health data in the cache nor in the logs", async () => {
@@ -442,12 +490,22 @@ test("the three routes: parameters checked, priorities, cache; no health data in
   assert.equal(fake.calls.filter((call) => call.name === "DetailsPIEleve").length, 4);
   assert.equal((await get(app, `/students/plans?resource=c%3AT06&student=${encodeURIComponent("e:ELEVE01 Prénom")}`, id)).json().items.length, 1);
   assert.equal((await get(app, "/students/plans?resource=c%3AT06&limit=41", id)).statusCode, 400);
+  // A second delivery of the same signed request (the web server in front may deliver twice): a read is answered again
+  // from the answers kept for two minutes, except the health data, which are never kept (7.4 ter): refused as a replay.
+  const twice = async (url: string) => {
+    const headers = signedHeaders("GET", url, "", id);
+    const first = await app.inject({ method: "GET", url, headers });
+    const second = await app.inject({ method: "GET", url, headers });
+    return [first.statusCode, second.statusCode, second.headers["x-pronoteio-duplicate"], second.json().error];
+  };
+  assert.deepEqual(await twice("/classlife/absences?resource=c%3AT06"), [200, 200, "shared", undefined]);
+  assert.deepEqual(await twice("/students/plans?resource=c%3AT06&limit=1"), [200, 401, undefined, "replayed_request"]);
   await app.close();
 
   // The logs: the route, never the answer, not even its size (for one student it would tell whether a plan exists).
   const access = readFileSync(file, "utf8").trim().split("\n").map((line) => JSON.parse(line));
   const logged = access.filter((line) => line.route === "/students/plans");
-  assert.equal(logged.length, 4);
+  assert.equal(logged.length, 6);
   for (const line of logged) assert.deepEqual([line.bytes, line.shape], [0, undefined]);
   assert.ok(access.find((line) => line.route === "/classlife/absences").bytes > 0);
   const everything = `${readFileSync(file, "utf8")}\n${lines.join("\n")}`;

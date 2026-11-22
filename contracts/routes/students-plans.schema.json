@@ -15,7 +15,7 @@
         },
         "reason": {
           "type": "string",
-          "description": "« », access_denied, pronote_error, format_unknown."
+          "description": "« » ; access_denied ou format_unknown : seuls (available false) quand aucun élève n'a été lu, ou avec les élèves déjà lus (available true, partial true, remaining) quand la fonction se ferme en cours de page. Une réponse vide de Pronote pour un élève vaut plans: [] (jamais un refus)."
         },
         "validated": {
           "const": false
@@ -160,6 +160,13 @@
         "retry_after": {
           "type": "integer",
           "minimum": 0
+        },
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Élèves pour lesquels Pronote a répondu une erreur (aussi dans remaining) : à redemander. Absent quand il n'y en a pas (contrat 7.4 ter)."
         }
       },
       "required": [
