@@ -40,6 +40,7 @@ const defaults = {
     competencyListAll: { name: "ListeEvaluations", onglet: 65 },
     competencyPage: { name: "PageCompetencesParEvaluation", onglet: 56 },
     commentsPage: { name: "PageApprBulletin", onglet: 25 },
+    commentServicesList: { name: "ListeServices", onglet: 25 },
     commentKinds: { name: "ListeAppreciations", onglet: 27 },
     generalCommentsPage: { name: "PageAppreciationsGenerales", onglet: 27 },
     discussionsList: { name: "ListeMessagerie", onglet: 131 },

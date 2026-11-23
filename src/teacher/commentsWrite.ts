@@ -11,20 +11,26 @@
 import type { SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
 import { listOf } from "../pronote/encoding.js";
-import { userData } from "../pronote/userdata.js";
 import { normalise } from "../normalise.js";
 import { isAccessDenied, } from "./competencies.js";
-import { maxLengthOf, readKinds } from "./comments.js";
-import { call, loadServices, pickPeriod, ref, resourceOf, type Element } from "./grades.js";
-import { kindOf, resolve } from "./ids.js";
+import { commentResource, findCommentService, maxLengthOf, readKinds } from "./comments.js";
+import { call, pickPeriod, ref, type Element } from "./grades.js";
 import { sendWrite } from "./write.js";
+import { currentContext } from "../context.js";
+
+/** Member names of an object (never its values), for the access log of a write Pronote did not keep. */
+const memberNames = (value: unknown): string =>
+  value && typeof value === "object" ? Object.keys(value).filter((key) => /^[\w$]{1,40}$/.test(key)).sort().slice(0, 20).join(",") : "-";
 
 const GENRE_CLASS = 1;
-const GENRE_GROUP = 2;
 const GENRE_PERIOD = 2;
 const GENRE_STUDENT = 4;
 const STATE_MODIFIED = 2;
-/** TypeGenreAppreciation: 0 teacher's bulletin comment, 1 general bulletin comment. */
+/**
+ * TypeGenreAppreciation: 0 teacher's bulletin comment (GA_Bulletin_Professeur), 1 general bulletin comment
+ * (GA_Bulletin_Generale). 0.16.1: the class comment of a service is a teacher's comment too: the client sends 0
+ * (interfacesaisieapprbulletin.js, _saisirAppreciationClasse), where 1 was sent until 0.16.0.
+ */
 const KIND_SUBJECT = 0;
 const KIND_GENERAL = 1;
 
@@ -50,7 +56,48 @@ export type CommentsWriteResult = {
   generalKind: string;
 };
 
-type Cell = { student: { N: string; L: string } | null; appreciation: { N: string; G: number; L: string } };
+/**
+ * One comment that can be written. "classe" and "service" (0.16.1): the class and the service of the line when the
+ * grid gives them, sent as is by the client (_getInfoClasseEleve: the student's own class for a group, the line's
+ * service for a sub-service); absent, the requested resource and the chosen service are sent.
+ */
+type Cell = {
+  student: { N: string; L: string } | null;
+  /** N: null when Pronote gives none (empty cell of the grid), 0 for "0" (see numberOf). */
+  appreciation: { N: string | number | null; G: number; L: string };
+  classe?: { N: string; G: number };
+  service?: { N: string };
+};
+
+/**
+ * Identifier of an appreciation as the client sends it back (0.16.1, real grid of 23/11/2026). The client reads "N"
+ * with ObjetElement.fromJSON ("0" becomes the number 0) and writes it with toJSON (an absent N is left out): an empty
+ * cell of PageApprBulletin carries no N at all ({ G, estEditable }), an empty general comment carries "0". Until 0.16.0
+ * the sidecar sent the string "0" in both cases and Pronote ignored the write silently (HTTP 200, nothing saved).
+ */
+export const numberOf = (value: unknown): string | number | null => {
+  if (value === undefined || value === null || value === "") return null;
+  if (value === "0" || value === 0) return 0;
+  return String(value);
+};
+
+/** Text of an appreciation element: "L", else "appreciation" (class comment and general comments carry it there). */
+const textOf = (app: Record<string, any>): string =>
+  typeof app.L === "string" ? app.L : typeof app.appreciation === "string" ? app.appreciation : "";
+
+const elementOf = (value: unknown): Record<string, any> | null => {
+  const raw = value !== null && typeof value === "object" && "V" in (value as object) ? (value as { V: unknown }).V : value;
+  return raw !== null && typeof raw === "object" ? (raw as Record<string, any>) : null;
+};
+
+/**
+ * Comment of the teacher in a line: the first of appA, appB, appC that is not marked editable=false (0.16.1; appA only
+ * until 0.16.0). The rank ("G", 1 to 3) is kept: Pronote stores the text in the column of that rank.
+ */
+const ownComment = (line: Record<string, any>): Record<string, any> | null => {
+  const candidates = [line?.appA, line?.appB, line?.appC].map(elementOf).filter((item): item is Record<string, any> => item !== null);
+  return candidates.find((item) => item.editable !== false && item.estEditable !== false) ?? candidates[0] ?? null;
+};
 
 const text = (value: unknown): string | null => {
   const raw = value !== null && typeof value === "object" && "V" in (value as object) ? (value as { V: unknown }).V : value;
@@ -63,16 +110,20 @@ export const subjectCells = (page: Record<string, any>): { cells: Cell[]; classC
   const cells: Cell[] = [];
   for (const line of listOf<any>(page?.listeLignes)) {
     const student = line?.eleve?.V ?? line?.eleve;
-    const app = line?.appA?.V ?? line?.appA;
+    const app = ownComment(line);
     if (!student || !app) continue;
+    const classe = elementOf(line?.classe);
+    const service = elementOf(line?.service);
     cells.push({
       student: { N: String(student.N), L: String(student.L ?? "").trim() },
-      appreciation: { N: String(app.N ?? "0"), G: Number(app.G ?? 1), L: String(app.L ?? "") },
+      appreciation: { N: numberOf(app.N), G: Number(app.G ?? 1), L: textOf(app) },
+      ...(classe?.N !== undefined && classe.N !== "" ? { classe: { N: String(classe.N), G: Number(classe.G ?? GENRE_CLASS) } } : {}),
+      ...(service?.N !== undefined && service.N !== "" ? { service: { N: String(service.N) } } : {}),
     });
   }
   const classApp = page?.appreciationClasse?.V ?? page?.appreciationClasse;
   const classCell = classApp && typeof classApp === "object"
-    ? { student: null, appreciation: { N: String(classApp.N ?? "0"), G: Number(classApp.G ?? 1), L: String(classApp.L ?? "") } }
+    ? { student: null, appreciation: { N: numberOf(classApp.N), G: Number(classApp.G ?? 1), L: textOf(classApp) } }
     : null;
   const closed = String(page?.strInfoCloture ?? "").trim() !== ""
     || listOf<any>(page?.listeLignes).some((line) => line?.appA?.cloture === true || line?.appA?.V?.cloture === true);
@@ -92,7 +143,7 @@ export const generalCells = (page: Record<string, any>): { cells: Cell[]; closed
     cells.push({
       student: { N: String(student.N), L: String(student.L ?? "").trim() },
       // 0.14.1: the real element has no "L" while nothing is entered (its text is then in "appreciation", empty).
-      appreciation: { N: String(app.N ?? "0"), G: Number(app.G ?? 0), L: String(app.L ?? (typeof app.appreciation === "string" ? app.appreciation : "")) },
+      appreciation: { N: numberOf(app.N), G: Number(app.G ?? 0), L: textOf(app) },
     });
   }
   return { cells, closed };
@@ -129,30 +180,27 @@ export const commentRequest = (
   textValue: string,
   kind: "subject" | "general",
 ): Record<string, unknown> => ({
-  classe: { N: classe.N, G: classe.G },
-  periode: { N: period.N, G: GENRE_PERIOD },
+  classe: kind === "subject" && cell.classe ? { N: cell.classe.N, G: cell.classe.G } : { N: classe.N, G: classe.G },
+  // 0.16.1: the period element as Pronote gave it (genre included), as the client and the skills writes send it.
+  periode: { N: period.N, G: period.G ?? GENRE_PERIOD },
   ...(cell.student ? { eleve: { N: cell.student.N, G: GENRE_STUDENT } } : {}),
-  ...(service && kind === "subject" ? { service: { N: service.N } } : {}),
-  appreciation: { N: cell.appreciation.N, G: cell.appreciation.G, L: textValue, E: STATE_MODIFIED },
-  typeGenreAppreciation: kind === "general" || !cell.student ? KIND_GENERAL : KIND_SUBJECT,
+  ...(kind === "subject" && (cell.service || service) ? { service: { N: cell.service?.N ?? service!.N } } : {}),
+  appreciation: { ...(cell.appreciation.N !== null ? { N: cell.appreciation.N } : {}), G: cell.appreciation.G, L: textValue, E: STATE_MODIFIED },
+  typeGenreAppreciation: kind === "general" ? KIND_GENERAL : KIND_SUBJECT,
 });
 
 /* non validé sur la démo : onglets 25 et 27 fermés au profil de démonstration */
 export const writeComments = async (session: SessionHandle, write: CommentsWrite): Promise<CommentsWriteResult> => {
-  const kind = kindOf(write.class);
-  if (kind !== "class" && kind !== "group") throw new HttpError(409, "resource_without_pronote_id");
-  const genre = kind === "class" ? GENRE_CLASS : GENRE_GROUP;
-  const resource = resolve(kind, write.class, userData(session).resources.filter((item) => item.genre === genre), (item) => item.label);
+  const { resource, genre } = commentResource(session, write.class);
   const picked = await pickPeriod(session, write.period);
   const maxLength = maxLengthOf(session);
   for (const item of write.items) {
     if (maxLength !== null && item.text.length > maxLength) throw new HttpError(409, `comment_too_long:${maxLength}`);
     if (item.kind === "general" && !item.student) throw new HttpError(400, "general_comment_without_student");
   }
-  const services = await loadServices(session, picked.period);
-  const service = services.find((item) => String(resourceOf(item)?.L ?? "") === resource.label) ?? null;
   const needsSubject = write.items.some((item) => item.kind === "subject");
   const needsGeneral = write.items.some((item) => item.kind === "general");
+  const service = needsSubject ? (await findCommentService(session, picked.period, resource))?.service ?? null : null;
   if (needsSubject && !service) throw new HttpError(404, "service_not_found");
   if (needsGeneral && !resource.principal) throw new HttpError(403, "not_main_teacher");
 
@@ -200,9 +248,19 @@ export const writeComments = async (session: SessionHandle, write: CommentsWrite
     generalKind: rubric ? String(rubric.L ?? "") : "" };
   if (write.dryRun) return { ...base, written: false, dryRun: true };
 
+  const answers: string[] = [];
   for (const [index, target] of targets.entries()) {
-    await sendWrite(session, target.key, requests[index]);
+    const sent = await sendWrite(session, target.key, requests[index]);
+    answers.push(`${target.item.kind}:data=${memberNames(sent.data)};report=${memberNames(sent.report)}`);
   }
+  // 0.16.1: a write Pronote ignores answers HTTP 200 without refusal; the shape of its answers (member names only) goes
+  // to the access log and to the error, the only trace to diagnose it.
+  const notSaved = (who: string) => {
+    const shape = answers.join("|").slice(0, 400);
+    const context = currentContext();
+    if (context) context.shape = shape;
+    return new HttpError(502, `comment_not_saved:${who}`, { detail: shape });
+  };
   // Read again: every cell must now carry the requested text.
   const checked: CommentCell[] = [];
   if (needsSubject) {
@@ -212,7 +270,7 @@ export const writeComments = async (session: SessionHandle, write: CommentsWrite
       const cell = target.cell.student
         ? reread.cells.find((candidate) => candidate.student && normalise(candidate.student.L) === normalise(target.cell.student!.L))
         : reread.classCell;
-      if (!cell || cell.appreciation.L.trim() !== target.item.text.trim()) throw new HttpError(502, `comment_not_saved:${target.cell.student?.L ?? "classe"}`);
+      if (!cell || cell.appreciation.L.trim() !== target.item.text.trim()) throw notSaved(target.cell.student?.L ?? "classe");
       checked[index] = { student: cell.student?.L ?? null, kind: "subject", text: cell.appreciation.L };
     }
   }
@@ -226,7 +284,7 @@ export const writeComments = async (session: SessionHandle, write: CommentsWrite
     for (const [index, target] of targets.entries()) {
       if (target.item.kind !== "general") continue;
       const cell = reread.cells.find((candidate) => candidate.student && normalise(candidate.student.L) === normalise(target.cell.student!.L));
-      if (!cell || cell.appreciation.L.trim() !== target.item.text.trim()) throw new HttpError(502, `comment_not_saved:${target.cell.student?.L ?? ""}`);
+      if (!cell || cell.appreciation.L.trim() !== target.item.text.trim()) throw notSaved(target.cell.student?.L ?? "");
       checked[index] = { student: cell.student?.L ?? null, kind: "general", text: cell.appreciation.L };
     }
   }
