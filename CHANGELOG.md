@@ -1,5 +1,14 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.16.2 — appréciations des groupes de 6e : passage en session web
+
+Constat en production juste après la 0.16.1 : `GET /reports/comments` sur `6-SC-603` répondait encore
+`service_not_found`, après deux appels seulement (périodes, services de l'onglet 23). La recherche du service dans les
+onglets 25 et 65 avalait `WebSessionRequired` : sur la session mobile (sans ces onglets), elle rendait une liste vide
+au lieu de demander la session web. Elle laisse maintenant remonter l'exception : la requête est rejouée sur la session
+web, où le service du groupe est trouvé. Test de bout en bout ajouté (session mobile puis web, groupe sans service de
+notes).
+
 ## 0.16.1 — appréciations de bulletin : groupes de 6e, écriture refusée en silence
 
 Constats du 23/11/2026 sur le compte réel (lecture, aperçu de plan, une écriture d'essai sur T06 restée sans effet).

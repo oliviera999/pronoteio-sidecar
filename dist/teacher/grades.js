@@ -111,7 +111,10 @@ export const loadCommentServices = async (session, period, resource) => {
         });
     }
     catch (error) {
-        if (error instanceof ServerSideError || error instanceof WebSessionRequired || (error instanceof HttpError && error.status === 501))
+        // 0.16.2: WebSessionRequired goes up, as for every function of the comments route: the request is then replayed on
+        // the web session, where tabs 25 and 65 are open. Swallowed in 0.16.1, it left the mobile session without the
+        // services of the 6e groups (service_not_found before any call to tab 25).
+        if (error instanceof ServerSideError || (error instanceof HttpError && error.status === 501 && !(error instanceof WebSessionRequired)))
             return [];
         throw error;
     }

@@ -19,6 +19,7 @@ import { isAccessDenied } from "./competencies.js";
 import { call, loadCommentServices, loadCompetencyServices, loadServices, pickPeriod, ref, resourceOf, serviceKey, type Element } from "./grades.js";
 import { kindOf, resolve, stableId, stableIds } from "./ids.js";
 import { labelKey } from "../normalise.js";
+import { isTabClosed } from "./functions.js";
 import { shapeOf } from "./shape.js";
 import { reportsPage } from "./reports.js";
 import { boolOf, member, type StudentPage } from "./tolerant.js";
@@ -337,6 +338,10 @@ export const findCommentService = async (
   const matching = top.filter(sameResource);
   if (matching.length >= 1) return own(matching[0]);
   if (top.length === 1) return own(top[0]);
+  // 0.16.2: the tab 65 list is an enrichment elsewhere and returns [] on a mobile session. Here isTabClosed is called
+  // first and unguarded: on a mobile session it throws WebSessionRequired (replay on the web session, where a
+  // skills-only group is found); true means the tab is closed to the account itself.
+  if (isTabClosed(session, "competencyServicesList")) return null;
   const skills = await loadCompetencyServices(session, period);
   const skill = skills.find(sameResource);
   return skill ? { service: skill, id: stableId("service", serviceKey(skill)), source: "competencies" } : null;
