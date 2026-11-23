@@ -16,8 +16,9 @@ import { listOf } from "../pronote/encoding.js";
 import { userData, type SchoolResource } from "../pronote/userdata.js";
 import type { GeneralComments, ReportComments } from "../normalise.js";
 import { isAccessDenied } from "./competencies.js";
-import { call, loadServices, pickPeriod, ref, resourceOf, serviceKey, type Element } from "./grades.js";
-import { kindOf, resolve, stableIds } from "./ids.js";
+import { call, loadCommentServices, loadCompetencyServices, loadServices, pickPeriod, ref, resourceOf, serviceKey, type Element } from "./grades.js";
+import { kindOf, resolve, stableId, stableIds } from "./ids.js";
+import { labelKey } from "../normalise.js";
 import { shapeOf } from "./shape.js";
 import { reportsPage } from "./reports.js";
 import { boolOf, member, type StudentPage } from "./tolerant.js";
@@ -48,11 +49,14 @@ export const commentsFromPage = (data: Record<string, any>): { students: { stude
     .filter((line) => line?.eleve)
     .map((line) => {
       const first = line.appA ?? line.appB ?? line.appC ?? null;
-      return { student: String(line.eleve?.V?.L ?? line.eleve?.L ?? "").trim(), comment: text(first) };
+      // 0.16.1: text in "L", else in "appreciation" (as the class comment carries it on the real grid).
+      return { student: String(line.eleve?.V?.L ?? line.eleve?.L ?? "").trim(), comment: generalText(first) };
     });
   const closed = String(data?.strInfoCloture ?? "").trim() !== ""
     || listOf<any>(data?.listeLignes).some((line) => line?.appA?.cloture === true || line?.appA?.V?.cloture === true);
-  return { students, classComment: text(data?.appreciationClasse), closed };
+  // 0.16.1, real grid of 23/11/2026: the class comment is { G, titre, appreciation, editable, cloture }, text in "appreciation".
+  const classComment = generalText(data?.appreciationClasse);
+  return { students, classComment: classComment === "" ? null : classComment, closed };
 };
 
 const LINE_LISTS = ["listeLignes", "ListeLignes", "lignes"];
@@ -278,6 +282,66 @@ const generalFromReports = async (
   };
 };
 
+/**
+ * Class or group of a report card comment request (0.16.1). Moodle names the resource by its label and sends "c:" for
+ * any of them (local_olutionmcp until 0.52.x): a group ("6-SC-603") was then refused with class_not_found. The id is
+ * resolved in the genre of its prefix, then in the other genre (same label); an unknown label stays a 404.
+ */
+export const commentResource = (session: SessionHandle, id: string): { resource: SchoolResource; genre: 1 | 2; kind: "class" | "group" } => {
+  const kind = kindOf(id);
+  if (kind !== "class" && kind !== "group") throw new HttpError(409, "resource_without_pronote_id");
+  const resources = userData(session).resources;
+  const body = id.slice(id.indexOf(":") + 1);
+  const attempt = (wanted: "class" | "group") => {
+    const genre = wanted === "class" ? GENRE_CLASS : GENRE_GROUP;
+    const resource = resolve(wanted, `${wanted === "class" ? "c" : "g"}:${body}`, resources.filter((item) => item.genre === genre), (item) => item.label);
+    return { resource, genre: genre as 1 | 2, kind: wanted };
+  };
+  try {
+    return attempt(kind);
+  } catch (error) {
+    if (!(error instanceof HttpError) || error.status !== 404) throw error;
+    try {
+      return attempt(kind === "class" ? "group" : "class");
+    } catch {
+      throw error;
+    }
+  }
+};
+
+export type CommentService = { service: Element; id: string; source: "grades" | "comments" | "competencies" };
+
+/**
+ * Service of the teacher for the report card comments of a class or group and a period (0.16.1). Until 0.16.0 only
+ * the services of the grade entry (tab 23) were looked at: the groups of a "collège" class assessed by skills only
+ * (6e at Lyautey: "6-SC-603", "6-SC-601-602") have no grade service and were refused with service_not_found, read and
+ * write. Order: tab 23 (stable ids unchanged), then the services of the comments page itself (tab 25, as the client
+ * fills its list for that resource), then the skills services (tab 65). Matching on the resource label (case, accents
+ * and brackets ignored); in the tab 25 list, already filtered on the resource by Pronote, a single top-level service
+ * is taken as is. null: no service of the teacher for that resource.
+ */
+export const findCommentService = async (
+  session: SessionHandle,
+  period: Element,
+  resource: SchoolResource,
+): Promise<CommentService | null> => {
+  const sameResource = (service: Element) => labelKey(String(resourceOf(service)?.L ?? "")) === labelKey(resource.label);
+  const grades = await loadServices(session, period);
+  const index = grades.findIndex((service) => String(resourceOf(service)?.L ?? "") === resource.label);
+  if (index >= 0) return { service: grades[index], id: stableIds("service", grades, serviceKey)[index], source: "grades" };
+  const loose = grades.findIndex(sameResource);
+  if (loose >= 0) return { service: grades[loose], id: stableIds("service", grades, serviceKey)[loose], source: "grades" };
+  const own = (service: Element): CommentService => ({ service, id: stableId("service", serviceKey(service)), source: "comments" });
+  const listed = await loadCommentServices(session, period, { id: resource.id, genre: resource.genre, label: resource.label });
+  const top = listed.filter((service) => service.estUnSousService !== true);
+  const matching = top.filter(sameResource);
+  if (matching.length >= 1) return own(matching[0]);
+  if (top.length === 1) return own(top[0]);
+  const skills = await loadCompetencyServices(session, period);
+  const skill = skills.find(sameResource);
+  return skill ? { service: skill, id: stableId("service", serviceKey(skill)), source: "competencies" } : null;
+};
+
 /* non validé sur la démo : onglets 25 et 27 fermés au profil de démonstration */
 export const reportComments = async (
   session: SessionHandle,
@@ -285,23 +349,19 @@ export const reportComments = async (
   periodId: string,
   page: StudentPage = {},
 ): Promise<ReportComments> => {
-  const kind = kindOf(resourceId);
-  if (kind !== "class" && kind !== "group") throw new HttpError(409, "resource_without_pronote_id");
-  const genre = kind === "class" ? GENRE_CLASS : GENRE_GROUP;
-  const resource = resolve(kind, resourceId, userData(session).resources.filter((item) => item.genre === genre), (item) => item.label);
+  const { resource, genre, kind } = commentResource(session, resourceId);
   const picked = await pickPeriod(session, periodId);
-  const services = await loadServices(session, picked.period);
-  const index = services.findIndex((service) => String(resourceOf(service)?.L ?? "") === resource.label);
+  const found = await findCommentService(session, picked.period, resource);
   // 0.12.0: a main teacher who teaches no service in the class still reads the general comments.
-  if (index < 0 && !resource.principal) throw new HttpError(404, "service_not_found");
-  const service = index >= 0 ? services[index] : null;
+  if (!found && !resource.principal) throw new HttpError(404, "service_not_found");
+  const service = found?.service ?? null;
   const result: ReportComments = {
     available: true,
     reason: "",
     class: { id: resourceId, name: resource.label },
     period: { id: picked.periodId, name: String(picked.period.L ?? "") },
-    service: service
-      ? { id: stableIds("service", services, serviceKey)[index], name: [service.matiere?.V?.L ?? service.L ?? "", resource.label].filter(Boolean).join(" - ") }
+    service: service && found
+      ? { id: found.id, name: [service.matiere?.V?.L ?? service.L ?? "", resource.label].filter(Boolean).join(" - ") }
       : null,
     closed: false,
     maxLength: maxLengthOf(session),

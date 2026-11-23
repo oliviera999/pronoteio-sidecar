@@ -68,6 +68,12 @@ export type FunctionKey =
   | "competencyPage"
   /** Report card comments grid of a service, class and period (tab 25; not validated on the demo server). */
   | "commentsPage"
+  /**
+   * 0.16.1: services of the "Saisie des appréciations" page for a class or group and a period (ListeServices, tab 25),
+   * as the page fills its service list: a group of a "collège" class assessed by skills only (6e) has no grade
+   * service (tab 23) but has a report card comment service.
+   */
+  | "commentServicesList"
   /** Kinds of general comments of the school (tab 27). */
   | "commentKinds"
   /** General comments of the main teacher for a class and period (tab 27; not validated on the demo server). */
@@ -231,6 +237,7 @@ const defaults: Record<FunctionKey, TeacherFunction> = {
   competencyListAll: { name: "ListeEvaluations", onglet: 65 },
   competencyPage: { name: "PageCompetencesParEvaluation", onglet: 56 },
   commentsPage: { name: "PageApprBulletin", onglet: 25 },
+  commentServicesList: { name: "ListeServices", onglet: 25 },
   commentKinds: { name: "ListeAppreciations", onglet: 27 },
   generalCommentsPage: { name: "PageAppreciationsGenerales", onglet: 27 },
   discussionsList: { name: "ListeMessagerie", onglet: 131 },

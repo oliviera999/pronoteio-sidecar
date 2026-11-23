@@ -1,5 +1,31 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.16.1 — appréciations de bulletin : groupes de 6e, écriture refusée en silence
+
+Constats du 23/11/2026 sur le compte réel (lecture, aperçu de plan, une écriture d'essai sur T06 restée sans effet).
+
+- **Groupes de 6e** (évalués par compétences seulement, `6-SC-603`, `6-SC-601-602`) : `GET` et `POST
+  /reports/comments` répondaient `service_not_found`, le service n'étant cherché que parmi les services de notes
+  (onglet 23). Il est maintenant cherché dans l'onglet 23, puis dans la liste de la page « Saisie des appréciations »
+  (`ListeServices` signée 25 avec `Ressource` et `Periode`, comme le client), puis dans les services de compétences
+  (onglet 65).
+- **Classe ou groupe** : Moodle envoie `c:` devant tout libellé ; un groupe y répondait `class_not_found`. L'id est
+  cherché dans le genre de son préfixe, puis dans l'autre (même libellé).
+- **Écriture ignorée par Pronote** (HTTP 200, rien d'enregistré, `comment_not_saved`) : l'identifiant de
+  l'appréciation était envoyé en chaîne `"0"`. La grille réelle ne donne pas de `N` pour une cellule vide
+  (`appA` : `{ G, estEditable }`) et `"0"` pour une appréciation générale vide ; le client renvoie un `N` absent tel
+  quel et `"0"` en nombre `0`. Le sidecar fait de même. La période est envoyée avec son genre réel.
+- **Appréciation de classe** (pied de la grille) : `typeGenreAppreciation` 0 (`GA_Bulletin_Professeur`, comme
+  `_saisirAppreciationClasse` du client) au lieu de 1 ; texte lu dans `appreciation` (forme réelle), non dans `L`.
+- Ligne d'un groupe : la classe de l'élève (`classe` de la ligne) et le service de la ligne sont renvoyés tels quels
+  quand la grille les donne ; colonne du professeur : la première de `appA`, `appB`, `appC` non marquée en lecture
+  seule (`editable`/`estEditable` à `false`).
+- Diagnostic : une écriture non retrouvée à la relecture met la forme des réponses de Pronote (noms des membres,
+  jamais les valeurs) dans le journal d'accès (`shape`) et dans l'erreur (`detail`).
+
+Non validé : l'écriture réelle après ce correctif (à refaire sur une cellule, puis à effacer) ; l'appréciation générale
+d'une classe à bulletin de compétences (onglet 224, rubriques propres) n'est pas couverte.
+
 ## 0.16.0 — suivi des classes : absences de classe, plans d'accompagnement, années précédentes, lecture groupée
 
 Lot L01 du chantier olutionsuivi (contrat : `docs/olutionsuivi/CONTRAT_SIDECAR.md`). Tout est en lecture seule.

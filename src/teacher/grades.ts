@@ -115,6 +115,38 @@ export const loadCompetencyServices = async (session: SessionHandle, period: Ele
 };
 
 /**
+ * 0.16.1: services of the "Saisie des appréciations" page (tab 25) for a class or group and a period: ListeServices
+ * { Professeur, Ressource, Periode } signed with tab 25, as the page fills its service list once a class or group is
+ * chosen (interfacepageavecmenusderoulants.js, requeteOuBufferListeServices). Sub-services ("services" of a service)
+ * are flattened as the client does (objetrequetelisteservices.js, _ajouterServices). A closed tab or a refusal gives [].
+ */
+export const loadCommentServices = async (
+  session: SessionHandle,
+  period: Element | null,
+  resource: { id: string; genre: number; label: string },
+): Promise<Element[]> => {
+  const me = session.user.resources[0];
+  let data: Record<string, any>;
+  try {
+    data = await call(session, "commentServicesList", {
+      Professeur: { N: me.id, G: GENRE_TEACHER, L: me.name },
+      Ressource: { N: resource.id, G: resource.genre, L: resource.label },
+      ...(period ? { Periode: ref(period) } : {}),
+    });
+  } catch (error) {
+    if (error instanceof ServerSideError || error instanceof WebSessionRequired || (error instanceof HttpError && error.status === 501)) return [];
+    throw error;
+  }
+  const result: Element[] = [];
+  const add = (service: Element, top: boolean) => {
+    result.push(top ? service : { ...service, estUnSousService: true });
+    for (const child of listOf<Element>(service?.services)) add(child, false);
+  };
+  for (const service of listOf<Element>(data?.services ?? data?.listeServices)) add(service, true);
+  return result;
+};
+
+/**
  * Service key that ignores case, accents, brackets and punctuation, on the subject and on the resource: the same
  * Pronote service read in tab 23 ("6-SC-603") and in a lesson ("[6-SC-603]") gives the same key.
  */
