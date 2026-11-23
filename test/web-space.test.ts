@@ -391,3 +391,33 @@ test("0.11.4: user rebuilt from ParametresUtilisateur when Pawnote's decoder fai
   assert.equal(typeErrorDetail(new TypeError("x is not a function: ELEVE Un")), "type_error");
   assert.equal(typeErrorDetail(new Error("other")), null);
 });
+
+/* 0.16.2, real case of 23/11/2026: report card comments of a 6e group (skills only, no tab 23 service). The service is
+   looked for in tabs 25 and 65, missing from the mobile session: the request must be replayed on the web session
+   instead of answering service_not_found. */
+test("comments of a skills-only group: replayed on the web session, service found in the comments tab", async () => {
+  readCache.clear();
+  const app = await buildApp({ logger: false });
+  const grid = { listeLignes: { _T: 24, V: [{ eleve: { _T: 24, V: { N: "46#x1", G: 4, L: "ELEVE Un" } },
+    classe: cls("2#c603", "603"), service: { _T: 24, V: { N: "5#st3", L: "SCIENCES ET TECHNOLOGIE" } },
+    appA: { _T: 24, V: { G: 1, estEditable: true } } }] },
+    appreciationClasse: { _T: 24, V: { G: 1, titre: "Appréciation", appreciation: "", editable: true, cloture: false } } };
+  const seen: string[] = [];
+  const { mobile, web, mobileId, webId } = pair({
+    "ListeServices@25": (data: any) => {
+      seen.push(String(data?.Ressource?.N ?? ""));
+      return { services: { _T: 24, V: [{ N: "5#st3", matiere: subject("SCIENCES ET TECHNOLOGIE"), groupe: grp("3#g3", "6-SC-603") }] } };
+    },
+    PageApprBulletin: () => grid,
+  });
+  const answer = await send(app, "GET", "/reports/comments?resource=c%3A6-SC-603&period=p%3ATrimestre%201", { main: mobileId, web: webId });
+  assert.equal(answer.statusCode, 200, answer.body);
+  const body = answer.json();
+  assert.equal(body.class.name, "6-SC-603");
+  assert.equal(body.service.name, "SCIENCES ET TECHNOLOGIE - 6-SC-603");
+  assert.deepEqual(seen, ["3#g3"]);
+  assert.equal(body.students[0].student, "ELEVE Un");
+  assert.ok(web.calls.some((call) => call.name === "PageApprBulletin"));
+  assert.ok(!mobile.calls.some((call) => call.name === "PageApprBulletin"));
+  await app.close();
+});
