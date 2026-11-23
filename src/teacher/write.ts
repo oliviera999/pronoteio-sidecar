@@ -23,7 +23,11 @@ export const reportMessages = (report: Record<string, any>): string =>
 /** Throws on a refusal or an unconfirmed confirmation request carried by the report, else returns it (or null). */
 export const assertAccepted = (report: Record<string, any> | null, force: boolean): Record<string, any> | null => {
   if (!report) return null;
-  if (report.refusSaisie || report._erreurSaisie_ === true) {
+  // 0.16.2: a report carrying error messages is a cancelled save for the client (traiterReponseSaisie: "_messagesErreur_"
+  // → EGenreReponseSaisie.annulation), even without _erreurSaisie_. Seen on SaisieAppreciation (23/11/2026): HTTP 200,
+  // report { _messagesErreur_ }, nothing saved. An empty list stays an accepted save.
+  const messages = listOf<unknown>(report._messagesErreur_);
+  if (report.refusSaisie || report._erreurSaisie_ === true || messages.length > 0) {
     throw new HttpError(409, `pronote_refused:${reportMessages(report) || "Saisie refusée par Pronote"}`);
   }
   if (report.demandeConfirmationSaisie && !force) {

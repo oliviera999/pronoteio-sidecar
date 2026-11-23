@@ -15,7 +15,7 @@ import { normalise } from "../normalise.js";
 import { isAccessDenied, } from "./competencies.js";
 import { commentResource, findCommentService, maxLengthOf, readKinds } from "./comments.js";
 import { call, pickPeriod, ref, type Element } from "./grades.js";
-import { sendWrite } from "./write.js";
+import { reportMessages, sendWrite } from "./write.js";
 import { currentContext } from "../context.js";
 
 /** Member names of an object (never its values), for the access log of a write Pronote did not keep. */
@@ -67,7 +67,11 @@ type Cell = {
   appreciation: { N: string | number | null; G: number; L: string };
   classe?: { N: string; G: number };
   service?: { N: string };
+  /** 0.16.2: false when Pronote marks the cell read-only (editable / estEditable false): refused before any write. */
+  editable?: boolean;
 };
+
+const editableOf = (app: Record<string, any>): boolean => app.editable !== false && app.estEditable !== false;
 
 /**
  * Identifier of an appreciation as the client sends it back (0.16.1, real grid of 23/11/2026). The client reads "N"
@@ -117,13 +121,15 @@ export const subjectCells = (page: Record<string, any>): { cells: Cell[]; classC
     cells.push({
       student: { N: String(student.N), L: String(student.L ?? "").trim() },
       appreciation: { N: numberOf(app.N), G: Number(app.G ?? 1), L: textOf(app) },
+      ...(editableOf(app) ? {} : { editable: false }),
       ...(classe?.N !== undefined && classe.N !== "" ? { classe: { N: String(classe.N), G: Number(classe.G ?? GENRE_CLASS) } } : {}),
       ...(service?.N !== undefined && service.N !== "" ? { service: { N: String(service.N) } } : {}),
     });
   }
   const classApp = page?.appreciationClasse?.V ?? page?.appreciationClasse;
   const classCell = classApp && typeof classApp === "object"
-    ? { student: null, appreciation: { N: numberOf(classApp.N), G: Number(classApp.G ?? 1), L: textOf(classApp) } }
+    ? { student: null, appreciation: { N: numberOf(classApp.N), G: Number(classApp.G ?? 1), L: textOf(classApp) },
+      ...(editableOf(classApp) ? {} : { editable: false as const }) }
     : null;
   const closed = String(page?.strInfoCloture ?? "").trim() !== ""
     || listOf<any>(page?.listeLignes).some((line) => line?.appA?.cloture === true || line?.appA?.V?.cloture === true);
@@ -144,6 +150,7 @@ export const generalCells = (page: Record<string, any>): { cells: Cell[]; closed
       student: { N: String(student.N), L: String(student.L ?? "").trim() },
       // 0.14.1: the real element has no "L" while nothing is entered (its text is then in "appreciation", empty).
       appreciation: { N: numberOf(app.N), G: Number(app.G ?? 0), L: textOf(app) },
+      ...(editableOf(app) ? {} : { editable: false }),
     });
   }
   return { cells, closed };
@@ -239,6 +246,9 @@ export const writeComments = async (session: SessionHandle, write: CommentsWrite
       ? source.cells.find((candidate) => candidate.student && normalise(candidate.student.L) === normalise(item.student!))
       : (source as { classCell?: Cell | null }).classCell ?? undefined;
     if (!cell) throw new HttpError(404, item.student ? `student_not_found:${item.student}` : "class_comment_not_found");
+    // 0.16.2: a cell Pronote marks read-only (entry not open to this account for this period, column of another
+    // teacher) is refused here, at the plan, rather than sent and cancelled by Pronote without a trace.
+    if (cell.editable === false) throw new HttpError(409, `comment_not_editable:${cell.student?.L ?? "classe"}`);
     before.push({ student: cell.student?.L ?? null, kind: item.kind, text: cell.appreciation.L });
     after.push({ student: cell.student?.L ?? null, kind: item.kind, text: item.text });
     requests.push(commentRequest(classe, picked.period, service, cell, item.text, item.kind));
@@ -251,7 +261,11 @@ export const writeComments = async (session: SessionHandle, write: CommentsWrite
   const answers: string[] = [];
   for (const [index, target] of targets.entries()) {
     const sent = await sendWrite(session, target.key, requests[index]);
-    answers.push(`${target.item.kind}:data=${memberNames(sent.data)};report=${memberNames(sent.report)}`);
+    // 0.16.2: the messages of the report (Pronote's own text, e.g. a closed entry), or how many there are when empty.
+    const messages = sent.report ? reportMessages(sent.report) : "";
+    const count = sent.report ? listOf<unknown>(sent.report._messagesErreur_).length : 0;
+    answers.push(`${target.item.kind}:data=${memberNames(sent.data)};report=${memberNames(sent.report)}`
+      + (sent.report && "_messagesErreur_" in sent.report ? `;messages(${count})=${messages || "-"}` : ""));
   }
   // 0.16.1: a write Pronote ignores answers HTTP 200 without refusal; the shape of its answers (member names only) goes
   // to the access log and to the error, the only trace to diagnose it.

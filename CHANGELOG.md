@@ -8,6 +8,13 @@ onglets 25 et 65 avalait `WebSessionRequired` : sur la session mobile (sans ces 
 au lieu de demander la session web. Elle laisse maintenant remonter l'exception : la requête est rejouée sur la session
 web, où le service du groupe est trouvé. Test de bout en bout ajouté (session mobile puis web, groupe sans service de
 notes).
+- **Écriture refusée par Pronote** : essai réel sur T06 avec la 0.16.1 : HTTP 200, rapport de saisie `{ _messagesErreur_ }`
+  seul, rien d'enregistré. Pour le client, des messages d'erreur dans le rapport annulent la saisie
+  (`traiterReponseSaisie`) même sans `_erreurSaisie_` : une liste non vide est maintenant un refus (`pronote_refused`
+  avec le texte de Pronote), pour toutes les écritures ; une liste vide reste une saisie acceptée.
+- Appréciations : les messages du rapport (ou leur nombre) sont joints au diagnostic d'une écriture non retrouvée ; une
+  cellule marquée en lecture seule par Pronote (`editable` / `estEditable` à `false`) est refusée dès le plan
+  (`comment_not_editable:<élève>`).
 
 ## 0.16.1 — appréciations de bulletin : groupes de 6e, écriture refusée en silence
 
