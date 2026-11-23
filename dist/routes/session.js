@@ -9,11 +9,12 @@ import { createCapturingHandle, userData } from "../pronote/userdata.js";
 import { isPrimary } from "../lock.js";
 import { isValidated, pronoteVersion } from "../pronote/formats.js";
 import { stateStore } from "../state.js";
-import { createSession, dropSession, requireSession, sessionEntry, sessionOfAccount, setPresenceSender, setReconnector, webSessionEntry, webSessionOfAccount, } from "../session.js";
+import { createSession, dropSession, requireSession, sessionEntry, sessionOfAccount, setPresenceSender, setReconnector, webSessionEntry, webSessionIdOf, webSessionOfAccount, } from "../session.js";
 import { limiterOf } from "../pronote/limiter.js";
 import { PRIORITY } from "../context.js";
 import { accountKey, chainedTokenLogin, serializeLogin, TokenStore } from "../tokenStore.js";
 import { flightKey, webLoginGuard } from "../webLoginGuard.js";
+import { sessionState } from "../sessionState.js";
 import { functions } from "../teacher/functions.js";
 import { stableId } from "../teacher/ids.js";
 const patchedLoginWeb = pawnote.pronoteioLoginWeb;
@@ -355,6 +356,8 @@ export default async function sessionRoutes(app) {
             ...(web ? { webtabs: userData(web.handle).tabs ?? [] } : {}),
             // 0.15.0: guard of the web logins of the account (failures, back-off): the client must not log in before.
             weblogin: webLoginGuard.status(entry?.account),
+            // 0.16.0: state of the two sessions of the account, as a grouped read gives it (sessionState.ts).
+            state: sessionState({ main: String(request.headers["x-pronoteio-session"] ?? ""), web: webSessionIdOf(request) }, entry?.account ?? null),
         };
     });
     app.post("/session/logout", async (request) => {

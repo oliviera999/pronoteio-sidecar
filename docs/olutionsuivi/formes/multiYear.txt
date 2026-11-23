@@ -1,0 +1,84 @@
+# Clé : multiYear — fonction Pronote : PageSuiviPluriannuel — onglet 44
+# Relevé du 22/11/2026 par get_pronote_health function: "multiYear" (classe de 31 élèves, sidecar 0.15.0), statut format_unknown.
+# Forme seulement : noms de membres et types, aucune valeur. list[0] = liste vide, list[2+] = au moins deux éléments.
+# Requête de la sonde : {eleve: {N}} (premier élève de la classe). 77 lignes, forme complète.
+# Lecture : listeDonnees.V[] = une entrée par année (strAnnee, strClasses, moyenne, moyenneClasse, bareme) ;
+# listeSuivis.V[] = une ligne par matière de l'année (L, moyenne, moyenneClasse, appreciation, coefficient) ;
+# listeBulletins.V[] = fichiers des bulletins (non lus). Les nombres sont des chaînes typées (_T=10).
+avecMoyennesSaisies: boolean
+listeDonnees: object
+listeDonnees._T=24
+listeDonnees.V: list[2+]
+listeDonnees.V[]: object
+listeDonnees.V[].L: string
+listeDonnees.V[].identifiant: number
+listeDonnees.V[].strAnnee: string
+listeDonnees.V[].strFinAnnee: string
+listeDonnees.V[].bareme: object
+listeDonnees.V[].bareme._T=10
+listeDonnees.V[].bareme.V: string
+listeDonnees.V[].couleur: string
+listeDonnees.V[].strClasses: string
+listeDonnees.V[].moyenne: object
+listeDonnees.V[].moyenne._T=10
+listeDonnees.V[].moyenne.V: string
+listeDonnees.V[].moyenneClasse: object
+listeDonnees.V[].moyenneClasse._T=10
+listeDonnees.V[].moyenneClasse.V: string
+listeDonnees.V[].nbMaxPeriode: number
+listeDonnees.V[].listeBulletins: object
+listeDonnees.V[].listeBulletins._T=24
+listeDonnees.V[].listeBulletins.V: list[2+]
+listeDonnees.V[].listeBulletins.V[]: object
+listeDonnees.V[].listeBulletins.V[].ident: string
+listeDonnees.V[].listeBulletins.V[].nomFichier: string
+listeDonnees.V[].listeBulletins.V[].libelle: string
+listeDonnees.V[].listeBulletins.V[].annee: number
+listeDonnees.V[].listeBulletins.V[].libelleAnnee: string
+listeDonnees.V[].listeBulletins.V[].libelleClasse: string
+listeDonnees.V[].listeBulletins.V[].libellePeriodeNotation: string
+listeDonnees.V[].avecBulletins: boolean
+listeDonnees.V[].listeSuivis: object
+listeDonnees.V[].listeSuivis._T=24
+listeDonnees.V[].listeSuivis.V: list[2+]
+listeDonnees.V[].listeSuivis.V[]: object
+listeDonnees.V[].listeSuivis.V[].L: string
+listeDonnees.V[].listeSuivis.V[].meta: object
+listeDonnees.V[].listeSuivis.V[].meta._T=24
+listeDonnees.V[].listeSuivis.V[].meta.V: object
+listeDonnees.V[].listeSuivis.V[].meta.V.L: string
+listeDonnees.V[].listeSuivis.V[].meta.V.N: string
+listeDonnees.V[].listeSuivis.V[].strMeta: string
+listeDonnees.V[].listeSuivis.V[].moyenne: object
+listeDonnees.V[].listeSuivis.V[].moyenne._T=10
+listeDonnees.V[].listeSuivis.V[].moyenne.V: string
+listeDonnees.V[].listeSuivis.V[].moyenneClasse: object
+listeDonnees.V[].listeSuivis.V[].moyenneClasse._T=10
+listeDonnees.V[].listeSuivis.V[].moyenneClasse.V: string
+listeDonnees.V[].listeSuivis.V[].appreciation: string
+listeDonnees.V[].listeSuivis.V[].coefficient: object
+listeDonnees.V[].listeSuivis.V[].coefficient._T=10
+listeDonnees.V[].listeSuivis.V[].coefficient.V: string
+listeDonnees.V[].listeSuivis.V[].facultatif: boolean
+listeDonnees.V[].listeSuivis.V[].Bonus: boolean
+listeDonnees.V[].listeSuivis.V[].strAnnotation: string
+listeDonnees.V[].listeSuivis.V[].hintAnnotation: string
+listeDonnees.V[].listeSuivis.V[].positionnement: number
+listeMetas: object
+listeMetas._T=24
+listeMetas.V: list[2+]
+listeMetas.V[]: object
+listeMetas.V[].L: string
+listeMetas.V[].N: string
+listeAnnees: object
+listeAnnees._T=24
+listeAnnees.V: list[2+]
+listeAnnees.V[]: object
+listeAnnees.V[].L: string
+grapheAvecMoyenne: object
+grapheAvecMoyenne._T=25
+grapheAvecMoyenne.V: number
+grapheSansMoyenne: object
+grapheSansMoyenne._T=25
+grapheSansMoyenne.V: number
+afficherMoyenneGenerale: boolean

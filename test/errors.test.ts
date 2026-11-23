@@ -32,6 +32,10 @@ const cases: [number, string, string, Record<string, unknown>?][] = [
   [401, "web_token_refused", "login_failed"],
   [429, "web_login_backoff", "web_login_backoff", { retry_after: 60, backoff_until: 1795249520 }],
   [409, "web_session_required", "web_session_required", { onglet: 56, function: "ListeEvaluations", retry_after: 60, backoff_until: 1795249520 }],
+  // 0.16.0: grouped read of a class (collect.ts).
+  [409, "collect_running", "collect_running", { collectid: "0b0e0c7e-0000-4000-8000-000000000001" }],
+  [409, "collect_block_not_ready", "collect_running", { collectid: "0b0e0c7e-0000-4000-8000-000000000001" }],
+  [404, "collect_not_found", "not_found"],
   [500, "boom", "internal"],
   [501, "not_implemented:x", "internal"],
 ];

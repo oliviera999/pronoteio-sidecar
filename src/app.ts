@@ -1,8 +1,9 @@
 import "./time.js";
 import Fastify, { type FastifyInstance } from "fastify";
-import { INTERNAL_HEADER, INTERNAL_TOKEN, PUBLIC_ROUTES, registerAuth, securityStats } from "./auth.js";
+import { HEALTH_DATA_ROUTES, INTERNAL_HEADER, INTERNAL_TOKEN, PUBLIC_ROUTES, registerAuth, securityStats } from "./auth.js";
 import { addressAllowed } from "./address.js";
 import { registerJobs } from "./jobs.js";
+import { collectTiming, registerCollect } from "./collect.js";
 import { config } from "./config.js";
 import { currentContext, PRIORITY, priorityOf, requestContext } from "./context.js";
 import { forgetSession, lostSessionReason, reconnect, sessionEntry, sessionLostError, webSessionEntry, webSessionIdOf } from "./session.js";
@@ -144,6 +145,9 @@ const withWebLoginHint = (account: string | null | undefined, error: unknown): u
   return error;
 };
 
+/** 0.16.0: routes whose answers are health data: no size of answer nor shape in their line of the access log (auth.ts). */
+export const SILENT_ROUTES = HEALTH_DATA_ROUTES;
+
 /** Routes of an application with their request schemas (contracts/requests.json, P10). */
 export type RouteContract = { method: string; url: string; querystring?: unknown; body?: unknown; params?: unknown };
 const routeTables = new WeakMap<FastifyInstance, RouteContract[]>();
@@ -188,6 +192,7 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
     const origin = originOf(headers);
     // Without a valid X-Pronoteio-Account: tag derived from the account of the login, or of the session of the request.
     const sessionAccount = sessionEntry(request)?.account;
+    const silent = SILENT_ROUTES.has(request.routeOptions.url ?? "");
     const account = accountOf(headers) ?? loginAccountTag(request) ?? (sessionAccount ? accountTag(sessionAccount) : undefined);
     accessLog.write({
       method: request.method,
@@ -200,11 +205,11 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
       ...(request.errorKind ? { kind: request.errorKind } : {}),
       ...(request.errorStep ? { step: request.errorStep } : {}),
       ms: Math.round(reply.elapsedTime),
-      bytes: request.answerBytes ?? 0,
+      bytes: silent ? 0 : (request.answerBytes ?? 0),
       ...(reply.getHeader("x-cache") ? { cache: String(reply.getHeader("x-cache")) } : {}),
       ...(context ? { calls: context.calls, priority: context.priority } : {}),
       ...(reply.getHeader("x-pronoteio-duplicate") ? { duplicate: true } : {}),
-      ...(context?.shape ? { shape: context.shape } : {}),
+      ...(context?.shape && !silent ? { shape: context.shape } : {}),
     });
   });
 
@@ -226,9 +231,11 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
     const query = (request.query ?? {}) as Record<string, unknown>;
     // Reads of an asynchronous job (P4): bulk priority, longer wait (nobody waits for the HTTP answer).
     const job = request.headers[INTERNAL_HEADER] === INTERNAL_TOKEN;
+    // 0.16.0: reads of a grouped read (collect.ts): bulk priority too, with their own wait.
+    const collect = job && request.headers["x-pronoteio-collect"] === "1";
     requestContext.run({
       priority: job ? PRIORITY.bulk : priorityOf(request.method, route, query),
-      deadline: Date.now() + (job ? Math.max(queueWait, 120_000) : queueWait),
+      deadline: Date.now() + (collect ? collectTiming.waitMs : job ? Math.max(queueWait, 120_000) : queueWait),
       calls: 0,
       route,
       // 0.10.0: client able to open a web session (space.ts).
@@ -365,7 +372,7 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
   });
 
   // Pronote version (P6): in the headers of every answer of a session; writes refused on an unvalidated version.
-  const NOT_WRITES = new Set(["/session/login", "/session/logout", "/jobs", "/admin/update"]);
+  const NOT_WRITES = new Set(["/session/login", "/session/logout", "/jobs", "/admin/update", "/collect"]);
   app.addHook("preHandler", async (request) => {
     if (request.method !== "POST" || NOT_WRITES.has(request.routeOptions.url ?? "")) return;
     const body = (request.body ?? {}) as Record<string, unknown>;
@@ -383,6 +390,9 @@ export const buildApp = async (options: AppOptions = {}): Promise<FastifyInstanc
 
   // Asynchronous jobs of the heavy reads (P4).
   registerJobs(app);
+
+  // Grouped read of a class (0.16.0).
+  registerCollect(app);
 
   // Update on demand (P9).
   registerAdmin(app);

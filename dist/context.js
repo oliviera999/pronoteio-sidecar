@@ -15,7 +15,9 @@ const BULK_ROUTES = new Set(["/students/files", "/grades/overview", "/notebook",
     // 0.12.0: main teacher view, one or two Pronote calls per student.
     "/reports", "/classlife", "/students/photos", "/pp/check",
     // 0.14.0: general comments read from the report cards (one call per student of the page).
-    "/reports/comments"]);
+    "/reports/comments",
+    // 0.16.0: class follow-up, one or two Pronote calls per student; the summary of the absences of a class.
+    "/students/plans", "/students/history", "/classlife/absences"]);
 /** Priority of a request from its method and route. */
 export const priorityOf = (method, route, query = {}) => {
     if (method !== "GET" && method !== "HEAD")
@@ -24,7 +26,7 @@ export const priorityOf = (method, route, query = {}) => {
         // One student (student=…) is a unit read; a page of a class or a list of ids is a bulk read.
         return typeof query.student === "string" && query.student !== "" && query.ids === undefined ? PRIORITY.read : PRIORITY.bulk;
     }
-    if (route === "/reports" || route === "/classlife" || route === "/students/photos") {
+    if (route === "/reports" || route === "/classlife" || route === "/students/photos" || route === "/students/plans" || route === "/students/history") {
         // One student is a unit read, a page or a whole class a bulk read.
         if (typeof query.student === "string" && query.student !== "")
             return PRIORITY.read;

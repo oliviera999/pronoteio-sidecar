@@ -1,0 +1,6 @@
+# Clé : supportPlanDetails — fonction Pronote : DetailsPIEleve — onglet 105
+# Relevé du 22/11/2026 par get_pronote_health function: "supportPlanDetails" (classe de 31 élèves, sidecar 0.15.0), statut format_unknown.
+# Forme seulement : noms de membres et types, aucune valeur. list[0] = liste vide, list[2+] = au moins deux éléments.
+# Requête de la sonde : {eleve} (premier élève de la classe).
+# CONSTAT : forme VIDE (0 ligne). Soit la réponse est vide pour cet élève (aucun plan), soit ses membres sont retirés
+# par le filtre des membres sensibles de la sonde (shape.ts, SENSITIVE). Rien à en tirer pour un décodeur.

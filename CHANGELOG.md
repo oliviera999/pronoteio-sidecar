@@ -1,5 +1,56 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.16.0 — suivi des classes : absences de classe, plans d'accompagnement, années précédentes, lecture groupée
+
+Lot L01 du chantier olutionsuivi (contrat : `docs/olutionsuivi/CONTRAT_SIDECAR.md`). Tout est en lecture seule.
+**Aucune des quatre fonctions de Pronote lues ici n'a été vue répondre avec ses valeurs** (`validated: false`). Leurs
+formes ont été relevées le 22/11/2026 (`docs/olutionsuivi/formes/`, noms et types seulement) : le suivi pluriannuel est
+décodé sur sa forme réelle ; le reste (ligne d'absences par élève, ligne de livret, plan d'accompagnement) est décodé
+par supposition, à noms candidats. Une forme non reconnue répond `available: false`, `reason: "format_unknown"` et
+`shape` (jamais une valeur).
+
+- **`GET /classlife/absences`** (`RecapAbsencesEleves`, 138) : absences et retards de toute une classe, toutes matières,
+  en un appel ; année scolaire par défaut. Événements datés quand la fonction en donne, sinon `reason: "totals_only"`
+  avec `totals` et `bySubject`. Les motifs ne sont jamais lus (`reasons: []`). **Constat du relevé : avec la requête
+  connue, Pronote ne rend aucune ligne par élève**, seulement le cumul de la classe, rendu dans `classTotals`
+  (`totals_only`, `items: []`). Les absences datées de toutes les matières ne sont donc pas acquises.
+- **`GET /students/plans`** (`DetailsPIEleve`, 105) : plans d'accompagnement d'une page d'élèves. Donnée de santé :
+  jamais dans le cache des lectures ; ligne du journal sans taille de réponse ni forme ; `shape` sans les noms
+  sensibles.
+- **`GET /students/history`** (`LivretScolaire`, 83 et `PageSuiviPluriannuel`, 44) : résultats des années précédentes,
+  fusionnés par année scolaire ; l'état de chaque source est rendu par élève et pour la page. Le suivi pluriannuel
+  est lu sur sa forme relevée ; un livret pas encore rempli est disponible, sans année.
+- **Lecture groupée** : `POST /collect`, `GET /collect/:id`, `GET /collect/:id/results`, `DELETE /collect/:id`. Neuf
+  blocs (`files`, `reportcards`, `results`, `comments`, `classlife`, `absences`, `plans`, `history`, `grades`), chacun
+  rendu dans la forme de la réponse de sa route. Une seule par compte (`409 collect_running`). Priorité « lot » de la
+  file vers Pronote ; après `rate_limited`, attente de `retry_after` puis reprise au premier élève non lu ; un bloc
+  refusé ou en erreur n'arrête pas les autres ; session fermée en cours de série : `waiting`, reprise quand elle
+  revient, `partial` à l'expiration (`PRONOTEIO_COLLECT_WAIT`, 900 s). Résultats en mémoire, 30 minutes.
+  Précisions 7.4 bis du contrat : les résultats d'un bloc portent toujours `total` (nombre d'`items`), `offset` et
+  `limit`, et sont lisibles pour un bloc `unavailable` ou `failed` (`items: []`) ; `DELETE` annule ou purge, de façon
+  idempotente ; la session web rouverte par le client est adoptée depuis l'en-tête `X-Pronoteio-Web-Session` du
+  sondage suivant.
+  Précisions 7.4 ter (relecture du 22/11) : `students` (effectif) dans `GET /collect/:id` ; `waiting` et
+  `session.web: "reopen_required"` dès qu'un bloc attend une session web, même jamais ouverte ; une erreur de Pronote
+  sur un élève ne termine plus le bloc (élève mis de côté, redemandé une fois, `partial` s'il reste) ; `plans` : une
+  réponse vide vaut « aucun plan », `reason: "all_empty"` si aucun plan n'est lisible ; `options.classlife.sources`
+  sans `summary` ; état final `done` / `failed` / `partial` ; résultats effacés par minuteur, à la déconnexion et à la
+  fin de la session ; un ancien identifiant de session n'ouvre plus rien ; `/students/plans` et
+  `/collect/:id/results` hors du cache des doubles livraisons.
+- **État des sessions** : `state` (`mobile`, `web`, `reason`, `retry_after`) dans `GET /session/info`, `session` dans
+  `GET /collect/:id` ; `web` vaut `open`, `closed`, `reopen_required`, `backoff` ou `pin_required`.
+- Refus de Pronote : `access_denied` avec l'onglet, un seul appel, retenu dix minutes pour les pages suivantes de la
+  session ; aucune autre fonction n'est demandée à la place.
+- `GET /pp/check` : les sondes de `RecapAbsencesEleves`, `DetailsPIEleve`, `LivretScolaire` et `PageSuiviPluriannuel`
+  disent si le décodeur comprend la réponse (`ok`, ou `format_unknown` avec la forme).
+- Coût dans la file : 2 jetons pour `DetailsPIEleve`, `LivretScolaire`, `PageSuiviPluriannuel`, `RecapAbsencesEleves`.
+- Code d'erreur stable ajouté : `collect_running` (409, `collectid`). Variables : `PRONOTEIO_COLLECT_PAUSE_MS` (250),
+  `PRONOTEIO_COLLECT_WAIT` (900).
+- Contrats : schémas et fixtures de `classlife-absences`, `students-plans`, `students-history`, `collect-create`,
+  `collect-get`, `collect-results`, `error-collect-running` ; `requests.json` à jour.
+
+Pour `local_pronoteio` : rien ne change pour un client existant (routes et champs ajoutés seulement).
+
 ## 0.15.0 — connexions à l'Espace Professeurs web : garde par compte, origine de chaque requête
 
 Incident du 21/11/2026 (08:24:20 à 08:27:03 UTC, `logs/pronoteio-sidecar.log`) : toutes les 3 à 4 secondes, la même

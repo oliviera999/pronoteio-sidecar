@@ -1,0 +1,53 @@
+# Clé : schoolRecord — fonction Pronote : LivretScolaire — onglet 83
+# Relevé du 22/11/2026 par get_pronote_health function: "schoolRecord" (classe de 31 élèves, sidecar 0.15.0), statut format_unknown.
+# Forme seulement : noms de membres et types, aucune valeur. list[0] = liste vide, list[2+] = au moins deux éléments.
+# Requête de la sonde : {Classe, AvecDonneesClasse: true, Eleve} (premier élève de la classe). 47 lignes.
+# CONSTAT : classe.listeLivret et eleve.listeLivret sont VIDES à cette date (livret non rempli en novembre) : la forme
+# d'une ligne de livret (matière, moyennes, appréciation) reste inconnue. Seul le cadre est connu.
+listeEngagements: object
+listeEngagements._T=24
+listeEngagements.V: list[2+]
+listeEngagements.V[]: object
+listeEngagements.V[].L: string
+listeEngagements.V[].N: string
+listeEngagements.V[].code: string
+strInfoDatePublication: string
+avecFiliere: boolean
+estFilierePro: boolean
+tailleMaxSaisie: number
+classe: object
+classe.L: string
+classe.N: string
+classe.nombrePeriodes: number
+classe.listeLivret: list[0]
+estFiliereNew: boolean
+eleve: object
+eleve.L: string
+eleve.N: string
+eleve.P: number
+eleve.estRedoublant: boolean
+eleve.listeLivret: list[0]
+eleve.libelleEnseignement: string
+piedDePage: object
+piedDePage.editable: boolean
+piedDePage.editablePourAvisCE: boolean
+piedDePage.avecAvisCE: boolean
+piedDePage.estIssueDUnBOLycee: boolean
+piedDePage.avisCE: object
+piedDePage.avisCE.listeAvis: object
+piedDePage.avisCE.listeAvis._T=24
+piedDePage.avisCE.listeAvis.V: list[2+]
+piedDePage.avisCE.listeAvis.V[]: object
+piedDePage.avisCE.listeAvis.V[].L: string
+piedDePage.avisCE.listeAvis.V[].N: string
+piedDePage.avisCE.listeAvis.V[].nbEleves: number
+piedDePage.avisCE.libelleRepatition: string
+piedDePage.avisCE.nbElevesTotal: number
+piedDePage.avecEngagements: boolean
+piedDePage.engagements: object
+piedDePage.engagements.listeEngagements: object
+piedDePage.engagements.listeEngagements._T=24
+piedDePage.engagements.listeEngagements.V: list[0]
+piedDePage.avecInvestissement: boolean
+piedDePage.investissement: object
+piedDePage.avecParcoursDifferencie: boolean

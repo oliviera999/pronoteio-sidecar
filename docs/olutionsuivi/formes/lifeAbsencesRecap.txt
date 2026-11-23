@@ -1,0 +1,23 @@
+# Clé : lifeAbsencesRecap — fonction Pronote : RecapAbsencesEleves — onglet 138
+# Relevé du 22/11/2026 par get_pronote_health function: "lifeAbsencesRecap" (classe de 31 élèves, sidecar 0.15.0), statut format_unknown.
+# Forme seulement : noms de membres et types, aucune valeur. list[0] = liste vide, list[2+] = au moins deux éléments.
+# Requête de la sonde : {classes: [classe], regimes: [], bourses: [], criteres: {}, domaine: [1..semaine]}.
+# CONSTAT : ListeLignes est VIDE avec cette requête ; seule LigneCumul (cumul de la classe) est remplie. La forme d'une
+# ligne par élève reste donc inconnue : la requête doit sans doute porter des critères (non relevés).
+ListeLignes: object
+ListeLignes._T=24
+ListeLignes.V: list[0]
+LigneCumul: object
+LigneCumul.nbClasses: number
+LigneCumul.nbEleves: number
+LigneCumul.nbAbsences: number
+LigneCumul.dureeTotale: string
+LigneCumul.motifRecevableOui: string
+LigneCumul.motifRecevableNon: string
+LigneCumul.nbAbsRepas: number
+LigneCumul.nbAbsInternat: number
+LigneCumul.nbRetardInternat: number
+LigneCumul.nbRetards: number
+LigneCumul.nbInfirmerie: number
+LigneCumul.tauxAbsenteismeTotal: number
+LigneCumul.minutesRetardTotal: number
