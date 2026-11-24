@@ -52,6 +52,10 @@ const CONTRACT_OF: Record<string, string> = {
   "error-collect-running": "error",
   timetable: "timetable",
   homework: "homework",
+  "reports-periods": "reports-periods",
+  "reports-grid": "reports-grid",
+  "reports-positioning": "reports-positioning",
+  "error-lsu-out-of-range": "error",
 };
 
 test("every answer of the sidecar matches its contract (live answers and contracts/fixtures)", async () => {

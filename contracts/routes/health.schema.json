@@ -551,6 +551,13 @@
             "replayed",
             "addressRefused"
           ]
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "0.17.0 : routes ajoutées pour le chantier olutionsuivi 0.3.0 (reports/periods, reports/grid, reports/positioning), pour que local_pronoteio sache ce que le sidecar sert."
         }
       },
       "required": [
@@ -572,7 +579,8 @@
         "proxy",
         "pronote",
         "errors",
-        "security"
+        "security",
+        "routes"
       ],
       "additionalProperties": false
     }

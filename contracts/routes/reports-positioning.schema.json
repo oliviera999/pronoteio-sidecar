@@ -1,0 +1,216 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "reports-positioning.schema.json",
+  "title": "POST /reports/positioning",
+  "method": "POST",
+  "url": "/reports/positioning",
+  "fixture": "fixtures/reports-positioning.json",
+  "description": "0.17.0 (contrat N 6.1, point 4) : SaisiePositionnement et SaisieNoteLSU (onglet 25), requêtes exactement celles de la capture du 24/11/2026. Simulation (dryRun) : rien n'est envoyé. Sinon une requête par cellule, dans l'ordre, arrêt à la première dont le RapportSaisie ne porte pas la valeur (502 positioning_not_saved:<élève>, avec done ; client de contrat 2 : verified false, done), puis relecture de la grille. Erreurs : 409 exclusive_mode, 409 period_closed, 409 pronote_refused:<messages>, 400 lsu_out_of_range, 403 write_mode_simulate, 404 service_not_found, 404 student_not_found:<nom>.",
+  "properties": {
+    "response": {
+      "type": "object",
+      "properties": {
+        "class": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "period": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "service": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "before": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "student": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "positioning",
+                  "lsu"
+                ]
+              },
+              "value": {
+                "type": [
+                  "integer",
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "student",
+              "kind",
+              "value"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "after": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "student": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "positioning",
+                  "lsu"
+                ]
+              },
+              "value": {
+                "type": [
+                  "integer",
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "student",
+              "kind",
+              "value"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "skipped": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "student": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "positioning",
+                  "lsu"
+                ]
+              },
+              "reason": {
+                "enum": [
+                  "unchanged",
+                  "not_editable",
+                  "student_not_found",
+                  "period_closed"
+                ]
+              }
+            },
+            "required": [
+              "student",
+              "kind",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "requests": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "Corps des requêtes SaisiePositionnement / SaisieNoteLSU, tels qu'envoyés (ou à envoyer en simulation)."
+        },
+        "written": {
+          "type": "boolean"
+        },
+        "dryRun": {
+          "type": "boolean"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stoppedAt": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "student": {
+                  "type": "string"
+                },
+                "kind": {
+                  "enum": [
+                    "positioning",
+                    "lsu"
+                  ]
+                }
+              },
+              "required": [
+                "student",
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "validated": {
+          "const": false
+        }
+      },
+      "required": [
+        "class",
+        "period",
+        "service",
+        "before",
+        "after",
+        "skipped",
+        "requests",
+        "written",
+        "dryRun",
+        "done",
+        "stoppedAt",
+        "validated"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,6 +1,6 @@
 {
   "error": "collect_running",
-  "collectid": "610709e4-c3ee-4536-a098-acc444def198",
+  "collectid": "21270591-e292-4ff8-a47f-d5bd80626951",
   "code": "collect_running",
   "message": "Une lecture groupée de ce compte est déjà en cours, ou le bloc demandé n'est pas encore lu."
 }

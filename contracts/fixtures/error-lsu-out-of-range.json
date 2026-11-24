@@ -1,0 +1,5 @@
+{
+  "error": "lsu_out_of_range",
+  "code": "validation_failed",
+  "message": "Requête invalide : un champ manque ou est mal formé."
+}

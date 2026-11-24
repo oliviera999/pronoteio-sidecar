@@ -92,10 +92,13 @@ const FORBIDDEN = new Set([
   "absence_settled", "absence_already_entered", "reply_not_possible", "survey_closed", "news_locked", "meeting_entry_closed",
   "tab_closed", "lesson_not_editable", "lesson_rooms_not_editable", "pronote_refused", "invalid_signature", "invalid_timestamp",
   "forbidden", "address_not_allowed", "exclusive_mode",
+  // 0.17.0: positioning and LSU mark (POST /reports/positioning).
+  "period_closed", "positioning_not_editable",
 ]);
 const VALIDATION = new Set([
   "invalid_request", "invalid_json", "validation_failed", "range_too_large", "comment_too_long", "audience_required",
   "delete_without_id", "homework_without_students", "confirmation_required", "invalid_lesson_id", "invalid_include",
+  "lsu_out_of_range", "positioning_level_unknown",
 ]);
 
 /** Stable code of an error answer (status and historical "error" string). */

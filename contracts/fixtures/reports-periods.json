@@ -1,0 +1,88 @@
+{
+  "resource": {
+    "id": "c:T06",
+    "name": "T06",
+    "genre": 1
+  },
+  "current": "p:Trimestre 1",
+  "periods": [
+    {
+      "id": "p:Trimestre 1",
+      "name": "Trimestre 1",
+      "genre": 2,
+      "notation": 1,
+      "kind": "trimester",
+      "code": "T1",
+      "rank": 1,
+      "start": null,
+      "end": null,
+      "current": true,
+      "closed": false
+    },
+    {
+      "id": "p:Trimestre 2",
+      "name": "Trimestre 2",
+      "genre": 2,
+      "notation": 1,
+      "kind": "trimester",
+      "code": "T2",
+      "rank": 2,
+      "start": null,
+      "end": null,
+      "current": false,
+      "closed": false
+    },
+    {
+      "id": "p:Trimestre 3",
+      "name": "Trimestre 3",
+      "genre": 2,
+      "notation": 1,
+      "kind": "trimester",
+      "code": "T3",
+      "rank": 3,
+      "start": null,
+      "end": null,
+      "current": false,
+      "closed": false
+    },
+    {
+      "id": "p:BAC BLANC",
+      "name": "BAC BLANC",
+      "genre": 4,
+      "notation": 0,
+      "kind": "exam",
+      "code": "BB1",
+      "rank": 1,
+      "start": null,
+      "end": null,
+      "current": false,
+      "closed": false
+    },
+    {
+      "id": "p:BAC BLANC 2",
+      "name": "BAC BLANC 2",
+      "genre": 4,
+      "notation": 0,
+      "kind": "exam",
+      "code": "BB2",
+      "rank": 2,
+      "start": null,
+      "end": null,
+      "current": false,
+      "closed": false
+    },
+    {
+      "id": "p:CCF",
+      "name": "CCF",
+      "genre": 4,
+      "notation": 0,
+      "kind": "exam",
+      "code": "CCF",
+      "rank": 3,
+      "start": null,
+      "end": null,
+      "current": false,
+      "closed": false
+    }
+  ]
+}
