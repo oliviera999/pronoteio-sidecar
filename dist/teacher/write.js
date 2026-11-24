@@ -1,6 +1,7 @@
 import { HttpError } from "../errors.js";
 import { answerData, callPronote, entryReport, propertyKeys } from "../pronote/request.js";
 import { listOf } from "../pronote/encoding.js";
+import { countRefusedWrite, exclusiveOf } from "../pronote/exclusive.js";
 import { requireFunction } from "./functions.js";
 /** Messages of a RapportSaisie, joined as the client shows them. */
 export const reportMessages = (report) => [
@@ -38,7 +39,14 @@ export const sendWrite = async (session, key, data, force = false) => {
         signature: fn.onglet !== null ? { onglet: fn.onglet } : undefined,
         keepRefusal: true,
     });
-    const report = assertAccepted(entryReport(answer, propertyKeys(session).data), force);
+    const keys = propertyKeys(session);
+    // 0.16.4: an answer that says the server is in exclusive mode is a cancelled write for the web client, even with
+    // HTTP 200 and no RapportSaisie message (see pronote/exclusive.ts).
+    if (exclusiveOf(answer?.[keys.signature]) === true) {
+        countRefusedWrite();
+        throw new HttpError(409, "exclusive_mode");
+    }
+    const report = assertAccepted(entryReport(answer, keys.data), force);
     return { data: answerData(session, answer), report };
 };
 //# sourceMappingURL=write.js.map

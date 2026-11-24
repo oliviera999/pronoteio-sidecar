@@ -10,6 +10,7 @@ import forge from "node-forge";
 import { deflateRaw, inflateRaw } from "pako";
 import { ServerSideError, SessionExpiredError } from "pawnote";
 import { listOf } from "./encoding.js";
+import { noteExclusive } from "./exclusive.js";
 import { checkFormat } from "./formats.js";
 import { throttle } from "./limiter.js";
 import { assertReachable } from "../space.js";
@@ -133,6 +134,8 @@ export const callPronote = async (session, call) => {
         if (decoded?.[keys.signature]?.Erreur !== undefined) {
             throw new ServerSideError(String(decoded[keys.signature].MessageErreur ?? "Server Error"));
         }
+        // 0.16.4: exclusive mode of the server (writes cancelled without a message), see exclusive.ts.
+        noteExclusive(decoded?.[keys.signature], call.name);
         const refusal = call.keepRefusal ? null : entryRefusal(entryReport(decoded, keys.data));
         if (refusal !== null)
             throw new ServerSideError(refusal);

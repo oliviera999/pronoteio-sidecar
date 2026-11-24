@@ -91,7 +91,7 @@ const FORBIDDEN = new Set([
   "attendance_locked", "attendance_not_allowed", "absence_not_allowed", "late_not_allowed", "absence_not_deletable",
   "absence_settled", "absence_already_entered", "reply_not_possible", "survey_closed", "news_locked", "meeting_entry_closed",
   "tab_closed", "lesson_not_editable", "lesson_rooms_not_editable", "pronote_refused", "invalid_signature", "invalid_timestamp",
-  "forbidden", "address_not_allowed",
+  "forbidden", "address_not_allowed", "exclusive_mode",
 ]);
 const VALIDATION = new Set([
   "invalid_request", "invalid_json", "validation_failed", "range_too_large", "comment_too_long", "audience_required",
