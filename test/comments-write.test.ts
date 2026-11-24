@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { commentRequest, generalCells, requestShape, subjectCells } from "../src/teacher/commentsWrite.js";
+import { appreciationMember, commentRequest, generalCells, requestShape, subjectCells } from "../src/teacher/commentsWrite.js";
 
 /* Synthetic fixtures from the client code (docs/pronote-matrice/4-9-bulletins-divers.md): tabs 25 and 27 are closed
    on the demo server, nothing here is validated against a real answer. */
@@ -49,7 +49,8 @@ test("SaisieAppreciation requests: subject comment of a student, class comment, 
     typeGenreAppreciation: 0,
   });
   const classRequest = commentRequest({ N: "23#k1", G: 1 }, period, service, read.classCell!, "Classe dynamique", "subject");
-  assert.equal(classRequest.eleve, undefined);
+  // 0.16.6: the class comment sends "eleve": null, as the client (capture, scenario D).
+  assert.equal(classRequest.eleve, null);
   // 0.16.1: the class comment of a service is a teacher's comment (GA_Bulletin_Professeur), as the client sends it.
   assert.equal(classRequest.typeGenreAppreciation, 0);
   const general = commentRequest({ N: "23#k1", G: 1 }, period, service, { student: { N: "46#x1", L: "ELEVE Un" }, appreciation: { N: "17#g1", G: 2, L: "" } }, "Bilan positif", "general");
@@ -112,14 +113,20 @@ test("real grid: no N sent for an empty cell, class comment read from 'appreciat
   assert.deepEqual(read.cells[0].appreciation, { N: null, G: 1, L: "" });
   assert.equal(read.classCell!.appreciation.L, "Groupe sérieux");
   const request = commentRequest({ N: "23#k1", G: 1 }, { N: "105#p1", G: 1, L: "Trimestre 1" }, { N: "5#list" }, read.cells[0], "Bon trimestre", "subject");
-  assert.deepEqual(request.appreciation, { G: 1, L: "Bon trimestre", E: 2 });
+  // 0.16.6: an empty cell is created: negative provisional N and E 1 (capture of 24/11/2026, scenario B1).
+  const created = request.appreciation as { N: unknown; G: number; L: string; E: number };
+  assert.equal(created.E, 1);
+  assert.ok(typeof created.N === "number" && created.N <= -1001);
+  assert.equal(created.L, "Bon trimestre");
+  assert.equal(created.G, 1);
   assert.deepEqual(request.service, { N: "5#es", L: "ENSEIGNEMENT SCIENTIFIQUE" });
   assert.deepEqual(request.periode, { N: "105#p1", G: 1, L: "Trimestre 1" });
   assert.deepEqual(request.eleve, { N: "46#x1", G: 4, L: "ELEVE Un" });
   const general = generalCells({ listeLignes: { _T: 24, V: [{ eleve: { _T: 24, V: { N: "46#x1", G: 4, L: "ELEVE Un" } },
     appreciationGle: { _T: 24, V: { N: "0", G: 2, titre: "Appréciation globale", appreciation: "", editable: true, cloture: false } } }] } });
   const generalRequest = commentRequest({ N: "23#k1", G: 1 }, period, null, general.cells[0], "Bilan positif", "general");
-  assert.deepEqual(generalRequest.appreciation, { N: 0, G: 2, L: "Bilan positif", E: 2 });
+  // 0.16.6: an empty general comment is created with N 0 (number) and E 1 (capture, scenario C2a).
+  assert.deepEqual(generalRequest.appreciation, { N: 0, G: 2, L: "Bilan positif", E: 1 });
 });
 
 test("0.16.2: read-only cells are marked (estEditable / editable false)", () => {
@@ -142,4 +149,20 @@ test("0.16.5: the shape of a request names members and genres, never a value", (
   });
   assert.equal(shape, "appreciation{E=2,G=1,L}|classe{G=1,L,N}|eleve{G=4,L,N}|periode{G=2,L,N}|service{L,N}|typeGenreAppreciation=0");
   assert.doesNotMatch(shape, /ELEVE|Texte|T11|23#/);
+});
+
+test("0.16.6: creation, modification and clearing of an appreciation, as captured from the web client", () => {
+  // Creation of an empty subject comment: negative N, decreasing, E 1.
+  const first = appreciationMember(null, 1, "Essai");
+  const second = appreciationMember(null, 9, "Classe");
+  assert.equal(first.E, 1);
+  assert.equal(second.E, 1);
+  assert.ok((second.N as number) < (first.N as number));
+  assert.equal(second.G, 9);
+  // Empty general comment ("0" in the grid, 0 once read): created with the number 0.
+  assert.deepEqual(appreciationMember(0, 3, "Bilan"), { N: 0, G: 3, L: "Bilan", E: 1 });
+  // Existing comment: modified with its N, E 2.
+  assert.deepEqual(appreciationMember("10#abc", 1, "Essai 2"), { N: "10#abc", G: 1, L: "Essai 2", E: 2 });
+  // Clearing: E 2 and no L at all (not an empty L).
+  assert.deepEqual(appreciationMember("10#abc", 1, ""), { N: "10#abc", G: 1, E: 2 });
 });

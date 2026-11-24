@@ -23,6 +23,7 @@ const memberNames = (value) => value && typeof value === "object" ? Object.keys(
 const GENRE_CLASS = 1;
 const GENRE_PERIOD = 2;
 const GENRE_STUDENT = 4;
+const STATE_CREATED = 1;
 const STATE_MODIFIED = 2;
 /**
  * TypeGenreAppreciation: 0 teacher's bulletin comment (GA_Bulletin_Professeur), 1 general bulletin comment
@@ -156,9 +157,35 @@ export const commentRequest = (classe, period, service, cell, textValue, kind) =
     ...(kind === "subject" && (cell.service || service)
         ? { service: cell.service ? { N: cell.service.N, ...(cell.service.L ? { L: cell.service.L } : {}) } : { N: service.N, ...labelOf(service) } }
         : {}),
-    appreciation: { ...(cell.appreciation.N !== null ? { N: cell.appreciation.N } : {}), G: cell.appreciation.G, L: textValue, E: STATE_MODIFIED },
+    // 0.16.6: the class comment sends "eleve": null, as the client does (capture of 24/11/2026, scenario D).
+    ...(!cell.student && kind === "subject" ? { eleve: null } : {}),
+    appreciation: appreciationMember(cell.appreciation.N, cell.appreciation.G, textValue),
     typeGenreAppreciation: kind === "general" ? KIND_GENERAL : KIND_SUBJECT,
 });
+/**
+ * 0.16.6: the appreciation element as the web client sends it, from a capture on the real server (24/11/2026,
+ * docs/pronoteio/prompt_capture_navigateur.md in mood_prod):
+ * - an empty subject or class comment (no N in the grid) is CREATED: a negative provisional N (the client's
+ *   ObjetElement.getNumeroCreation, -1001, -1002…) and E 1. Until 0.16.5 the sidecar sent a modification (E 2)
+ *   without N, and Pronote answered "erreur modification libellé appréciation" on every class;
+ * - an empty general comment (N "0" in the grid) is created with the number 0 and E 1;
+ * - an existing comment (N "10#…") is modified with E 2; to clear it, L is left out (not sent empty).
+ * The server answers the real N in RapportSaisie.appreciation.
+ */
+export const appreciationMember = (N, G, textValue) => {
+    const creating = N === null || N === 0;
+    if (creating)
+        return { N: N === 0 ? 0 : creationNumber(), G, L: textValue, E: STATE_CREATED };
+    return { N, G, ...(textValue !== "" ? { L: textValue } : {}), E: STATE_MODIFIED };
+};
+let lastCreationNumber = -1000;
+/** Provisional N of an element being created, as the client numbers them (-1001, -1002…). */
+export const creationNumber = () => {
+    lastCreationNumber -= 1;
+    if (lastCreationNumber < -1_000_000)
+        lastCreationNumber = -1001;
+    return lastCreationNumber;
+};
 /* non validé sur la démo : onglets 25 et 27 fermés au profil de démonstration */
 export const writeComments = async (session, write) => {
     const { resource, genre } = commentResource(session, write.class);
@@ -222,6 +249,9 @@ export const writeComments = async (session, write) => {
         // teacher) is refused here, at the plan, rather than sent and cancelled by Pronote without a trace.
         if (cell.editable === false)
             throw new HttpError(409, `comment_not_editable:${cell.student?.L ?? "classe"}`);
+        // 0.16.6: nothing to send when the text does not change (an empty cell left empty would be a creation of nothing).
+        if (cell.appreciation.L === item.text)
+            continue;
         before.push({ student: cell.student?.L ?? null, kind: item.kind, text: cell.appreciation.L });
         after.push({ student: cell.student?.L ?? null, kind: item.kind, text: item.text });
         requests.push(commentRequest(writeClasse, picked.period, service, cell, item.text, item.kind));
