@@ -1,5 +1,19 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.16.6 — appréciations : une cellule vide est créée, pas modifiée
+
+Capture dans le navigateur, le 24/11/2026, sur le serveur réel (Pronote 2026.2.8) : saisie d'appréciations par le
+client web, scénarios décrits dans `docs/pronoteio/prompt_capture_navigateur.md` (mood_prod). La cause du refus
+« erreur modification libellé appréciation » est trouvée : pour une cellule vide, le client **crée** l'appréciation,
+alors que le sidecar demandait la **modification** d'une appréciation qui n'existait pas.
+
+- Cellule vide d'une matière ou de la classe (pas de `N` dans la grille) : `appreciation { N: <négatif>, G, L, E: 1 }`,
+  avec un numéro provisoire décroissant comme le client (`-1001`, `-1002`…).
+- Appréciation générale vide (`N "0"` dans la grille) : `{ N: 0, G, L, E: 1 }`.
+- Appréciation existante (`N "10#…"`) : `{ N, G, L, E: 2 }`. Pour l'effacer, `L` n'est pas envoyé (et non envoyé vide).
+- Appréciation de classe : `eleve: null` est envoyé, comme le client.
+- Une cellule dont le texte ne change pas n'est plus envoyée.
+
 ## 0.16.5 — appréciations : éléments envoyés avec leur libellé
 
 Essais réels du 24/11/2026 avec la 0.16.4, sur T11, T06, 6-SC-603 et 205, un élève dont la cellule était vide. Pronote
