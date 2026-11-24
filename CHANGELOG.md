@@ -1,5 +1,18 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.16.5 — appréciations : éléments envoyés avec leur libellé
+
+Essais réels du 24/11/2026 avec la 0.16.4, sur T11, T06, 6-SC-603 et 205, un élève dont la cellule était vide. Pronote
+répond partout « erreur modification libellé appréciation », y compris avec un texte sans accent : la cause n'est ni le
+mode exclusif (le refus est maintenant explicite), ni la classe, ni le texte.
+
+- Le client web sérialise chaque élément avec `ObjetElement.toJSON` : `N`, `G` **et `L`**. La requête
+  `SaisieAppreciation` envoie maintenant `classe`, `periode`, `eleve` et `service` avec leur libellé (et le genre de
+  l'élève lu dans la grille), comme le client (`_interfacesaisieapprrelevebulletin.js`, `_saisirAppreciation`).
+  Les lectures ne changent pas.
+- Diagnostic : quand Pronote refuse l'écriture, la forme de la requête (noms des membres, genres, présence de `N` et
+  `L`, jamais une valeur) est écrite dans le journal d'accès (`shape`).
+
 ## 0.16.4 — mode exclusif de Pronote : saisie annulée sans message
 
 Les appréciations envoyées le 23/11/2026 étaient ignorées par Pronote sans message d'erreur. Le client web de Pronote
