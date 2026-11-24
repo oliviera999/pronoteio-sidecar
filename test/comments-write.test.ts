@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { commentRequest, generalCells, subjectCells } from "../src/teacher/commentsWrite.js";
+import { commentRequest, generalCells, requestShape, subjectCells } from "../src/teacher/commentsWrite.js";
 
 /* Synthetic fixtures from the client code (docs/pronote-matrice/4-9-bulletins-divers.md): tabs 25 and 27 are closed
    on the demo server, nothing here is validated against a real answer. */
@@ -20,7 +20,7 @@ const period = { N: "105#p1", G: 2, L: "Trimestre 1" };
 test("cells of the comments grid keep the identifiers needed to write them", () => {
   const read = subjectCells(page);
   assert.equal(read.closed, false);
-  assert.deepEqual(read.cells[1], { student: { N: "46#x2", L: "ELEVE Deux" }, appreciation: { N: 0, G: 1, L: "" } });
+  assert.deepEqual(read.cells[1], { student: { N: "46#x2", L: "ELEVE Deux", G: 4 }, appreciation: { N: 0, G: 1, L: "" } });
   assert.deepEqual(read.classCell, { student: null, appreciation: { N: "17#c", G: 1, L: "Classe agréable" } });
   assert.equal(subjectCells({ ...page, strInfoCloture: "Saisie close" }).closed, true);
 });
@@ -40,10 +40,11 @@ test("SaisieAppreciation requests: subject comment of a student, class comment, 
   const read = subjectCells(page);
   const service = { N: "s1", L: "SVT" };
   assert.deepEqual(commentRequest({ N: "23#k1", G: 1 }, period, service, read.cells[0], "Très bon trimestre", "subject"), {
+    // 0.16.5: every element carries its libellé, as the web client sends it (ObjetElement.toJSON).
     classe: { N: "23#k1", G: 1 },
-    periode: { N: "105#p1", G: 2 },
-    eleve: { N: "46#x1", G: 4 },
-    service: { N: "s1" },
+    periode: { N: "105#p1", G: 2, L: "Trimestre 1" },
+    eleve: { N: "46#x1", G: 4, L: "ELEVE Un" },
+    service: { N: "s1", L: "SVT" },
     appreciation: { N: "17#a1", G: 1, L: "Très bon trimestre", E: 2 },
     typeGenreAppreciation: 0,
   });
@@ -72,14 +73,16 @@ test("a comment of a group line is sent with the student's own class and the lin
     appreciationClasse: { _T: 24, V: { N: "0", G: 1, L: "" } },
   };
   const read = subjectCells(grid);
-  assert.deepEqual(read.cells[0].classe, { N: "23#601", G: 1 });
+  assert.deepEqual(read.cells[0].classe, { N: "23#601", G: 1, L: "601" });
   const request = commentRequest({ N: "g#603", G: 2 }, period, { N: "s#list" }, read.cells[0], "Bon trimestre", "subject");
-  assert.deepEqual(request.classe, { N: "23#601", G: 1 });
-  assert.deepEqual(request.service, { N: "s#line" });
+  assert.deepEqual(request.classe, { N: "23#601", G: 1, L: "601" });
+  assert.deepEqual(request.service, { N: "s#line", L: "SCIENCES ET TECHNOLOGIE" });
+  assert.deepEqual(request.eleve, { N: "46#x1", G: 4, L: "ELEVE Un" });
   assert.equal(request.typeGenreAppreciation, 0);
   // The class comment keeps the requested resource (the group) and the chosen service.
   const classRequest = commentRequest({ N: "g#603", G: 2 }, period, { N: "s#list" }, read.classCell!, "Groupe actif", "subject");
   assert.deepEqual(classRequest.classe, { N: "g#603", G: 2 });
+  assert.deepEqual(commentRequest({ N: "g#603", G: 2, L: "6-SC-603" }, period, { N: "s#list" }, read.classCell!, "x", "subject").classe, { N: "g#603", G: 2, L: "6-SC-603" });
   assert.deepEqual(classRequest.service, { N: "s#list" });
 });
 
@@ -110,8 +113,9 @@ test("real grid: no N sent for an empty cell, class comment read from 'appreciat
   assert.equal(read.classCell!.appreciation.L, "Groupe sérieux");
   const request = commentRequest({ N: "23#k1", G: 1 }, { N: "105#p1", G: 1, L: "Trimestre 1" }, { N: "5#list" }, read.cells[0], "Bon trimestre", "subject");
   assert.deepEqual(request.appreciation, { G: 1, L: "Bon trimestre", E: 2 });
-  assert.deepEqual(request.service, { N: "5#es" });
-  assert.deepEqual(request.periode, { N: "105#p1", G: 1 });
+  assert.deepEqual(request.service, { N: "5#es", L: "ENSEIGNEMENT SCIENTIFIQUE" });
+  assert.deepEqual(request.periode, { N: "105#p1", G: 1, L: "Trimestre 1" });
+  assert.deepEqual(request.eleve, { N: "46#x1", G: 4, L: "ELEVE Un" });
   const general = generalCells({ listeLignes: { _T: 24, V: [{ eleve: { _T: 24, V: { N: "46#x1", G: 4, L: "ELEVE Un" } },
     appreciationGle: { _T: 24, V: { N: "0", G: 2, titre: "Appréciation globale", appreciation: "", editable: true, cloture: false } } }] } });
   const generalRequest = commentRequest({ N: "23#k1", G: 1 }, period, null, general.cells[0], "Bilan positif", "general");
@@ -128,4 +132,14 @@ test("0.16.2: read-only cells are marked (estEditable / editable false)", () => 
   const general = generalCells({ listeLignes: { _T: 24, V: [{ eleve: { _T: 24, V: { N: "46#x1", L: "ELEVE Un" } },
     appreciationGle: { _T: 24, V: { N: "0", G: 2, appreciation: "", editable: true } } }] } });
   assert.equal(general.cells[0].editable, undefined);
+});
+
+test("0.16.5: the shape of a request names members and genres, never a value", () => {
+  const shape = requestShape({
+    classe: { N: "23#k1", G: 1, L: "T11" }, periode: { N: "105#p1", G: 2, L: "Trimestre 1" },
+    eleve: { N: "46#x1", G: 4, L: "ELEVE Un" }, service: { N: "s1", L: "SVT" },
+    appreciation: { G: 1, L: "Texte privé", E: 2 }, typeGenreAppreciation: 0,
+  });
+  assert.equal(shape, "appreciation{E=2,G=1,L}|classe{G=1,L,N}|eleve{G=4,L,N}|periode{G=2,L,N}|service{L,N}|typeGenreAppreciation=0");
+  assert.doesNotMatch(shape, /ELEVE|Texte|T11|23#/);
 });

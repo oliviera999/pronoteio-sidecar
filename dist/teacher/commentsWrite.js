@@ -6,6 +6,18 @@ import { commentResource, findCommentService, maxLengthOf, readKinds } from "./c
 import { call, pickPeriod, ref } from "./grades.js";
 import { reportMessages, sendWrite } from "./write.js";
 import { currentContext } from "../context.js";
+/**
+ * 0.16.5: shape of a SaisieAppreciation request for the access log: for each member, its sub-members, the genre (G)
+ * and whether N and L are present. No identifier, name or text: e.g. "classe{N,G=1,L}|periode{N,G=2,L}|...".
+ */
+export const requestShape = (request) => Object.keys(request).sort().map((key) => {
+    const value = request[key];
+    if (value === null || typeof value !== "object")
+        return `${key}=${typeof value === "number" ? value : typeof value}`;
+    const element = value;
+    const parts = Object.keys(element).sort().map((member) => (member === "G" || member === "E" ? `${member}=${String(element[member])}` : member));
+    return `${key}{${parts.join(",")}}`;
+}).join("|");
 /** Member names of an object (never its values), for the access log of a write Pronote did not keep. */
 const memberNames = (value) => value && typeof value === "object" ? Object.keys(value).filter((key) => /^[\w$]{1,40}$/.test(key)).sort().slice(0, 20).join(",") : "-";
 const GENRE_CLASS = 1;
@@ -35,6 +47,8 @@ export const numberOf = (value) => {
 };
 /** Text of an appreciation element: "L", else "appreciation" (class comment and general comments carry it there). */
 const textOf = (app) => typeof app.L === "string" ? app.L : typeof app.appreciation === "string" ? app.appreciation : "";
+/** 0.16.5: { L } when the element carries a libellé, else nothing. */
+const labelOf = (element) => typeof element?.L === "string" && element.L !== "" ? { L: element.L } : {};
 const elementOf = (value) => {
     const raw = value !== null && typeof value === "object" && "V" in value ? value.V : value;
     return raw !== null && typeof raw === "object" ? raw : null;
@@ -64,11 +78,12 @@ export const subjectCells = (page) => {
         const classe = elementOf(line?.classe);
         const service = elementOf(line?.service);
         cells.push({
-            student: { N: String(student.N), L: String(student.L ?? "").trim() },
+            // 0.16.5: the libellés are kept, as the client sends them back (ObjetElement.toJSON: N, G, L).
+            student: { N: String(student.N), L: String(student.L ?? "").trim(), ...(student.G !== undefined ? { G: Number(student.G) } : {}) },
             appreciation: { N: numberOf(app.N), G: Number(app.G ?? 1), L: textOf(app) },
             ...(editableOf(app) ? {} : { editable: false }),
-            ...(classe?.N !== undefined && classe.N !== "" ? { classe: { N: String(classe.N), G: Number(classe.G ?? GENRE_CLASS) } } : {}),
-            ...(service?.N !== undefined && service.N !== "" ? { service: { N: String(service.N) } } : {}),
+            ...(classe?.N !== undefined && classe.N !== "" ? { classe: { N: String(classe.N), G: Number(classe.G ?? GENRE_CLASS), ...labelOf(classe) } } : {}),
+            ...(service?.N !== undefined && service.N !== "" ? { service: { N: String(service.N), ...labelOf(service) } } : {}),
         });
     }
     const classApp = page?.appreciationClasse?.V ?? page?.appreciationClasse;
@@ -94,7 +109,7 @@ export const generalCells = (page) => {
         if (app.cloture === true)
             closed = true;
         cells.push({
-            student: { N: String(student.N), L: String(student.L ?? "").trim() },
+            student: { N: String(student.N), L: String(student.L ?? "").trim(), ...(student.G !== undefined ? { G: Number(student.G) } : {}) },
             // 0.14.1: the real element has no "L" while nothing is entered (its text is then in "appreciation", empty).
             appreciation: { N: numberOf(app.N), G: Number(app.G ?? 0), L: textOf(app) },
             ...(editableOf(app) ? {} : { editable: false }),
@@ -129,11 +144,18 @@ export const generalKindFor = (kinds, wanted = "") => {
 };
 /** SaisieAppreciation JSON for one cell. */
 export const commentRequest = (classe, period, service, cell, textValue, kind) => ({
-    classe: kind === "subject" && cell.classe ? { N: cell.classe.N, G: cell.classe.G } : { N: classe.N, G: classe.G },
+    // 0.16.5: every element is sent with its libellé, as the web client serialises it (ObjetElement.toJSON: N, G, L,
+    // _interfacesaisieapprrelevebulletin.js _saisirAppreciation). Until 0.16.4 only N and G were sent, and Pronote
+    // answered "erreur modification libellé appréciation" on every class tried (24/11/2026).
+    classe: kind === "subject" && cell.classe
+        ? { N: cell.classe.N, G: cell.classe.G, ...(cell.classe.L ? { L: cell.classe.L } : {}) }
+        : { N: classe.N, G: classe.G, ...(classe.L ? { L: classe.L } : {}) },
     // 0.16.1: the period element as Pronote gave it (genre included), as the client and the skills writes send it.
-    periode: { N: period.N, G: period.G ?? GENRE_PERIOD },
-    ...(cell.student ? { eleve: { N: cell.student.N, G: GENRE_STUDENT } } : {}),
-    ...(kind === "subject" && (cell.service || service) ? { service: { N: cell.service?.N ?? service.N } } : {}),
+    periode: { N: period.N, G: period.G ?? GENRE_PERIOD, ...labelOf(period) },
+    ...(cell.student ? { eleve: { N: cell.student.N, G: cell.student.G ?? GENRE_STUDENT, ...(cell.student.L ? { L: cell.student.L } : {}) } } : {}),
+    ...(kind === "subject" && (cell.service || service)
+        ? { service: cell.service ? { N: cell.service.N, ...(cell.service.L ? { L: cell.service.L } : {}) } : { N: service.N, ...labelOf(service) } }
+        : {}),
     appreciation: { ...(cell.appreciation.N !== null ? { N: cell.appreciation.N } : {}), G: cell.appreciation.G, L: textValue, E: STATE_MODIFIED },
     typeGenreAppreciation: kind === "general" ? KIND_GENERAL : KIND_SUBJECT,
 });
@@ -156,6 +178,8 @@ export const writeComments = async (session, write) => {
     if (needsGeneral && !resource.principal)
         throw new HttpError(403, "not_main_teacher");
     const classe = { N: resource.id, G: genre };
+    // 0.16.5: the class sent in the write carries its libellé (the reads keep { N, G }).
+    const writeClasse = { ...classe, L: resource.label };
     let subject = null;
     let general = null;
     let rubric = null;
@@ -200,7 +224,7 @@ export const writeComments = async (session, write) => {
             throw new HttpError(409, `comment_not_editable:${cell.student?.L ?? "classe"}`);
         before.push({ student: cell.student?.L ?? null, kind: item.kind, text: cell.appreciation.L });
         after.push({ student: cell.student?.L ?? null, kind: item.kind, text: item.text });
-        requests.push(commentRequest(classe, picked.period, service, cell, item.text, item.kind));
+        requests.push(commentRequest(writeClasse, picked.period, service, cell, item.text, item.kind));
         targets.push({ cell, item, key: item.kind === "general" ? "generalCommentSave" : "commentSave" });
     }
     const base = { class: { id: write.class, name: resource.label }, period: { id: picked.periodId, name: String(picked.period.L ?? "") }, maxLength, before, after, requests, validated: false,
@@ -209,7 +233,18 @@ export const writeComments = async (session, write) => {
         return { ...base, written: false, dryRun: true };
     const answers = [];
     for (const [index, target] of targets.entries()) {
-        const sent = await sendWrite(session, target.key, requests[index]);
+        let sent;
+        try {
+            sent = await sendWrite(session, target.key, requests[index]);
+        }
+        catch (error) {
+            // 0.16.5: on a refusal, the shape of the request (member names, genres, whether a libellé was sent; never a
+            // value) goes to the access log, to compare with what the web client sends.
+            const context = currentContext();
+            if (context)
+                context.shape = requestShape(requests[index]).slice(0, 400);
+            throw error;
+        }
         // 0.16.2: the messages of the report (Pronote's own text, e.g. a closed entry), or how many there are when empty.
         const messages = sent.report ? reportMessages(sent.report) : "";
         const count = sent.report ? listOf(sent.report._messagesErreur_).length : 0;
