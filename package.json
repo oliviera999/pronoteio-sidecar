@@ -1,6 +1,6 @@
 {
   "name": "pronoteio-sidecar",
-  "version": "0.16.3",
+  "version": "0.16.4",
   "private": true,
   "description": "Pronote sidecar service for the Moodle plugin local_pronoteio (Pawnote based).",
   "license": "GPL-3.0-or-later",

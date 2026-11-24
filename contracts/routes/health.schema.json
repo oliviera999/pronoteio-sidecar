@@ -420,6 +420,48 @@
                 "string",
                 "null"
               ]
+            },
+            "exclusiveMode": {
+              "type": "object",
+              "description": "0.16.4 : mode exclusif du serveur Pronote d'après les dernières réponses (les écritures sont annulées tant qu'il vaut true).",
+              "properties": {
+                "value": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "seenAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "function": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "lastTrueAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "refusedWrites": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "seenAt",
+                "function",
+                "lastTrueAt",
+                "refusedWrites"
+              ],
+              "additionalProperties": false
             }
           },
           "required": [

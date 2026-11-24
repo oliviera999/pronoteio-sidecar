@@ -30,6 +30,11 @@ export const fakeSession = (
       if (!handler) return { content: JSON.stringify({ Erreur: { Titre: `Vos droits sont insuffisants pour effectuer cette opération (${name})` } }), headers: {}, status: 200 };
       const answer = handler(data, call);
       if (answer && "Erreur" in answer) return { content: JSON.stringify(answer), headers: {}, status: 200 };
+      // 0.16.4: a handler may set "__signature" to answer a Signature member (e.g. { ModeExclusif: true }).
+      if (answer && "__signature" in answer) {
+        const { __signature, ...rest } = answer;
+        return { content: JSON.stringify({ dataSec: { data: rest, Signature: __signature } }), headers: {}, status: 200 };
+      }
       return { content: JSON.stringify({ dataSec: { data: answer } }), headers: {}, status: 200 };
     },
   };

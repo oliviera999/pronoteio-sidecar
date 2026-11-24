@@ -1,5 +1,18 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.16.4 — mode exclusif de Pronote : saisie annulée sans message
+
+Les appréciations envoyées le 23/11/2026 étaient ignorées par Pronote sans message d'erreur. Le client web de Pronote
+(démo 2026.2.8, `ObjetRequeteJSON`) lit `ModeExclusif` dans la signature de **chaque** réponse. Tant que ce champ vaut
+`true`, il tient toute saisie pour annulée (« Saisie impossible, consultation seulement ») et n'en envoie plus. Le
+sidecar ne lisait pas ce champ.
+
+- Toute réponse : `ModeExclusif` est relevé ; `GET /health` le rend dans `pronote.exclusiveMode` (`value`, `seenAt`,
+  `function`, `lastTrueAt`, `refusedWrites`), sans aucune donnée personnelle.
+- Toute écriture (`sendWrite`) dont la réponse dit `ModeExclusif: true` est maintenant un refus explicite
+  (`409 exclusive_mode`) au lieu d'une écriture « non retrouvée » à la relecture.
+- Hypothèse à confirmer sur le compte réel : une lecture suffit pour voir la valeur (`pronote.exclusiveMode.value`).
+
 ## 0.16.3 — refus de Pronote relayé, cellules en lecture seule
 
 - **Écriture refusée par Pronote** : essai réel sur T06 avec la 0.16.1 : HTTP 200, rapport de saisie `{ _messagesErreur_ }`

@@ -3,6 +3,7 @@ import { readCache } from "./cache.js";
 import { config } from "./config.js";
 import { jobStats } from "./jobs.js";
 import { lockState } from "./lock.js";
+import { exclusiveStats } from "./pronote/exclusive.js";
 import { isValidated, validatedVersions } from "./pronote/formats.js";
 import { limiterOptions, limiterStats } from "./pronote/limiter.js";
 import { sessionStats } from "./session.js";
@@ -48,6 +49,8 @@ export const fullHealth = (now = Date.now()) => {
             validated: state.pronote.version ? isValidated(state.pronote.version) : null,
             validatedVersions: validatedVersions(),
             seenAt: state.pronote.seenAt,
+            // 0.16.4: exclusive mode of the server, as the last answers said it (writes are cancelled while it is true).
+            exclusiveMode: exclusiveStats(),
         },
         security: {
             secrets: config.secrets.length,

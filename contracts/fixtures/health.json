@@ -107,7 +107,14 @@
     "validatedVersions": [
       "2026.2.8"
     ],
-    "seenAt": null
+    "seenAt": null,
+    "exclusiveMode": {
+      "value": null,
+      "seenAt": null,
+      "function": null,
+      "lastTrueAt": null,
+      "refusedWrites": 0
+    }
   },
   "security": {
     "secrets": 1,
