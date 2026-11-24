@@ -1,0 +1,109 @@
+{
+  "class": {
+    "id": "g:6-SC-603",
+    "name": "6-SC-603"
+  },
+  "period": {
+    "id": "p:Trimestre 1",
+    "name": "Trimestre 1"
+  },
+  "service": {
+    "id": "s:SCIENCES ET TECHNOLOGIE|6-SC-603",
+    "name": "SCIENCES ET TECHNOLOGIE - 6-SC-603"
+  },
+  "skipped": [
+    {
+      "student": "ELEVE E03",
+      "kind": "positioning",
+      "reason": "not_editable"
+    },
+    {
+      "student": "ELEVE E01",
+      "kind": "positioning",
+      "reason": "unchanged"
+    }
+  ],
+  "requests": [
+    {
+      "estPourElementCompetence": false,
+      "positionnement": {
+        "N": "93#2",
+        "G": 2,
+        "L": "Maîtrise satisfaisante"
+      },
+      "classe": {
+        "N": "23#603",
+        "G": 1,
+        "L": "603"
+      },
+      "periode": {
+        "N": "105#t1",
+        "G": 2,
+        "L": "Trimestre 1"
+      },
+      "eleve": {
+        "N": "46#E02",
+        "G": 4,
+        "L": "ELEVE E02"
+      },
+      "service": {
+        "N": "131#st",
+        "L": "SCIENCES ET TECHNOLOGIE"
+      }
+    },
+    {
+      "classe": {
+        "N": "23#603",
+        "G": 1,
+        "L": "603"
+      },
+      "periode": {
+        "N": "105#t1",
+        "G": 2,
+        "L": "Trimestre 1"
+      },
+      "eleve": {
+        "N": "46#E01",
+        "G": 4,
+        "L": "ELEVE E01"
+      },
+      "service": {
+        "N": "131#st",
+        "L": "SCIENCES ET TECHNOLOGIE"
+      },
+      "posLSUNote": {
+        "_T": 10,
+        "V": ""
+      }
+    }
+  ],
+  "validated": false,
+  "before": [
+    {
+      "student": "ELEVE E02",
+      "kind": "positioning",
+      "value": null
+    },
+    {
+      "student": "ELEVE E01",
+      "kind": "lsu",
+      "value": "15"
+    }
+  ],
+  "after": [
+    {
+      "student": "ELEVE E02",
+      "kind": "positioning",
+      "value": 2
+    },
+    {
+      "student": "ELEVE E01",
+      "kind": "lsu",
+      "value": ""
+    }
+  ],
+  "written": false,
+  "dryRun": true,
+  "done": 0,
+  "stoppedAt": null
+}

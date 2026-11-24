@@ -120,6 +120,21 @@ export const contractSamples = async (): Promise<Record<string, unknown>> => {
   samples["error-web-login-backoff"] = await json(post(app, "/session/login", { ...webBody, username: refused.username }));
   samples["error-web-session-required-backoff"] = await json(app.inject({ method: "GET", url: "/competencies",
     headers: { ...signedHeaders("GET", "/competencies", "", mobileId), "x-pronoteio-web": "1" } }));
+  // 0.17.0 (lot NS): periods of a class, grid of tab 25, positioning (simulation), in the shapes of the capture of 24/11/2026.
+  const { gridSession } = await import("./report-grid-fixtures.js");
+  const { stableId } = await import("../../src/teacher/ids.js");
+  const sixth = gridSession();
+  const sixthLogin = { ...login, username: "prof-contrats-6e" };
+  const sixthId = createSession(sixth, { key: accountKey(sixthLogin.url, sixthLogin.username, sixthLogin.deviceuuid), login: sixthLogin });
+  const sixthService = encodeURIComponent(stableId("service", "SCIENCES ET TECHNOLOGIE|6-SC-603"));
+  samples["reports-periods"] = await json(get(app, "/reports/periods?resource=c%3AT06", sixthId));
+  samples["reports-grid"] = await json(get(app, `/reports/grid?resource=g%3A6-SC-603&period=T1&service=${sixthService}`, sixthId));
+  const positioning = { resource: "g:6-SC-603", period: "T1", service: decodeURIComponent(sixthService), dryRun: true, items: [
+    { student: "ELEVE E02", kind: "positioning", value: 2 }, { student: "ELEVE E01", kind: "lsu", value: "" },
+    { student: "ELEVE E03", kind: "positioning", value: 4 }, { student: "ELEVE E01", kind: "positioning", value: 2 }] };
+  samples["reports-positioning"] = await json(post(app, "/reports/positioning", positioning, sixthId));
+  samples["error-lsu-out-of-range"] = await json(post(app, "/reports/positioning",
+    { ...positioning, items: [{ student: "ELEVE E02", kind: "lsu", value: "120" }] }, sixthId));
   samples.health = await json(get(app, "/health"));
   setWebLogin(null);
   webLoginGuard.reset();

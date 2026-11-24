@@ -132,3 +132,22 @@ qu'en 7.4.
 **7.6 Formes inconnues.** Tout décodeur qui ne reconnaît pas la forme répond `available: false`, `reason:
 "format_unknown"`, `shape` (`shapeOf`, jamais une valeur). Pour les fonctions de santé (`DetailsPIEleve`), `shape`
 est rendu avec le filtre `SENSITIVE` par défaut.
+
+## 0.17.0 (chantier 0.3.0, lot NS)
+
+Routes neuves et changements du contrat N (`docs/olutionsuivi/lots/N-contrat.md`, section 6.1), tous des ajouts :
+
+| Route | Rôle | Schéma |
+|---|---|---|
+| `GET /reports/periods?resource=<c:…\|g:…>` | périodes de la classe ou du groupe (onglet 25), `kind`/`code` de la section 2 | `contracts/routes/reports-periods.schema.json` |
+| `GET /reports/grid?resource&period&service` | grille de l'onglet 25 : positionnement, note LSU, appréciation | `contracts/routes/reports-grid.schema.json` |
+| `POST /reports/positioning` | `SaisiePositionnement` / `SaisieNoteLSU` cellule par cellule, simulation, relecture | `contracts/routes/reports-positioning.schema.json` |
+
+- `GET /reports/comments` : l'appréciation générale est tentée pour tout compte et pour un groupe ; refus de Pronote
+  → `general: {available: false, reason: "access_denied"|"pronote_refused"}` ; `not_principal` n'est plus rendu.
+- `GET /grades/overview`, `GET /competencies` : `services=<id,id>` facultatif.
+- `GET /health` : `routes`. Un sidecar plus ancien répond 404 aux routes neuves (`sidecar_outdated` côté passerelle).
+- `period` des routes neuves : identifiant stable (`p:Trimestre 1`) ou code (`T1`, `BB1`…).
+- Écritures : `403 write_mode_simulate` hors simulation quand `writeMode` n'est pas `live` (comme toute écriture du
+  sidecar) ; `dryRun: true` rend `before`/`after`/`requests` sans rien envoyer.
+

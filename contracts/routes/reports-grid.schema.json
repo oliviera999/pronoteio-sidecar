@@ -1,0 +1,229 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "reports-grid.schema.json",
+  "title": "GET /reports/grid",
+  "method": "GET",
+  "url": "/reports/grid",
+  "fixture": "fixtures/reports-grid.json",
+  "description": "0.17.0 (contrat N 6.1, point 3) : PageApprBulletin (onglet 25) lue comme /reports/comments, avec listeNiveaux, typePositionnementClasse, niveauAcquEditable, noteLSUEditable, noteLSU, nbEvals et la classe de chaque ligne (classe de l'élève, même pour un groupe). Forme relevée le 24/11/2026 ; le membre qui porte le positionnement d'une ligne (niveauAcqu) est supposé. Colonnes absentes : positioning et lsu null, positioningType null. Refus de Pronote : available false, reason access_denied.",
+  "properties": {
+    "response": {
+      "type": "object",
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "class": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "period": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "service": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "closed": {
+          "type": "boolean"
+        },
+        "positioningType": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "levels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "genre": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "level",
+                  "special"
+                ],
+                "description": "level : niveau de maîtrise (G 1 à 6) ; special : Absent, Non évalué, Dispensé, Non rendu (G 7 à 10)."
+              }
+            },
+            "required": [
+              "id",
+              "genre",
+              "name",
+              "status"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "student": {
+                "type": "string"
+              },
+              "classe": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "additionalProperties": false
+              },
+              "positioning": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "genre": {
+                        "type": "integer"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "genre",
+                      "name"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "lsu": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Note LSU telle que Pronote la rend (« 15 »), null si vide ou colonne absente."
+              },
+              "positioningEditable": {
+                "type": "boolean"
+              },
+              "lsuEditable": {
+                "type": "boolean"
+              },
+              "nbEvals": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "comment": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "type": "string"
+                      },
+                      "editable": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "text",
+                      "editable"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "student",
+              "classe",
+              "positioning",
+              "lsu",
+              "positioningEditable",
+              "lsuEditable",
+              "nbEvals",
+              "comment"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "available",
+        "reason",
+        "class",
+        "period",
+        "service",
+        "closed",
+        "positioningType",
+        "levels",
+        "rows"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -68,13 +68,30 @@ test("every kind that is not a rubric is read, whatever its name", async () => {
   assert.equal(result.service?.name, "ENSEIGNEMENT SCIENTIFIQUE - T06");
 });
 
-test("an account that is not main teacher: its own comments, and the reason for no general comment", async () => {
+// 0.17.0 (contract N, 6.1 point 2): this test asserted the refusal before any call (reason not_principal). The read is
+// now tried for every account: read when Pronote answers, refused when Pronote refuses (access_denied, pronote_refused).
+test("an account that is not main teacher: the general comments are read when Pronote answers them", async () => {
   const fake = session(false);
   const result = await reportComments(fake, "c:T06", "p:Trimestre 1");
   assert.equal(result.available, true);
-  assert.deepEqual(result.general, { available: false, reason: "not_principal", kind: "", kinds: [] });
-  assert.deepEqual(result.students[0], { student: "ELEVE Un", comment: "Bon trimestre", general: null, generals: [] });
-  assert.equal(fake.calls.some((call) => call.name === "ListeAppreciations" || call.name === "PageAppreciationsGenerales"), false);
+  assert.equal(result.general.available, true);
+  assert.notEqual(result.general.reason, "not_principal");
+  assert.deepEqual(result.students[0].comment, "Bon trimestre");
+  assert.equal(result.students[0].general, "Trimestre satisfaisant");
+  assert.equal(fake.calls.some((call) => call.name === "ListeAppreciations"), true);
+});
+
+test("an account that is not main teacher: a refusal of Pronote says why (access_denied or pronote_refused)", async () => {
+  const denied = session(false, {
+    ListeAppreciations: () => ({ Erreur: { Titre: "Vos droits sont insuffisants pour effectuer cette opération" } }),
+  });
+  const one = await reportComments(denied, "c:T06", "p:Trimestre 1");
+  assert.equal(one.available, true);
+  assert.deepEqual([one.general.available, one.general.reason], [false, "access_denied"]);
+  assert.deepEqual(one.students[0], { student: "ELEVE Un", comment: "Bon trimestre", general: null, generals: [] });
+  const refused = session(false, { ListeAppreciations: () => ({ Erreur: { Titre: "Accès réservé au professeur principal" } }) });
+  const two = await reportComments(refused, "c:T06", "p:Trimestre 1");
+  assert.deepEqual([two.general.available, two.general.reason], [false, "pronote_refused"]);
 });
 
 test("a main teacher without service in the class still reads the general comments", async () => {

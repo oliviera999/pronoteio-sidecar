@@ -3,7 +3,7 @@
   "onglet": 56,
   "function": "ListeEvaluations",
   "retry_after": 60,
-  "backoff_until": 1795258939,
+  "backoff_until": 1795529108,
   "code": "web_session_required",
   "message": "Cette fonction demande un onglet absent de la session mobile : il faut une session de l'Espace Professeurs web."
 }

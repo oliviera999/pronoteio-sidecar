@@ -109,6 +109,11 @@
           "items": {
             "type": "string"
           }
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0.17.0 : cellules écrites avant la première non confirmée ou refusée (POST /reports/positioning : positioning_not_saved, pronote_refused, exclusive_mode)."
         }
       },
       "required": [

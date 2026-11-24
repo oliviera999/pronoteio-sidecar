@@ -1,0 +1,122 @@
+{
+  "available": true,
+  "reason": "",
+  "class": {
+    "id": "g:6-SC-603",
+    "name": "6-SC-603"
+  },
+  "period": {
+    "id": "p:Trimestre 1",
+    "name": "Trimestre 1"
+  },
+  "service": {
+    "id": "s:SCIENCES ET TECHNOLOGIE|6-SC-603",
+    "name": "SCIENCES ET TECHNOLOGIE - 6-SC-603"
+  },
+  "closed": false,
+  "positioningType": 1,
+  "levels": [
+    {
+      "id": "93#1",
+      "genre": 1,
+      "name": "Très bonne maîtrise",
+      "status": "level"
+    },
+    {
+      "id": "93#2",
+      "genre": 2,
+      "name": "Maîtrise satisfaisante",
+      "status": "level"
+    },
+    {
+      "id": "93#4",
+      "genre": 4,
+      "name": "Maîtrise fragile",
+      "status": "level"
+    },
+    {
+      "id": "93#6",
+      "genre": 6,
+      "name": "Maîtrise insuffisante",
+      "status": "level"
+    },
+    {
+      "id": "93#7",
+      "genre": 7,
+      "name": "Absent",
+      "status": "special"
+    },
+    {
+      "id": "93#8",
+      "genre": 8,
+      "name": "Non évalué",
+      "status": "special"
+    },
+    {
+      "id": "93#9",
+      "genre": 9,
+      "name": "Dispensé",
+      "status": "special"
+    },
+    {
+      "id": "93#10",
+      "genre": 10,
+      "name": "Non rendu",
+      "status": "special"
+    }
+  ],
+  "rows": [
+    {
+      "student": "ELEVE E01",
+      "classe": {
+        "id": "c:603",
+        "name": "603"
+      },
+      "positioning": {
+        "id": "93#2",
+        "genre": 2,
+        "name": "Maîtrise satisfaisante"
+      },
+      "lsu": "15",
+      "positioningEditable": true,
+      "lsuEditable": true,
+      "nbEvals": 3,
+      "comment": {
+        "text": "",
+        "editable": true
+      }
+    },
+    {
+      "student": "ELEVE E02",
+      "classe": {
+        "id": "c:603",
+        "name": "603"
+      },
+      "positioning": null,
+      "lsu": null,
+      "positioningEditable": true,
+      "lsuEditable": true,
+      "nbEvals": 3,
+      "comment": {
+        "text": "",
+        "editable": true
+      }
+    },
+    {
+      "student": "ELEVE E03",
+      "classe": {
+        "id": "c:604",
+        "name": "604"
+      },
+      "positioning": null,
+      "lsu": null,
+      "positioningEditable": false,
+      "lsuEditable": false,
+      "nbEvals": 3,
+      "comment": {
+        "text": "",
+        "editable": true
+      }
+    }
+  ]
+}

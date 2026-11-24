@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "reports-periods.schema.json",
+  "title": "GET /reports/periods",
+  "method": "GET",
+  "url": "/reports/periods",
+  "fixture": "fixtures/reports-periods.json",
+  "description": "0.17.0 (contrat N 6.1, point 1) : ListePeriodes de l'onglet 25 avec { ressource, listeRessources } ; forme relevée sur le serveur réel le 24/11/2026 (trimestres G 2 GenreNotation 1 ; bac blancs et CCF G 4 GenreNotation 0). Dates par periodDates() si connues, sinon null. Refus : 403 access_denied.",
+  "properties": {
+    "response": {
+      "type": "object",
+      "properties": {
+        "resource": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "genre": {
+              "enum": [
+                1,
+                2
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "genre"
+          ],
+          "additionalProperties": false
+        },
+        "current": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "periods": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "genre": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "notation": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "kind": {
+                "enum": [
+                  "trimester",
+                  "semester",
+                  "exam",
+                  "other"
+                ]
+              },
+              "code": {
+                "type": "string",
+                "pattern": "^(T[1-9]|S[1-9]|BB[0-9]+|CCF|X[0-9]+|P[0-9]+)$",
+                "description": "Contrat N, section 2 : T1…T3, S1, S2, BB1, BB2, CCF (par le nom), sinon X<rang> (examen) ou P<rang>."
+              },
+              "rank": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "start": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "end": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "current": {
+                "type": "boolean"
+              },
+              "closed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "genre",
+              "notation",
+              "kind",
+              "code",
+              "rank",
+              "start",
+              "end",
+              "current",
+              "closed"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "resource",
+        "current",
+        "periods"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

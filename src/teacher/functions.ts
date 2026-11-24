@@ -209,7 +209,13 @@ export type FunctionKey =
   /** Detail of the support plans of one student (DetailsPIEleve, tab 105; probed for its shape only). */
   | "supportPlanDetails"
   /** Opinions of the teachers (ListeAvisProfesseurs, tab 260). */
-  | "teacherOpinions";
+  | "teacherOpinions"
+  /** 0.17.0: periods of a class or group in the comments tab (ListePeriodes, tab 25: { ressource, listeRessources }). */
+  | "classPeriodsList"
+  /** 0.17.0: positioning of a student in a service (SaisiePositionnement, tab 25; capture of 24/11/2026). */
+  | "positioningSave"
+  /** 0.17.0: LSU mark of a student in a service (SaisieNoteLSU, tab 25; capture of 24/11/2026). */
+  | "lsuSave";
 
 /**
  * Values read from the PRONOTE 2026.2 teacher client (tabs: 23 grade entry, 105 student list, 113 call sheet,
@@ -301,6 +307,9 @@ const defaults: Record<FunctionKey, TeacherFunction> = {
   classPhotos: { name: "PageTrombinoscope", onglet: 77 },
   supportPlanDetails: { name: "DetailsPIEleve", onglet: 105 },
   teacherOpinions: { name: "ListeAvisProfesseurs", onglet: 260 },
+  classPeriodsList: { name: "ListePeriodes", onglet: 25 },
+  positioningSave: { name: "SaisiePositionnement", onglet: 25 },
+  lsuSave: { name: "SaisieNoteLSU", onglet: 25 },
 };
 
 /** Keys of the configured functions (GET /pp/check?function=…). */

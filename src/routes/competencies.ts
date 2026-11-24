@@ -6,16 +6,22 @@ import type { CompetencyWrite } from "../teacher/competenciesWrite.js";
 import * as teacher from "../teacher/index.js";
 import { classesOf } from "./notebook.js";
 
-type PeriodQuery = { period?: string; classes?: string };
+type PeriodQuery = { period?: string; classes?: string; services?: string };
 
 export const periodClassesQuery = {
   type: "object",
   properties: { period: { type: "string", maxLength: 200, default: "" }, classes: { type: "string", maxLength: 2000 } },
 } as const;
 
+/** 0.17.0 (contract N, 6.1 point 5): the same, with the optional filter services=<id,id> (stable service ids). */
+export const periodClassesServicesQuery = {
+  type: "object",
+  properties: { ...periodClassesQuery.properties, services: { type: "string", maxLength: 2000 } },
+} as const;
+
 export default async function competenciesRoutes(app: FastifyInstance): Promise<void> {
-  app.get<{ Querystring: PeriodQuery }>("/competencies", { schema: { querystring: periodClassesQuery } }, async (request) =>
-    teacher.competencyOverview(requireSession(request), request.query.period ?? "", classesOf(request.query.classes)),
+  app.get<{ Querystring: PeriodQuery }>("/competencies", { schema: { querystring: periodClassesServicesQuery } }, async (request) =>
+    teacher.competencyOverview(requireSession(request), request.query.period ?? "", classesOf(request.query.classes), classesOf(request.query.services)),
   );
 
   // 0.8.0, not validated: domains and items of the skills referential of one service.

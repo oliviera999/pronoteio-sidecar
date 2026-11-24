@@ -104,6 +104,9 @@ const defaults = {
     classPhotos: { name: "PageTrombinoscope", onglet: 77 },
     supportPlanDetails: { name: "DetailsPIEleve", onglet: 105 },
     teacherOpinions: { name: "ListeAvisProfesseurs", onglet: 260 },
+    classPeriodsList: { name: "ListePeriodes", onglet: 25 },
+    positioningSave: { name: "SaisiePositionnement", onglet: 25 },
+    lsuSave: { name: "SaisieNoteLSU", onglet: 25 },
 };
 /** Keys of the configured functions (GET /pp/check?function=…). */
 export const FUNCTION_KEYS = Object.keys(defaults);

@@ -381,7 +381,7 @@ export const resourceRefOf = (service, type) => {
 /** Element sent to the skills functions: the skills service (tab 65) when known, else the grade one. */
 export const competencyElement = (entry) => entry.competency ?? entry.grade ?? entry.service;
 /* non validé sur la démo : onglets 65 et 56 fermés au profil de démonstration */
-export const overview = async (session, periodId = "", classes = []) => {
+export const overview = async (session, periodId = "", classes = [], serviceFilter = []) => {
     ensureSkillsSpace(session);
     const picked = await pickPeriod(session, periodId);
     const parentsDelay = parentsDelayOf(session);
@@ -403,6 +403,9 @@ export const overview = async (session, periodId = "", classes = []) => {
         const service = competencyElement(entry);
         const resourcename = String(resourceOf(service)?.L ?? "");
         if (!matchesLabels([resourcename], classes))
+            continue;
+        // 0.17.0: optional filter on the stable ids of the services (contract N, 6.1 point 5).
+        if (serviceFilter.length > 0 && !serviceFilter.includes(serviceIds[index]))
             continue;
         const described = describeService(session, entry, serviceIds[index], [picked.periodId]);
         services.push(described);

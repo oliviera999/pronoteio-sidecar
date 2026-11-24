@@ -74,7 +74,9 @@ const unverifiedResult = (request, error) => {
     const context = currentContext();
     // 0.13.0: "detail" (member names of Pronote's answer to the save, never a value) when the write module gives it.
     return { written: context?.writeSent === true, dryRun: false, verified: false, differences: [error.code], after: error.extra.after ?? null,
-        ...(typeof error.extra.detail === "string" ? { detail: error.extra.detail } : {}) };
+        ...(typeof error.extra.detail === "string" ? { detail: error.extra.detail } : {}),
+        // 0.17.0: cells written before the one not confirmed (POST /reports/positioning).
+        ...(typeof error.extra.done === "number" ? { done: error.extra.done } : {}) };
 };
 /**
  * 0.15.0: who triggered a request, for the access log. Case of 21/11/2026: a burst of web logins whose caller could not
