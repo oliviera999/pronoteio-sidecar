@@ -590,7 +590,7 @@ export type ReferentialItem = {
 /** 0.12.0: general comments of the main teacher (tab 27): why nothing came back, and the kinds read. */
 export type GeneralComments = {
   available: boolean;
-  /** "", "not_principal", "access_denied", "no_kind" or "format_unknown". */
+  /** "", "access_denied", "pronote_refused" (0.17.0), "no_kind" or "format_unknown" ("not_principal" until 0.16.x). */
   reason: string;
   /** Kind used for students[].general (the global/general one, else the first read). */
   kind: string;
