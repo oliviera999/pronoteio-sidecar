@@ -110,6 +110,8 @@ export default async function reportsRoutes(app: FastifyInstance): Promise<void>
             dryRun: { type: "boolean", default: false },
             // 0.14.0: kind of general comment to write when the school has several.
             generalKind: { type: "string", maxLength: 200 },
+            // 0.17.1: stable id of the service of the subject comments when the account has several in the class.
+            service: { type: "string", maxLength: 300 },
           },
         },
       },

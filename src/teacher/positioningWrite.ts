@@ -17,8 +17,8 @@
 import type { SessionHandle } from "pawnote";
 import { currentContext } from "../context.js";
 import { HttpError } from "../errors.js";
-import { normalise } from "../normalise.js";
 import { requestShape } from "./commentsWrite.js";
+import { matchStudent } from "./ids.js";
 import { GENRE_CLASS, gridFromPage, gridTarget, readGridPage, serviceName, type GridRead, type GridRow, type GridTarget, type Ref } from "./reportGrid.js";
 import { sendWrite } from "./write.js";
 
@@ -125,8 +125,9 @@ export const reportConfirms = (report: Record<string, any> | null, kind: Positio
 const cellValue = (row: GridRow, kind: PositioningKind): number | string | null =>
   kind === "positioning" ? (row.positioning?.G ?? null) : row.lsu;
 
+/** 0.17.1: the student is named by its name or by its stable id "e:NOM Prénom" ("~2" for a homonym), see matchStudent. */
 const findRow = (grid: GridRead, student: string): GridRow | undefined =>
-  grid.rows.find((row) => normalise(String(row.student.L ?? "")) === normalise(student));
+  matchStudent(grid.rows, student, (row) => String(row.student.L ?? ""));
 
 type Planned = { item: PositioningItem; row: GridRow; value: number | string | null; request: Record<string, unknown> };
 
@@ -231,7 +232,8 @@ export const writePositioning = async (session: SessionHandle, write: Positionin
   const reread = await readGridPage(session, target);
   const regrid = reread ? gridFromPage(reread) : null;
   const checked = planned.map((entry, index) => {
-    const row = regrid ? findRow(regrid, String(entry.row.student.L ?? "")) : undefined;
+    // 0.17.1: found again by the name or id the caller gave, so that a homonym keeps its rank.
+    const row = regrid ? findRow(regrid, entry.item.student) : undefined;
     return row ? { student: after[index].student, kind: entry.item.kind, value: cellValue(row, entry.item.kind) } : after[index];
   });
   return { ...base, before, after: checked, written: planned.length > 0, dryRun: false, done, stoppedAt: null };

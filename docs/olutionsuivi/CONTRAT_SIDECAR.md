@@ -151,3 +151,13 @@ Routes neuves et changements du contrat N (`docs/olutionsuivi/lots/N-contrat.md`
 - Écritures : `403 write_mode_simulate` hors simulation quand `writeMode` n'est pas `live` (comme toute écriture du
   sidecar) ; `dryRun: true` rend `before`/`after`/`requests` sans rien envoyer.
 
+
+## 0.17.1 (chantier 0.3.0, lot N9s)
+
+Correctif, ajouts seulement :
+
+- `POST /reports/positioning`, `POST /reports/comments` : `items[].student` accepte aussi l'identifiant stable
+  `e:NOM Prénom` (et `e:NOM Prénom~2` pour le deuxième homonyme, ordre de Pronote) ; le nom nu se comporte comme avant.
+- `POST /reports/comments` : `service` facultatif (identifiant stable `s:…`) pour choisir le service des appréciations
+  de matière ; absent : comme avant ; inconnu : `404 service_not_found`.
+- Journal d'accès : le genre de `positionnement` (valeur saisie) n'est plus écrit dans la forme de requête.

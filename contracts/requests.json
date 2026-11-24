@@ -2137,6 +2137,10 @@
           "generalKind": {
             "type": "string",
             "maxLength": 200
+          },
+          "service": {
+            "type": "string",
+            "maxLength": 300
           }
         }
       },

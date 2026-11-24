@@ -1,7 +1,7 @@
 import { currentContext } from "../context.js";
 import { HttpError } from "../errors.js";
-import { normalise } from "../normalise.js";
 import { requestShape } from "./commentsWrite.js";
+import { matchStudent } from "./ids.js";
 import { GENRE_CLASS, gridFromPage, gridTarget, readGridPage, serviceName } from "./reportGrid.js";
 import { sendWrite } from "./write.js";
 const GENRE_PERIOD = 2;
@@ -79,7 +79,8 @@ export const reportConfirms = (report, kind, value) => {
 };
 /** Current value of a cell as the routes show it: genre of the level (or null), LSU mark (or null). */
 const cellValue = (row, kind) => kind === "positioning" ? (row.positioning?.G ?? null) : row.lsu;
-const findRow = (grid, student) => grid.rows.find((row) => normalise(String(row.student.L ?? "")) === normalise(student));
+/** 0.17.1: the student is named by its name or by its stable id "e:NOM Prénom" ("~2" for a homonym), see matchStudent. */
+const findRow = (grid, student) => matchStudent(grid.rows, student, (row) => String(row.student.L ?? ""));
 /** POST /reports/positioning (contract N, 6.1 point 4). The write mode is checked by the route. */
 export const writePositioning = async (session, write) => {
     // Validation before any call: LSU values, positioning genres.
@@ -190,7 +191,8 @@ export const writePositioning = async (session, write) => {
     const reread = await readGridPage(session, target);
     const regrid = reread ? gridFromPage(reread) : null;
     const checked = planned.map((entry, index) => {
-        const row = regrid ? findRow(regrid, String(entry.row.student.L ?? "")) : undefined;
+        // 0.17.1: found again by the name or id the caller gave, so that a homonym keeps its rank.
+        const row = regrid ? findRow(regrid, entry.item.student) : undefined;
         return row ? { student: after[index].student, kind: entry.item.kind, value: cellValue(row, entry.item.kind) } : after[index];
     });
     return { ...base, before, after: checked, written: planned.length > 0, dryRun: false, done, stoppedAt: null };

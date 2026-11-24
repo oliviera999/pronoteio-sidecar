@@ -1,5 +1,25 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.17.1 — chantier olutionsuivi 0.3.0 (lot N9s) : corrections de la relecture d'ensemble
+
+Correctif, ajouts seulement : aucune route ne perd un champ, aucun test existant ne change de sens (fixtures des
+contrats régénérées : seuls la version et les horodatages changent ; `requests.json` gagne `service`).
+
+- `POST /reports/positioning` et `POST /reports/comments` : l'élève peut être nommé par son identifiant stable
+  `e:NOM Prénom` (celui des autres routes), et `e:NOM Prénom~2` désigne le deuxième homonyme dans l'ordre de Pronote.
+  L'identifiant est d'abord comparé exactement aux identifiants des lignes (ce qui résout aussi un identifiant haché
+  `e:#…`), sinon le préfixe et le suffixe sont retirés et le nom comparé comme un nom nu (accents et casse ignorés).
+  Le nom nu se comporte comme avant (première ligne de ce nom). Inconnu : `student_not_found` comme avant (dans
+  `skipped` en simulation, `404 student_not_found:<valeur envoyée>` sinon). La relecture après écriture retrouve la
+  cellule par le même identifiant (un homonyme garde son rang). Fonction commune `matchStudent` (`src/teacher/ids.ts`).
+- `POST /reports/comments` : champ facultatif `service` (identifiant stable `s:…`, comme `/grades/context` et
+  `/reports/grid`) qui choisit le service des appréciations de matière quand le compte en a plusieurs dans la classe ;
+  cherché comme celui de la grille (services de notes, de l'onglet 25, de compétences) ; absent ou vide : comportement
+  d'avant ; inconnu : `404 service_not_found`.
+- Journal d'accès : la forme de requête (`shape`) d'un `SaisiePositionnement` refusé ne garde plus le genre `G` de
+  `positionnement`, qui est la valeur saisie (niveau) : `positionnement{G,L,N}` au lieu de `positionnement{G=3,L,N}`.
+  Les autres membres gardent leur genre.
+
 ## 0.17.0 — chantier olutionsuivi 0.3.0 (lot NS) : périodes d'une classe, grille de l'onglet 25, positionnement et note LSU
 
 Ajouts seulement : aucune route existante ne change de forme ni ne perd un champ (fixtures des contrats comparées

@@ -8,6 +8,7 @@
  */
 import { createHash } from "node:crypto";
 import { HttpError } from "../errors.js";
+import { normalise } from "../normalise.js";
 const PREFIX = {
     class: "c",
     group: "g",
@@ -62,5 +63,31 @@ export const resolve = (kind, id, items, key) => {
     if (index < 0)
         throw new HttpError(404, `${kind}_not_found`);
     return items[index];
+};
+/**
+ * 0.17.1 (lot N9s): the student named in a write, among the rows of a grid. Accepted: the bare name ("NOM Prénom",
+ * accents and case ignored, the first row of that name, as before 0.17.1) or the stable id ("e:NOM Prénom", and
+ * "e:NOM Prénom~2" for the second homonym in Pronote order). The id is first compared exactly with the stable ids of
+ * the rows (this also resolves a hashed id "e:#…"); else the prefix and the suffix are removed and the name is
+ * compared as a bare name, the suffix choosing the n-th row of that name. Not found: undefined.
+ */
+export const matchStudent = (items, wanted, label) => {
+    const comparable = normalise;
+    if (!wanted.startsWith(`${PREFIX.student}:`))
+        return items.find((item) => comparable(label(item)) === comparable(wanted));
+    const ids = stableIds("student", items, label);
+    const exact = ids.indexOf(wanted.normalize("NFC"));
+    if (exact >= 0)
+        return items[exact];
+    let name = wanted.slice(PREFIX.student.length + 1);
+    let rank = 1;
+    const suffix = /~(\d{1,3})$/.exec(name);
+    if (suffix) {
+        rank = Number(suffix[1]);
+        name = name.slice(0, suffix.index);
+    }
+    if (rank < 1)
+        return undefined;
+    return items.filter((item) => comparable(label(item)) === comparable(name))[rank - 1];
 };
 //# sourceMappingURL=ids.js.map
