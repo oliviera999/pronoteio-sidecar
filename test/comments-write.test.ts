@@ -117,3 +117,15 @@ test("real grid: no N sent for an empty cell, class comment read from 'appreciat
   const generalRequest = commentRequest({ N: "23#k1", G: 1 }, period, null, general.cells[0], "Bilan positif", "general");
   assert.deepEqual(generalRequest.appreciation, { N: 0, G: 2, L: "Bilan positif", E: 2 });
 });
+
+test("0.16.2: read-only cells are marked (estEditable / editable false)", () => {
+  const read = subjectCells({
+    listeLignes: { _T: 24, V: [{ eleve: { _T: 24, V: { N: "46#x1", G: 4, L: "ELEVE Un" } }, appA: { _T: 24, V: { G: 1, estEditable: false } } }] },
+    appreciationClasse: { _T: 24, V: { G: 1, appreciation: "", editable: false, cloture: false } },
+  });
+  assert.equal(read.cells[0].editable, false);
+  assert.equal(read.classCell!.editable, false);
+  const general = generalCells({ listeLignes: { _T: 24, V: [{ eleve: { _T: 24, V: { N: "46#x1", L: "ELEVE Un" } },
+    appreciationGle: { _T: 24, V: { N: "0", G: 2, appreciation: "", editable: true } } }] } });
+  assert.equal(general.cells[0].editable, undefined);
+});

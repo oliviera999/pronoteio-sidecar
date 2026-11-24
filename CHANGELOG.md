@@ -1,5 +1,15 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.16.3 — refus de Pronote relayé, cellules en lecture seule
+
+- **Écriture refusée par Pronote** : essai réel sur T06 avec la 0.16.1 : HTTP 200, rapport de saisie `{ _messagesErreur_ }`
+  seul, rien d'enregistré. Pour le client, des messages d'erreur dans le rapport annulent la saisie
+  (`traiterReponseSaisie`) même sans `_erreurSaisie_` : une liste non vide est maintenant un refus (`pronote_refused`
+  avec le texte de Pronote), pour toutes les écritures ; une liste vide reste une saisie acceptée.
+- Appréciations : les messages du rapport (ou leur nombre) sont joints au diagnostic d'une écriture non retrouvée ; une
+  cellule marquée en lecture seule par Pronote (`editable` / `estEditable` à `false`) est refusée dès le plan
+  (`comment_not_editable:<élève>`).
+
 ## 0.16.2 — appréciations des groupes de 6e : passage en session web
 
 Constat en production juste après la 0.16.1 : `GET /reports/comments` sur `6-SC-603` répondait encore

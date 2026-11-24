@@ -55,7 +55,7 @@ const LOGIN = new Set(["bad_credentials", "pin_required", "bad_pin", "security_s
     "web_token_refused"]);
 const FORBIDDEN = new Set([
     "access_denied", "write_mode_simulate", "grade_write_disabled", "service_not_in_period", "not_main_teacher", "list_not_mine",
-    "assessment_locked", "assessment_without_comments", "comments_closed", "messaging_disabled", "recipient_refuses",
+    "assessment_locked", "assessment_without_comments", "comments_closed", "comment_not_editable", "messaging_disabled", "recipient_refuses",
     "attendance_locked", "attendance_not_allowed", "absence_not_allowed", "late_not_allowed", "absence_not_deletable",
     "absence_settled", "absence_already_entered", "reply_not_possible", "survey_closed", "news_locked", "meeting_entry_closed",
     "tab_closed", "lesson_not_editable", "lesson_rooms_not_editable", "pronote_refused", "invalid_signature", "invalid_timestamp",

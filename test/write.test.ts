@@ -17,3 +17,9 @@ test("a confirmation request is relayed unless forced", () => {
   assert.equal(assertAccepted(null, false), null);
   assert.deepEqual(assertAccepted({ listeEvaluationsCreees: [] }, false), { listeEvaluationsCreees: [] });
 });
+
+test("0.16.2: a report with error messages and no _erreurSaisie_ is a cancelled save (client: annulation)", () => {
+  const report = { titre_Messages_Erreur: "Saisie impossible", _messagesErreur_: { _T: 24, V: ["Appréciation non modifiable"] } };
+  assert.throws(() => assertAccepted(report, false), /pronote_refused:Saisie impossible : Appréciation non modifiable/);
+  assert.equal(assertAccepted({ _erreurSaisie_: false, _messagesErreur_: { _T: 24, V: [] } }, false) !== null, true);
+});
