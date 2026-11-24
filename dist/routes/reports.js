@@ -93,5 +93,56 @@ export default async function reportsRoutes(app) {
             throw new HttpError(403, "write_mode_simulate");
         return teacher.writeComments(requireSession(request), request.body);
     });
+    // 0.17.0 (contract N, 6.1 point 1): periods of a class or group (ListePeriodes, tab 25).
+    app.get("/reports/periods", { schema: { querystring: { type: "object", required: ["resource"], properties: { ...resourceQuery.properties } } } }, async (request) => teacher.classPeriods(requireSession(request), request.query.resource));
+    // 0.17.0 (contract N, 6.1 point 3): grid of the comments tab (positioning, LSU mark, comment of each student).
+    app.get("/reports/grid", {
+        schema: {
+            querystring: {
+                type: "object",
+                required: ["resource", "period"],
+                properties: {
+                    ...resourceQuery.properties,
+                    period: { type: "string", minLength: 1, maxLength: 200 },
+                    service: { type: "string", maxLength: 300, default: "" },
+                },
+            },
+        },
+    }, async (request) => teacher.reportGrid(requireSession(request), request.query.resource, request.query.period, request.query.service ?? ""));
+    // 0.17.0 (contract N, 6.1 point 4): positioning and LSU mark (SaisiePositionnement, SaisieNoteLSU, tab 25).
+    app.post("/reports/positioning", {
+        schema: {
+            body: {
+                type: "object",
+                required: ["resource", "period", "service", "items"],
+                properties: {
+                    resource: { type: "string", minLength: 1, maxLength: 300 },
+                    period: { type: "string", minLength: 1, maxLength: 200 },
+                    service: { type: "string", minLength: 1, maxLength: 300 },
+                    items: {
+                        type: "array",
+                        minItems: 1,
+                        maxItems: 100,
+                        items: {
+                            type: "object",
+                            required: ["student", "kind", "value"],
+                            properties: {
+                                student: { type: "string", minLength: 1, maxLength: 200 },
+                                kind: { type: "string", enum: ["positioning", "lsu"] },
+                                // Genre of the level (integer) or null for "positioning", "15,00" or "" for "lsu": checked by
+                                // positioningWrite.ts (a union type here would let the coercion of Fastify turn null into 0).
+                                value: { description: "positioning: genre du niveau (entier) ou null ; lsu: \"15,00\" (0,00 à 100,00) ou \"\"" },
+                            },
+                        },
+                    },
+                    dryRun: { type: "boolean", default: false },
+                },
+            },
+        },
+    }, async (request) => {
+        if (!request.body.dryRun && config.writeMode !== "live")
+            throw new HttpError(403, "write_mode_simulate");
+        return teacher.writePositioning(requireSession(request), request.body);
+    });
 }
 //# sourceMappingURL=reports.js.map
