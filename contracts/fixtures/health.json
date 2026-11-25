@@ -1,13 +1,13 @@
 {
   "ok": true,
-  "version": "0.15.0",
-  "commit": "d0c42792584d01f963cb7f5cf2b29ac3bc8b56c1",
+  "version": "0.17.1",
+  "commit": "c5ea907799d6bbc9deea265e520b4e0faede36fa",
   "node": "22.23.5",
-  "startedAt": "2026-11-21T11:01:16.603Z",
-  "uptimeSeconds": 2,
+  "startedAt": "2026-11-24T23:20:17.604Z",
+  "uptimeSeconds": 8,
   "starts": 0,
   "process": {
-    "pid": 5298,
+    "pid": 834,
     "primary": true,
     "holder": null,
     "lockFile": "off",
@@ -24,32 +24,45 @@
     "icu": "78.3",
     "hostTimezone": "UTC",
     "hostTzEnv": null,
-    "localNow": "2026-11-21 11:01"
+    "localNow": "2026-11-24 23:20"
   },
   "writeMode": "simulate",
+  "routes": [
+    "reports/periods",
+    "reports/grid",
+    "reports/positioning"
+  ],
   "session": {
-    "open": 3,
+    "open": 4,
     "states": [
       {
         "state": "open",
         "space": "mobile",
-        "ageSeconds": 2,
-        "idleSeconds": 1,
+        "ageSeconds": 8,
+        "idleSeconds": 2,
         "reconnects": 0,
         "lastReconnect": null
       },
       {
         "state": "open",
         "space": "web",
-        "ageSeconds": 0,
-        "idleSeconds": 0,
+        "ageSeconds": 1,
+        "idleSeconds": 1,
         "reconnects": 0,
         "lastReconnect": null
       },
       {
         "state": "open",
         "space": "mobile",
-        "ageSeconds": 0,
+        "ageSeconds": 1,
+        "idleSeconds": 1,
+        "reconnects": 0,
+        "lastReconnect": null
+      },
+      {
+        "state": "open",
+        "space": "mobile",
+        "ageSeconds": 1,
         "idleSeconds": 0,
         "reconnects": 0,
         "lastReconnect": null
@@ -69,10 +82,10 @@
   },
   "queue": {
     "size": 0,
-    "averageWaitMs": 126,
-    "tokens": 22.8,
-    "lastMinute": 7,
-    "served": 7,
+    "averageWaitMs": 210,
+    "tokens": 27.8,
+    "lastMinute": 34,
+    "served": 34,
     "refused": 0,
     "limits": {
       "perMinute": 120,
@@ -82,11 +95,11 @@
     }
   },
   "cache": {
-    "entries": 3,
-    "bytes": 3373,
-    "hits": 1,
-    "misses": 5,
-    "hitRate": 0.167,
+    "entries": 6,
+    "bytes": 6697,
+    "hits": 3,
+    "misses": 8,
+    "hitRate": 0.273,
     "invalidations": 0,
     "maxBytes": 20971520
   },
@@ -130,39 +143,53 @@
   },
   "errors": [
     {
+      "code": "validation_failed",
+      "error": "lsu_out_of_range",
+      "route": "/reports/positioning",
+      "status": 400,
+      "at": "2026-11-24T23:20:26.059Z"
+    },
+    {
       "code": "web_session_required",
       "error": "web_session_required",
       "route": "/competencies",
       "status": 409,
-      "at": "2026-11-21T11:01:18.747Z"
+      "at": "2026-11-24T23:20:24.853Z"
     },
     {
       "code": "web_login_backoff",
       "error": "web_login_backoff",
       "route": "/session/login",
       "status": 429,
-      "at": "2026-11-21T11:01:18.746Z"
+      "at": "2026-11-24T23:20:24.852Z"
     },
     {
       "code": "pronote_unavailable",
       "error": "pronote_error",
       "route": "/session/login",
       "status": 502,
-      "at": "2026-11-21T11:01:18.745Z"
+      "at": "2026-11-24T23:20:24.850Z"
+    },
+    {
+      "code": "collect_running",
+      "error": "collect_running",
+      "route": "/collect",
+      "status": 409,
+      "at": "2026-11-24T23:20:20.254Z"
     },
     {
       "code": "session_expired",
       "error": "session_expired",
       "route": "/roster",
       "status": 401,
-      "at": "2026-11-21T11:01:17.726Z"
+      "at": "2026-11-24T23:20:18.741Z"
     },
     {
       "code": "validation_failed",
       "error": "invalid_request",
       "route": "/roster",
       "status": 400,
-      "at": "2026-11-21T11:01:17.725Z"
+      "at": "2026-11-24T23:20:18.739Z"
     }
   ]
 }

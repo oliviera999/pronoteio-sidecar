@@ -464,7 +464,7 @@ export const resourceRefOf = (service: Element, type: "class" | "group"): Elemen
 export const competencyElement = (entry: MergedService): Element => entry.competency ?? entry.grade ?? entry.service;
 
 /* non validé sur la démo : onglets 65 et 56 fermés au profil de démonstration */
-export const overview = async (session: SessionHandle, periodId = "", classes: string[] = []): Promise<CompetencyOverview> => {
+export const overview = async (session: SessionHandle, periodId = "", classes: string[] = [], serviceFilter: string[] = []): Promise<CompetencyOverview> => {
   ensureSkillsSpace(session);
   const picked = await pickPeriod(session, periodId);
   const parentsDelay = parentsDelayOf(session);
@@ -486,6 +486,8 @@ export const overview = async (session: SessionHandle, periodId = "", classes: s
     const service = competencyElement(entry);
     const resourcename = String(resourceOf(service)?.L ?? "");
     if (!matchesLabels([resourcename], classes)) continue;
+    // 0.17.0: optional filter on the stable ids of the services (contract N, 6.1 point 5).
+    if (serviceFilter.length > 0 && !serviceFilter.includes(serviceIds[index])) continue;
     const described = describeService(session, entry, serviceIds[index], [picked.periodId]);
     services.push(described);
     const type = entry.grade

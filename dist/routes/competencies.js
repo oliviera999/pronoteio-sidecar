@@ -7,8 +7,13 @@ export const periodClassesQuery = {
     type: "object",
     properties: { period: { type: "string", maxLength: 200, default: "" }, classes: { type: "string", maxLength: 2000 } },
 };
+/** 0.17.0 (contract N, 6.1 point 5): the same, with the optional filter services=<id,id> (stable service ids). */
+export const periodClassesServicesQuery = {
+    type: "object",
+    properties: { ...periodClassesQuery.properties, services: { type: "string", maxLength: 2000 } },
+};
 export default async function competenciesRoutes(app) {
-    app.get("/competencies", { schema: { querystring: periodClassesQuery } }, async (request) => teacher.competencyOverview(requireSession(request), request.query.period ?? "", classesOf(request.query.classes)));
+    app.get("/competencies", { schema: { querystring: periodClassesServicesQuery } }, async (request) => teacher.competencyOverview(requireSession(request), request.query.period ?? "", classesOf(request.query.classes), classesOf(request.query.services)));
     // 0.8.0, not validated: domains and items of the skills referential of one service.
     app.get("/competencies/referential", {
         schema: {

@@ -72,9 +72,20 @@ Référence commune entre le sidecar et le plugin Moodle `local_pronoteio` (0.9.
   (toujours présent) dans `/classlife/absences` ; `unreadable` dans `/students/plans` ; `sources` au niveau de la réponse de
   `/students/history`.
 
+## Champs ajoutés en 0.17.0 (chantier olutionsuivi 0.3.0, contrat `docs/olutionsuivi/lots/N-contrat.md` 6.1)
+
+- Routes nouvelles, avec schéma de réponse strict et fixture : `GET /reports/periods` (`reports-periods`),
+  `GET /reports/grid` (`reports-grid`), `POST /reports/positioning` (`reports-positioning`, fixture en simulation).
+- `health` : `routes` (routes neuves servies). Erreurs : membre `done` (cellules écrites avant un arrêt) ; fixture
+  `error-lsu-out-of-range.json`.
+- `GET /grades/overview`, `GET /competencies` : paramètre facultatif `services` (voir `requests.json`).
+- `GET /reports/comments` (sans schéma strict) : `general.reason` peut valoir `pronote_refused` ; `not_principal`
+  n'est plus rendu.
+
 ## Couverture des réponses
 
 Routes avec schéma de réponse strict : `/health/public`, `/health`, `/errors`, `/roster`, `/students/files` (page et
 liste d'identifiants), `/timetable`, `/homework`, `/session/login`, `/jobs`, `/jobs/:id`, `/admin/update`,
-`/classlife/absences`, `/students/plans`, `/students/history`, `/collect`, `/collect/:id`, et le corps de toute erreur. Les autres routes ont leur schéma de requête dans `requests.json` ; leurs schémas de réponse restent à
+`/classlife/absences`, `/students/plans`, `/students/history`, `/collect`, `/collect/:id`, `/reports/periods`,
+`/reports/grid`, `/reports/positioning`, et le corps de toute erreur. Les autres routes ont leur schéma de requête dans `requests.json` ; leurs schémas de réponse restent à
 écrire (leurs types sont dans `src/normalise.ts`).

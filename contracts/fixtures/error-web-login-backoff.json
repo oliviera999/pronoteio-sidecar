@@ -1,7 +1,7 @@
 {
   "error": "web_login_backoff",
   "retry_after": 60,
-  "backoff_until": 1795258939,
+  "backoff_until": 1795562485,
   "code": "web_login_backoff",
   "message": "Pronote a refusé une connexion à l'Espace Professeurs web : aucune nouvelle tentative n'est envoyée avant la fin du délai de reprise."
 }

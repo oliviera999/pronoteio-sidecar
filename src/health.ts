@@ -19,6 +19,9 @@ import { timeInfo } from "./time.js";
 import { webLoginGuard } from "./webLoginGuard.js";
 import { COMMIT, SIDECAR_VERSION, STARTED_AT } from "./version.js";
 
+/** Routes of the sidecar announced by GET /health (0.17.0). */
+export const SERVED_ROUTES = ["reports/periods", "reports/grid", "reports/positioning"] as const;
+
 /** Public view: ok, version and short commit (the update script tells the new code from the old one with it). */
 export const publicHealth = () => ({ ok: true, version: SIDECAR_VERSION, commit: COMMIT ? COMMIT.slice(0, 7) : "" });
 
@@ -38,6 +41,8 @@ export const fullHealth = (now = Date.now()) => {
     process: { pid: process.pid, primary: lock.primary, holder: lock.holder, lockFile: lock.file ? "set" : "off", conflicts: lock.conflicts },
     time: timeInfo(now),
     writeMode: config.writeMode,
+    // 0.17.0 (contract N, 6.1): routes added for the chantier olutionsuivi 0.3.0, so that local_pronoteio knows them.
+    routes: [...SERVED_ROUTES],
     session: { ...sessionStats(now), reconnects: state.reconnects },
     // 0.15.0: guard of the web logins (webLoginGuard.ts): accounts in back-off, failed web logins of the last 10 minutes.
     webLogin: webLoginGuard.stats(),

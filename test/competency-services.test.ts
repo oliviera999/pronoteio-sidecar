@@ -289,3 +289,18 @@ test("timetable: group found with or without brackets, 'me' is the teacher, a re
   assert.equal(refused.available, false);
   assert.equal(refused.reason, "resource_not_accessible");
 });
+
+// 0.17.0 (contract N, 6.1 point 5): optional filter services=<id,id>; without it, the answer is the same as before.
+test("services filter: grades overview and skills of the services asked only, same answer without the filter", async () => {
+  const all = await gradeOverview(session17());
+  assert.deepEqual(await gradeOverview(session17(), "", [], []), all);
+  const session = session17();
+  const some = await gradeOverview(session, "", [], ["s:ES|T06", "s:SCIENCES ET TECHNOLOGIE|6-SC-603"]);
+  assert.deepEqual(some.services.map((s) => s.id), ["s:ES|T06", "s:SCIENCES ET TECHNOLOGIE|6-SC-603"]);
+  assert.equal(session.calls.filter((call) => call.name === "PageNotes").length, 1, "PageNotes of the services asked only");
+  const skills = await competencyOverview(session17(), "", [], ["s:SCIENCES ET TECHNOLOGIE|6-SC-603"]);
+  assert.deepEqual(skills.items.map((item) => `${item.resourcename}:${item.ratings.length}`), ["6-SC-603:20"]);
+  assert.deepEqual(skills.services.map((s) => s.id), ["s:SCIENCES ET TECHNOLOGIE|6-SC-603"]);
+  const none = await competencyOverview(session17(), "", [], ["s:INCONNU|X"]);
+  assert.deepEqual([none.services, none.items], [[], []]);
+});

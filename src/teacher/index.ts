@@ -30,3 +30,5 @@ export { changeLesson } from "./lessonWrite.js";
 export { resources, roster } from "./roster.js";
 export { classResults, reportContext, reports, reportsPage } from "./reports.js";
 export { lessons } from "./timetable.js";
+export { classPeriods, reportGrid } from "./reportGrid.js";
+export { writePositioning } from "./positioningWrite.js";

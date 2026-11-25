@@ -238,5 +238,17 @@
   "teacherOpinions": {
     "name": "ListeAvisProfesseurs",
     "onglet": 260
+  },
+  "classPeriodsList": {
+    "name": "ListePeriodes",
+    "onglet": 25
+  },
+  "positioningSave": {
+    "name": "SaisiePositionnement",
+    "onglet": 25
+  },
+  "lsuSave": {
+    "name": "SaisieNoteLSU",
+    "onglet": 25
   }
 }

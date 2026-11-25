@@ -9,6 +9,10 @@
  *
  * 0.12.0: every kind of general comment that is not a rubric is read (see readGeneral), the answer says why none came
  * back ("general"), and a main teacher without service in the class still gets them (service: null).
+ *
+ * 0.17.0 (contract N, 6.1 point 2): the general comments are no longer refused before any call to an account that is
+ * not the main teacher, nor for a group: the read is tried, and a refusal of Pronote gives general.available false with
+ * reason access_denied (rights) or pronote_refused (any other refusal). "not_principal" is never answered any more.
  */
 import { ServerSideError, type SessionHandle } from "pawnote";
 import { HttpError } from "../errors.js";
@@ -141,7 +145,7 @@ export const readKinds = async (session: SessionHandle, resource: SchoolResource
   const known = memo.get(key);
   if (known && known.expires > Date.now()) return known.read;
   const read = await askKinds(session, resource, period);
-  if (read.kinds.length === 0 && read.reason !== "access_denied") memo.set(key, { expires: Date.now() + NO_KINDS_TTL_MS, read });
+  if (read.kinds.length === 0 && read.reason !== "access_denied" && read.reason !== "pronote_refused") memo.set(key, { expires: Date.now() + NO_KINDS_TTL_MS, read });
   return read;
 };
 
@@ -155,6 +159,7 @@ export const resetKindsMemo = (session: SessionHandle): void => {
 
 const askKinds = async (session: SessionHandle, resource: SchoolResource, period: Element): Promise<KindsRead> => {
   let denied = 0;
+  let refused = 0;
   let unknown: string[] | null = null;
   const requests = kindRequests(resource, period);
   for (const request of requests) {
@@ -162,7 +167,11 @@ const askKinds = async (session: SessionHandle, resource: SchoolResource, period
     try {
       answer = await call(session, "commentKinds", request.data);
     } catch (error) {
-      if (!isAccessDenied(error)) throw error;
+      if (!isAccessDenied(error)) {
+        // 0.17.0: another refusal of Pronote (not a matter of rights) is relayed as pronote_refused.
+        if (!(error instanceof ServerSideError)) throw error;
+        refused++;
+      }
       denied++;
       continue;
     }
@@ -174,7 +183,7 @@ const askKinds = async (session: SessionHandle, resource: SchoolResource, period
     if (kinds.length > 0) return { kinds, variant: request.variant, reason: "" };
     if (member(answer, ["liste", "listeAppreciations", "ListeAppreciations"]) === undefined) unknown = unknown ?? shapeOf(answer);
   }
-  if (denied === requests.length) return { kinds: [], variant: "", reason: "access_denied" };
+  if (denied === requests.length) return { kinds: [], variant: "", reason: refused > 0 && refused === denied ? "pronote_refused" : "access_denied" };
   return unknown ? { kinds: [], variant: "", reason: "format_unknown", shape: unknown } : { kinds: [], variant: "", reason: "no_kind" };
 };
 
@@ -195,7 +204,7 @@ type GeneralRead = { general: GeneralComments; byKind: { kind: string; lines: Ma
 const readGeneral = async (session: SessionHandle, resource: SchoolResource, period: Element): Promise<GeneralRead> => {
   const none = (reason: string, extra: Partial<GeneralComments> = {}): GeneralRead =>
     ({ general: { available: false, reason, kind: "", kinds: [], ...extra }, byKind: [] });
-  if (!resource.principal || resource.genre !== GENRE_CLASS) return none("not_principal");
+  // 0.17.0: no refusal before any call (account not main teacher, group): Pronote says what it allows.
   const found = await readKinds(session, resource, period);
   const kinds = found.kinds;
   const listed = kinds.map(({ name, rubric }) => ({ name, rubric }));
@@ -204,18 +213,22 @@ const readGeneral = async (session: SessionHandle, resource: SchoolResource, per
   if (readable.length === 0) return none("no_kind", { kinds: listed });
   const byKind: GeneralRead["byKind"] = [];
   let denied = 0;
+  let refused = 0;
   let unknown: string[] | null = null;
   for (const kind of readable) {
     let page: Record<string, any>;
     try {
       page = await call(session, "generalCommentsPage", {
-        classe: { N: resource.id, G: GENRE_CLASS },
+        classe: { N: resource.id, G: resource.genre === GENRE_GROUP ? GENRE_GROUP : GENRE_CLASS },
         periode: { N: period.N, G: GENRE_PERIOD },
         appreciation: ref(kind.element),
         estUneRubrique: false,
       });
     } catch (error) {
-      if (!isAccessDenied(error)) throw error;
+      if (!isAccessDenied(error)) {
+        if (!(error instanceof ServerSideError)) throw error;
+        refused++;
+      }
       denied++;
       continue;
     }
@@ -230,7 +243,7 @@ const readGeneral = async (session: SessionHandle, resource: SchoolResource, per
     byKind.push({ kind: kind.name, lines: generalFromPage(page) });
   }
   if (byKind.length === 0) {
-    return none(unknown ? "format_unknown" : denied > 0 ? "access_denied" : "no_kind", { kinds: listed, ...(unknown ? { shape: unknown } : {}) });
+    return none(unknown ? "format_unknown" : refused > 0 && refused === denied ? "pronote_refused" : denied > 0 ? "access_denied" : "no_kind", { kinds: listed, ...(unknown ? { shape: unknown } : {}) });
   }
   return { general: { available: true, reason: "", kind: mainKind(byKind.map((item) => item.kind)), kinds: listed, source: "kinds",
     variant: found.variant }, byKind };
@@ -371,7 +384,7 @@ export const reportComments = async (
     closed: false,
     maxLength: maxLengthOf(session),
     classComment: null,
-    general: { available: false, reason: "not_principal", kind: "", kinds: [] },
+    general: { available: false, reason: "", kind: "", kinds: [] },
     students: [],
   };
   let lines: { student: string; comment: string | null }[] = [];
@@ -401,7 +414,8 @@ export const reportComments = async (
   // Only for a client that asks a page of students (local_pronoteio 0.22.0): an older client, which reads the answer as
   // the whole class, keeps the answer of 0.13.0 (this service is updated before Moodle).
   const paged = page.student !== undefined || page.offset !== undefined || page.limit !== undefined;
-  if (paged && !general.available && general.reason !== "not_principal" && resource.principal && kind === "class") {
+  // 0.17.0: allowed to every account (not only the main teacher); a refusal keeps the first cause.
+  if (paged && !general.available && kind === "class") {
     ({ general, byKind } = await generalFromReports(session, resourceId, periodId, page, general));
   }
   result.general = general;

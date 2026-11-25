@@ -290,12 +290,19 @@ test("general comments: no kind for a main teacher, read from the report cards b
   assert.equal(fake.calls.filter((call) => call.name === "ListeAppreciations").length, 4);
 });
 
-test("general comments: an account that is not main teacher gets no report card read in their place", async () => {
+// 0.17.0 (contract N, 6.1 point 2): this test asserted that an account not main teacher got no read (not_principal).
+// The read is now tried: kinds refused by Pronote, then the report cards (paged client) are read in their place.
+test("general comments: an account that is not main teacher has the read tried, then the report cards by pages", async () => {
   const fake = session({ ListeServices: servicesOf(true), PageApprBulletin: () => ({ listeLignes: typed([]) }), PageBulletins: bulletin },
     [{ ...classT06, principal: false }]);
   const result = await reportComments(fake, "c:T06", "p:Trimestre 1");
-  assert.deepEqual([result.general.available, result.general.reason, result.general.source], [false, "not_principal", undefined]);
-  assert.equal(fake.calls.some((call) => call.name === "PageBulletins" || call.name === "ListeAppreciations"), false);
+  assert.deepEqual([result.general.available, result.general.reason, result.general.source], [false, "access_denied", undefined]);
+  assert.equal(fake.calls.some((call) => call.name === "ListeAppreciations"), true);
+  assert.equal(fake.calls.some((call) => call.name === "PageBulletins"), false, "no page asked: no report card read");
+  const paged = session({ ListeServices: servicesOf(true), PageApprBulletin: () => ({ listeLignes: typed([]) }), PageBulletins: bulletin },
+    [{ ...classT06, principal: false }]);
+  const read = await reportComments(paged, "c:T06", "p:Trimestre 1", { offset: 0, limit: 5 });
+  assert.deepEqual([read.general.available, read.general.reason, read.general.source], [true, "access_denied", "reportcards"]);
   // The report cards refused: the first cause is kept, the answer says the general comments are not available.
   const refused = await reportComments(session({ ListeServices: servicesOf(true), PageApprBulletin: () => ({ listeLignes: typed([]) }),
     ListeAppreciations: () => ({ liste: typed([]) }) }), "c:T06", "p:Trimestre 1", { limit: 10 });

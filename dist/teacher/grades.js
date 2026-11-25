@@ -538,7 +538,7 @@ export const describeService = (session, entry, id, periods) => {
  * Services, assessments and grades of a period for the teacher's classes (one PageNotes per grade service). The
  * services of the skills tab that have no grade service (0.8.0) follow, with kinds ["competencies"] and no assessment.
  */
-export const overview = async (session, periodId = "", classes = []) => {
+export const overview = async (session, periodId = "", classes = [], serviceFilter = []) => {
     const picked = await pickPeriod(session, periodId);
     const all = await loadAllServices(session, picked.period);
     const serviceIds = serviceIdsOf(all);
@@ -546,6 +546,9 @@ export const overview = async (session, periodId = "", classes = []) => {
     for (const [index, entry] of all.entries()) {
         const resourcename = String(resourceOf(entry.service)?.L ?? "");
         if (!matchesLabels([resourcename], classes))
+            continue;
+        // 0.17.0: optional filter on the stable ids of the services (contract N, 6.1 point 5).
+        if (serviceFilter.length > 0 && !serviceFilter.includes(serviceIds[index]))
             continue;
         const assessments = entry.grade
             ? assessmentsFromPage(await call(session, "gradesPage", { service: ref(entry.grade), periode: ref(picked.period) }))

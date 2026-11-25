@@ -1,5 +1,57 @@
 # Journal des versions — pronoteio-sidecar
 
+## 0.17.1 — chantier olutionsuivi 0.3.0 (lot N9s) : corrections de la relecture d'ensemble
+
+Correctif, ajouts seulement : aucune route ne perd un champ, aucun test existant ne change de sens (fixtures des
+contrats régénérées : seuls la version et les horodatages changent ; `requests.json` gagne `service`).
+
+- `POST /reports/positioning` et `POST /reports/comments` : l'élève peut être nommé par son identifiant stable
+  `e:NOM Prénom` (celui des autres routes), et `e:NOM Prénom~2` désigne le deuxième homonyme dans l'ordre de Pronote.
+  L'identifiant est d'abord comparé exactement aux identifiants des lignes (ce qui résout aussi un identifiant haché
+  `e:#…`), sinon le préfixe et le suffixe sont retirés et le nom comparé comme un nom nu (accents et casse ignorés).
+  Le nom nu se comporte comme avant (première ligne de ce nom). Inconnu : `student_not_found` comme avant (dans
+  `skipped` en simulation, `404 student_not_found:<valeur envoyée>` sinon). La relecture après écriture retrouve la
+  cellule par le même identifiant (un homonyme garde son rang). Fonction commune `matchStudent` (`src/teacher/ids.ts`).
+- `POST /reports/comments` : champ facultatif `service` (identifiant stable `s:…`, comme `/grades/context` et
+  `/reports/grid`) qui choisit le service des appréciations de matière quand le compte en a plusieurs dans la classe ;
+  cherché comme celui de la grille (services de notes, de l'onglet 25, de compétences) ; absent ou vide : comportement
+  d'avant ; inconnu : `404 service_not_found`.
+- Journal d'accès : la forme de requête (`shape`) d'un `SaisiePositionnement` refusé ne garde plus le genre `G` de
+  `positionnement`, qui est la valeur saisie (niveau) : `positionnement{G,L,N}` au lieu de `positionnement{G=3,L,N}`.
+  Les autres membres gardent leur genre.
+
+## 0.17.0 — chantier olutionsuivi 0.3.0 (lot NS) : périodes d'une classe, grille de l'onglet 25, positionnement et note LSU
+
+Ajouts seulement : aucune route existante ne change de forme ni ne perd un champ (fixtures des contrats comparées
+avant/après : seul `routes` est ajouté à `GET /health`). Formes de la capture du serveur réel du 24/11/2026
+(`docs/pronoteio/capture-saisies-2026-11-24.md`). Contrat : `docs/olutionsuivi/lots/N-contrat.md`, section 6.1.
+
+- `GET /reports/periods?resource=` : `ListePeriodes` de l'onglet 25 (`{ ressource, listeRessources }`, clé de fonction
+  `classPeriodsList`) ; chaque période avec `kind` (`trimester`, `semester`, `exam`, `other`), `code` (`T1`…, `S1`,
+  `BB1`, `BB2`, `CCF`, sinon `X<rang>` / `P<rang>`), `rank`, `start` / `end` (dates de l'instance, sinon `null`),
+  `current`, `closed`. Refus : `403 access_denied`.
+- `GET /reports/comments` : l'appréciation générale **n'est plus refusée a priori** à un compte qui n'est pas
+  professeur principal, ni pour un groupe ; la lecture est tentée ; un refus de Pronote donne `general.available:
+  false` avec `reason: "access_denied"` (droits) ou `"pronote_refused"` (autre refus). `not_principal` n'est plus
+  jamais rendu. Le repli par les bulletins (client qui demande une page) est permis à tous. L'écriture de
+  l'appréciation générale reste réservée (`403 not_main_teacher`).
+- `GET /reports/grid?resource&period&service` : grille de l'onglet 25 (`PageApprBulletin`) avec `positioningType`,
+  `levels` (`listeNiveaux` : niveaux 1 à 6, statuts 7 à 10), et par élève la classe de l'élève, le positionnement, la
+  note LSU, ce qui est éditable, `nbEvals` et l'appréciation. Classe sans Pos. ni N. LSU : colonnes à `null`.
+  `period` accepte l'identifiant (`p:Trimestre 1`) ou le code (`T1`) ; `service` (identifiant stable) facultatif.
+- `POST /reports/positioning` (module `src/teacher/positioningWrite.ts`) : `SaisiePositionnement`
+  (`estPourElementCompetence: false`, remise à vide `{ N: 0, G: 0, L: "Aucun" }`) et `SaisieNoteLSU`
+  (`posLSUNote { _T: 10, V: "15,00" }`, effacement `V: ""`), exactement comme la capture ; classe de l'élève (pas le
+  groupe). Écarts dans `skipped` (`unchanged`, `not_editable`, `student_not_found`, `period_closed`) ; simulation
+  (`dryRun`) sans aucun envoi ; sinon une requête par cellule, arrêt à la première dont le `RapportSaisie` ne porte
+  pas la valeur (`502 positioning_not_saved:<élève>`, avec `done`), puis relecture. Jamais de calcul automatique.
+  Codes ajoutés : `period_closed`, `positioning_not_editable` (forbidden), `lsu_out_of_range`,
+  `positioning_level_unknown` (validation) ; membre `done` des erreurs.
+- `GET /grades/overview` et `GET /competencies` : paramètre facultatif `services=<id,id>` (filtre sur les
+  identifiants stables des services) ; sans lui, réponse identique.
+- `GET /health` : `routes: ["reports/periods", "reports/grid", "reports/positioning"]`.
+- Contrats : schémas stricts `reports-periods`, `reports-grid`, `reports-positioning`, fixtures, `requests.json`.
+
 ## 0.16.6 — appréciations : une cellule vide est créée, pas modifiée
 
 Capture dans le navigateur, le 24/11/2026, sur le serveur réel (Pronote 2026.2.8) : saisie d'appréciations par le

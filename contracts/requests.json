@@ -444,6 +444,10 @@
           "classes": {
             "type": "string",
             "maxLength": 2000
+          },
+          "services": {
+            "type": "string",
+            "maxLength": 2000
           }
         }
       },
@@ -876,6 +880,10 @@
             "default": ""
           },
           "classes": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "services": {
             "type": "string",
             "maxLength": 2000
           }
@@ -2129,6 +2137,10 @@
           "generalKind": {
             "type": "string",
             "maxLength": 200
+          },
+          "service": {
+            "type": "string",
+            "maxLength": 300
           }
         }
       },
@@ -2137,6 +2149,116 @@
     {
       "method": "GET",
       "url": "/reports/context",
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/reports/grid",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "resource",
+          "period"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "minLength": 1
+          },
+          "period": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "service": {
+            "type": "string",
+            "maxLength": 300,
+            "default": ""
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "GET",
+      "url": "/reports/periods",
+      "querystring": {
+        "type": "object",
+        "required": [
+          "resource"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "signed": true
+    },
+    {
+      "method": "POST",
+      "url": "/reports/positioning",
+      "body": {
+        "type": "object",
+        "required": [
+          "resource",
+          "period",
+          "service",
+          "items"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "period": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "service": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "required": [
+                "student",
+                "kind",
+                "value"
+              ],
+              "properties": {
+                "student": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "positioning",
+                    "lsu"
+                  ]
+                },
+                "value": {
+                  "description": "positioning: genre du niveau (entier) ou null ; lsu: \"15,00\" (0,00 à 100,00) ou \"\""
+                }
+              }
+            }
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
       "signed": true
     },
     {
