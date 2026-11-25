@@ -17,6 +17,8 @@ import { commentResource, findCommentService, maxLengthOf, readKinds } from "./c
 import { call, pickPeriod, ref, type Element } from "./grades.js";
 import { reportMessages, sendWrite } from "./write.js";
 import { currentContext } from "../context.js";
+import { matchStudent } from "./ids.js";
+import { findGridService } from "./reportGrid.js";
 
 /**
  * 0.16.5: shape of a SaisieAppreciation request for the access log: for each member, its sub-members, the genre (G)
@@ -27,9 +29,15 @@ export const requestShape = (request: Record<string, unknown>): string =>
     const value = request[key];
     if (value === null || typeof value !== "object") return `${key}=${typeof value === "number" ? value : typeof value}`;
     const element = value as Record<string, unknown>;
-    const parts = Object.keys(element).sort().map((member) => (member === "G" || member === "E" ? `${member}=${String(element[member])}` : member));
+    // 0.17.1 (lot N9s): the genre of "positionnement" is the value entered (the level), so only its name is kept.
+    const valueGenre = VALUE_GENRE_MEMBERS.has(key);
+    const parts = Object.keys(element).sort().map((member) =>
+      (member === "G" && !valueGenre) || member === "E" ? `${member}=${String(element[member])}` : member);
     return `${key}{${parts.join(",")}}`;
   }).join("|");
+
+/** Members whose genre (G) is the value entered, not a kind: SaisiePositionnement.positionnement (genre of the level). */
+const VALUE_GENRE_MEMBERS = new Set(["positionnement"]);
 
 /** Member names of an object (never its values), for the access log of a write Pronote did not keep. */
 const memberNames = (value: unknown): string =>
@@ -51,6 +59,12 @@ const KIND_GENERAL = 1;
 export type CommentChange = { student?: string; kind: "subject" | "general"; text: string };
 
 export type CommentsWrite = { class: string; period: string; items: CommentChange[]; dryRun: boolean;
+  /**
+   * 0.17.1 (lot N9s): stable id of the service of the subject comments ("s:…", as /grades/context and /reports/grid
+   * give it), when the account has several services in the class. Absent or "": the service found as before.
+   * Unknown: 404 service_not_found.
+   */
+  service?: string;
   /** 0.14.0: name of the kind of general comment to write, when the school has several (see generalKindFor). */
   generalKind?: string };
 
@@ -248,6 +262,10 @@ export const creationNumber = (): number => {
   return lastCreationNumber;
 };
 
+/** Cell of a student named by its name or its stable id (matchStudent); the class comment is not among them. */
+const findCell = (cells: Cell[], student: string): Cell | undefined =>
+  matchStudent(cells.filter((cell) => cell.student !== null), student, (cell) => cell.student!.L);
+
 /* non validé sur la démo : onglets 25 et 27 fermés au profil de démonstration */
 export const writeComments = async (session: SessionHandle, write: CommentsWrite): Promise<CommentsWriteResult> => {
   const { resource, genre } = commentResource(session, write.class);
@@ -259,7 +277,9 @@ export const writeComments = async (session: SessionHandle, write: CommentsWrite
   }
   const needsSubject = write.items.some((item) => item.kind === "subject");
   const needsGeneral = write.items.some((item) => item.kind === "general");
-  const service = needsSubject ? (await findCommentService(session, picked.period, resource))?.service ?? null : null;
+  // 0.17.1: a service named by its stable id is looked for like the grid's (findGridService), and must exist.
+  const chosen = write.service ? (await findGridService(session, picked.period, resource, write.service)).service : null;
+  const service = chosen ?? (needsSubject ? (await findCommentService(session, picked.period, resource))?.service ?? null : null);
   if (needsSubject && !service) throw new HttpError(404, "service_not_found");
   if (needsGeneral && !resource.principal) throw new HttpError(403, "not_main_teacher");
 
@@ -296,8 +316,9 @@ export const writeComments = async (session: SessionHandle, write: CommentsWrite
   const targets: { cell: Cell; item: CommentChange; key: "commentSave" | "generalCommentSave" }[] = [];
   for (const item of write.items) {
     const source = item.kind === "general" ? general! : subject!;
+    // 0.17.1: the student is named by its name or by its stable id "e:NOM Prénom" ("~2" for a homonym).
     const cell = item.student
-      ? source.cells.find((candidate) => candidate.student && normalise(candidate.student.L) === normalise(item.student!))
+      ? findCell(source.cells, item.student)
       : (source as { classCell?: Cell | null }).classCell ?? undefined;
     if (!cell) throw new HttpError(404, item.student ? `student_not_found:${item.student}` : "class_comment_not_found");
     // 0.16.2: a cell Pronote marks read-only (entry not open to this account for this period, column of another
@@ -346,9 +367,7 @@ export const writeComments = async (session: SessionHandle, write: CommentsWrite
     const reread = subjectCells(await call(session, "commentsPage", { ressource: classe, periode: { N: picked.period.N, G: GENRE_PERIOD }, service: { N: service!.N } }));
     for (const [index, target] of targets.entries()) {
       if (target.item.kind !== "subject") continue;
-      const cell = target.cell.student
-        ? reread.cells.find((candidate) => candidate.student && normalise(candidate.student.L) === normalise(target.cell.student!.L))
-        : reread.classCell;
+      const cell = target.item.student ? findCell(reread.cells, target.item.student) : reread.classCell;
       if (!cell || cell.appreciation.L.trim() !== target.item.text.trim()) throw notSaved(target.cell.student?.L ?? "classe");
       checked[index] = { student: cell.student?.L ?? null, kind: "subject", text: cell.appreciation.L };
     }
@@ -362,7 +381,7 @@ export const writeComments = async (session: SessionHandle, write: CommentsWrite
     }));
     for (const [index, target] of targets.entries()) {
       if (target.item.kind !== "general") continue;
-      const cell = reread.cells.find((candidate) => candidate.student && normalise(candidate.student.L) === normalise(target.cell.student!.L));
+      const cell = findCell(reread.cells, target.item.student!);
       if (!cell || cell.appreciation.L.trim() !== target.item.text.trim()) throw notSaved(target.cell.student?.L ?? "");
       checked[index] = { student: cell.student?.L ?? null, kind: "general", text: cell.appreciation.L };
     }
